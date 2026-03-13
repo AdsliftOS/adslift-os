@@ -62,6 +62,15 @@ export default function Sales() {
   const overallShowUp = calcShowUpRate(totals.scheduled, totals.held);
   const overallCloseRate = calcCloseRate(totals.held, totals.closed);
 
+  // Monthly goal
+  const MONTHLY_GOAL = 50000;
+  const currentMonthName = months[new Date().getMonth()];
+  const currentMonthVolume = entries
+    .filter((e) => e.month === currentMonthName)
+    .reduce((s, e) => s + e.dealVolume, 0);
+  const goalPercent = Math.min(Math.round((currentMonthVolume / MONTHLY_GOAL) * 100), 100);
+  const goalReached = currentMonthVolume >= MONTHLY_GOAL;
+
   const handleAdd = () => {
     if (!form.month || !form.scheduled || !form.held || !form.closed || !form.dealVolume) {
       toast.error("Bitte alle Felder ausfüllen");
