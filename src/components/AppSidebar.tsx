@@ -20,6 +20,7 @@ const navItems = [
   { title: "Clients", url: "/clients", icon: Users },
   { title: "Team", url: "/team", icon: UsersRound },
   { title: "Finances", url: "/finances", icon: DollarSign },
+  { title: "Time Tracking", url: "/time", icon: Clock },
 ];
 
 export function AppSidebar() {
