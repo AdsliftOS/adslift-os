@@ -10,6 +10,7 @@ import Clients from "./pages/Clients";
 import Team from "./pages/Team";
 import Finances from "./pages/Finances";
 import TimeTracking from "./pages/TimeTracking";
+import Sales from "./pages/Sales";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/team" element={<Team />} />
             <Route path="/finances" element={<Finances />} />
             <Route path="/time" element={<TimeTracking />} />
+            <Route path="/sales" element={<Sales />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AppLayout>

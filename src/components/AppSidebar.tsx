@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, Users, UsersRound, DollarSign, Clock } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Users, UsersRound, DollarSign, Clock, BarChart3 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -21,6 +21,7 @@ const navItems = [
   { title: "Team", url: "/team", icon: UsersRound },
   { title: "Finances", url: "/finances", icon: DollarSign },
   { title: "Time Tracking", url: "/time", icon: Clock },
+  { title: "Sales", url: "/sales", icon: BarChart3 },
 ];
 
 export function AppSidebar() {
