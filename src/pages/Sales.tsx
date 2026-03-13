@@ -62,6 +62,15 @@ export default function Sales() {
   const overallShowUp = calcShowUpRate(totals.scheduled, totals.held);
   const overallCloseRate = calcCloseRate(totals.held, totals.closed);
 
+  // Monthly goal
+  const MONTHLY_GOAL = 50000;
+  const currentMonthName = months[new Date().getMonth()];
+  const currentMonthVolume = entries
+    .filter((e) => e.month === currentMonthName)
+    .reduce((s, e) => s + e.dealVolume, 0);
+  const goalPercent = Math.min(Math.round((currentMonthVolume / MONTHLY_GOAL) * 100), 100);
+  const goalReached = currentMonthVolume >= MONTHLY_GOAL;
+
   const handleAdd = () => {
     if (!form.month || !form.scheduled || !form.held || !form.closed || !form.dealVolume) {
       toast.error("Bitte alle Felder ausfüllen");
@@ -144,6 +153,39 @@ export default function Sales() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Monthly Goal */}
+      <Card className={goalReached ? "border-success" : ""}>
+        <CardContent className="p-5">
+          <div className="flex items-center gap-5">
+            <div className="relative h-24 w-24 shrink-0">
+              <svg className="h-24 w-24 -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="42" fill="none" strokeWidth="8" className="stroke-muted" />
+                <circle
+                  cx="50" cy="50" r="42" fill="none" strokeWidth="8"
+                  strokeLinecap="round"
+                  className={goalReached ? "stroke-success" : "stroke-primary"}
+                  strokeDasharray={`${2 * Math.PI * 42}`}
+                  strokeDashoffset={`${2 * Math.PI * 42 * (1 - goalPercent / 100)}`}
+                  style={{ transition: "stroke-dashoffset 0.5s ease" }}
+                />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-lg font-bold">
+                {goalPercent}%
+              </span>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Monatsziel {currentMonthName}</p>
+              <p className="text-2xl font-bold">{formatCurrency(currentMonthVolume)} <span className="text-base font-normal text-muted-foreground">/ {formatCurrency(MONTHLY_GOAL)}</span></p>
+              {goalReached ? (
+                <p className="text-sm font-medium text-success">🎉 Ziel erreicht!</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Noch {formatCurrency(MONTHLY_GOAL - currentMonthVolume)} bis zum Ziel</p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
