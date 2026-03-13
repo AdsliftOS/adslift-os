@@ -21,6 +21,7 @@ const navItems = [
   { title: "Team", url: "/team", icon: UsersRound },
   { title: "Finances", url: "/finances", icon: DollarSign },
   { title: "Time Tracking", url: "/time", icon: Clock },
+  { title: "Sales", url: "/sales", icon: BarChart3 },
 ];
 
 export function AppSidebar() {
