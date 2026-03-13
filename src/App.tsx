@@ -9,6 +9,7 @@ import Projects from "./pages/Projects";
 import Clients from "./pages/Clients";
 import Team from "./pages/Team";
 import Finances from "./pages/Finances";
+import TimeTracking from "./pages/TimeTracking";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
