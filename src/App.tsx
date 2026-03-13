@@ -10,6 +10,7 @@ import Clients from "./pages/Clients";
 import Team from "./pages/Team";
 import Finances from "./pages/Finances";
 import TimeTracking from "./pages/TimeTracking";
+import Sales from "./pages/Sales";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
