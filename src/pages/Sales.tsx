@@ -6,29 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, TrendingUp, CalendarCheck, Users, DollarSign, Trash2, Target } from "lucide-react";
+import { Plus, TrendingUp, CalendarCheck, Users, DollarSign, Trash2, Target, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import { format, startOfWeek, endOfWeek, getISOWeek, getYear, startOfYear, addWeeks, isWithinInterval } from "date-fns";
+import { de } from "date-fns/locale";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 type SalesEntry = {
   id: string;
-  month: string;
+  weekStart: Date;
+  kw: number;
+  year: number;
   scheduled: number;
   held: number;
   closed: number;
   dealVolume: number;
 };
-
-const months = [
-  "Januar", "Februar", "März", "April", "Mai", "Juni",
-  "Juli", "August", "September", "Oktober", "November", "Dezember",
-];
-
-const initialEntries: SalesEntry[] = [
-  { id: "1", month: "Januar", scheduled: 24, held: 18, closed: 6, dealVolume: 42000 },
-  { id: "2", month: "Februar", scheduled: 30, held: 22, closed: 8, dealVolume: 56000 },
-  { id: "3", month: "März", scheduled: 28, held: 25, closed: 10, dealVolume: 71500 },
-];
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(value);
@@ -44,10 +39,34 @@ function calcCloseRate(held: number, closed: number) {
   return Math.round((closed / held) * 100);
 }
 
+function getWeekLabel(date: Date) {
+  const ws = startOfWeek(date, { weekStartsOn: 1 });
+  const we = endOfWeek(date, { weekStartsOn: 1 });
+  return `${format(ws, "dd.MM.", { locale: de })} – ${format(we, "dd.MM.yyyy", { locale: de })}`;
+}
+
+const now = new Date();
+
+const initialEntries: SalesEntry[] = [
+  (() => {
+    const ws = startOfWeek(addWeeks(now, -2), { weekStartsOn: 1 });
+    return { id: "1", weekStart: ws, kw: getISOWeek(ws), year: getYear(ws), scheduled: 12, held: 9, closed: 3, dealVolume: 18000 };
+  })(),
+  (() => {
+    const ws = startOfWeek(addWeeks(now, -1), { weekStartsOn: 1 });
+    return { id: "2", weekStart: ws, kw: getISOWeek(ws), year: getYear(ws), scheduled: 15, held: 11, closed: 4, dealVolume: 24000 };
+  })(),
+  (() => {
+    const ws = startOfWeek(now, { weekStartsOn: 1 });
+    return { id: "3", weekStart: ws, kw: getISOWeek(ws), year: getYear(ws), scheduled: 10, held: 8, closed: 3, dealVolume: 21000 };
+  })(),
+];
+
 export default function Sales() {
   const [entries, setEntries] = useState<SalesEntry[]>(initialEntries);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ month: "", scheduled: "", held: "", closed: "", dealVolume: "" });
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [form, setForm] = useState({ scheduled: "", held: "", closed: "", dealVolume: "" });
 
   const totals = entries.reduce(
     (acc, e) => ({
@@ -62,32 +81,42 @@ export default function Sales() {
   const overallShowUp = calcShowUpRate(totals.scheduled, totals.held);
   const overallCloseRate = calcCloseRate(totals.held, totals.closed);
 
-  // Monthly goal
+  // Monthly goal based on current month
   const MONTHLY_GOAL = 50000;
-  const currentMonthName = months[new Date().getMonth()];
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   const currentMonthVolume = entries
-    .filter((e) => e.month === currentMonthName)
+    .filter((e) => {
+      const we = endOfWeek(e.weekStart, { weekStartsOn: 1 });
+      return isWithinInterval(e.weekStart, { start: currentMonthStart, end: currentMonthEnd }) ||
+             isWithinInterval(we, { start: currentMonthStart, end: currentMonthEnd });
+    })
     .reduce((s, e) => s + e.dealVolume, 0);
   const goalPercent = Math.min(Math.round((currentMonthVolume / MONTHLY_GOAL) * 100), 100);
   const goalReached = currentMonthVolume >= MONTHLY_GOAL;
+  const currentMonthName = format(now, "MMMM", { locale: de });
 
   const handleAdd = () => {
-    if (!form.month || !form.scheduled || !form.held || !form.closed || !form.dealVolume) {
+    if (!selectedDate || !form.scheduled || !form.held || !form.closed || !form.dealVolume) {
       toast.error("Bitte alle Felder ausfüllen");
       return;
     }
+    const ws = startOfWeek(selectedDate, { weekStartsOn: 1 });
     const entry: SalesEntry = {
       id: Date.now().toString(),
-      month: form.month,
+      weekStart: ws,
+      kw: getISOWeek(ws),
+      year: getYear(ws),
       scheduled: parseInt(form.scheduled),
       held: parseInt(form.held),
       closed: parseInt(form.closed),
       dealVolume: parseFloat(form.dealVolume),
     };
     setEntries([...entries, entry]);
-    setForm({ month: "", scheduled: "", held: "", closed: "", dealVolume: "" });
+    setForm({ scheduled: "", held: "", closed: "", dealVolume: "" });
+    setSelectedDate(undefined);
     setDialogOpen(false);
-    toast.success("Eintrag hinzugefügt");
+    toast.success(`KW ${entry.kw} hinzugefügt`);
   };
 
   const handleDelete = (id: string) => {
@@ -95,54 +124,82 @@ export default function Sales() {
     toast.success("Eintrag gelöscht");
   };
 
+  const sortedEntries = [...entries].sort((a, b) => {
+    if (a.year !== b.year) return a.year - b.year;
+    return a.kw - b.kw;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Sales Tracker</h1>
-          <p className="text-sm text-muted-foreground">Meetings, Show-up Rate & Dealvolumen im Überblick.</p>
+          <p className="text-sm text-muted-foreground">Wöchentliches Check-in: Meetings, Show-up Rate & Dealvolumen.</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-1.5">
               <Plus className="h-4 w-4" />
-              Eintrag
+              Woche eintragen
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Neuer Sales-Eintrag</DialogTitle>
+              <DialogTitle>Neues Wochen-Check-in</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>Monat</Label>
-                <Select value={form.month} onValueChange={(v) => setForm({ ...form, month: v })}>
-                  <SelectTrigger><SelectValue placeholder="Monat wählen" /></SelectTrigger>
-                  <SelectContent>
-                    {months.map((m) => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Woche auswählen</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {selectedDate
+                        ? `KW ${getISOWeek(startOfWeek(selectedDate, { weekStartsOn: 1 }))} · ${getWeekLabel(selectedDate)}`
+                        : "Woche wählen"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                      locale={de}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {selectedDate && (
+                  <p className="text-xs text-muted-foreground">
+                    KW {getISOWeek(startOfWeek(selectedDate, { weekStartsOn: 1 }))} · {getWeekLabel(selectedDate)}
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Terminiert</Label>
-                  <Input type="number" min="0" placeholder="z.B. 25" value={form.scheduled} onChange={(e) => setForm({ ...form, scheduled: e.target.value })} />
+                  <Input type="number" min="0" placeholder="z.B. 12" value={form.scheduled} onChange={(e) => setForm({ ...form, scheduled: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label>Stattgefunden</Label>
-                  <Input type="number" min="0" placeholder="z.B. 20" value={form.held} onChange={(e) => setForm({ ...form, held: e.target.value })} />
+                  <Input type="number" min="0" placeholder="z.B. 10" value={form.held} onChange={(e) => setForm({ ...form, held: e.target.value })} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Abgeschlossen</Label>
-                  <Input type="number" min="0" placeholder="z.B. 8" value={form.closed} onChange={(e) => setForm({ ...form, closed: e.target.value })} />
+                  <Input type="number" min="0" placeholder="z.B. 3" value={form.closed} onChange={(e) => setForm({ ...form, closed: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label>Dealvolumen (€)</Label>
-                  <Input type="number" min="0" step="100" placeholder="z.B. 50000" value={form.dealVolume} onChange={(e) => setForm({ ...form, dealVolume: e.target.value })} />
+                  <Input type="number" min="0" step="100" placeholder="z.B. 15000" value={form.dealVolume} onChange={(e) => setForm({ ...form, dealVolume: e.target.value })} />
                 </div>
               </div>
             </div>
@@ -239,16 +296,17 @@ export default function Sales() {
       {/* Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Monatsübersicht</CardTitle>
+          <CardTitle className="text-base">Wochenübersicht</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Monat</TableHead>
+                <TableHead>KW</TableHead>
+                <TableHead>Zeitraum</TableHead>
                 <TableHead className="text-center">Terminiert</TableHead>
                 <TableHead className="text-center">Stattgefunden</TableHead>
-                <TableHead className="text-center">Show-up Rate</TableHead>
+                <TableHead className="text-center">Show-up</TableHead>
                 <TableHead className="text-center">Abgeschlossen</TableHead>
                 <TableHead className="text-center">Close Rate</TableHead>
                 <TableHead className="text-right">Dealvolumen</TableHead>
@@ -256,12 +314,13 @@ export default function Sales() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {entries.map((e) => {
+              {sortedEntries.map((e) => {
                 const showUp = calcShowUpRate(e.scheduled, e.held);
                 const closeRate = calcCloseRate(e.held, e.closed);
                 return (
                   <TableRow key={e.id}>
-                    <TableCell className="font-medium">{e.month}</TableCell>
+                    <TableCell className="font-bold">KW {e.kw}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{getWeekLabel(e.weekStart)}</TableCell>
                     <TableCell className="text-center">{e.scheduled}</TableCell>
                     <TableCell className="text-center">{e.held}</TableCell>
                     <TableCell className="text-center">
