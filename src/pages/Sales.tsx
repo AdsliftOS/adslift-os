@@ -179,6 +179,13 @@ export default function Sales() {
               Woche eintragen
             </Button>
           </DialogTrigger>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              Woche eintragen
+            </Button>
+          </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Neues Wochen-Check-in</DialogTitle>
