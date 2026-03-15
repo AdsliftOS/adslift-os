@@ -63,13 +63,48 @@ const initialEntries: SalesEntry[] = [
   })(),
 ];
 
+type FilterMode = "week" | "month" | "year";
+
 export default function Sales() {
   const [entries, setEntries] = useState<SalesEntry[]>(initialEntries);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [form, setForm] = useState({ scheduled: "", held: "", closed: "", dealVolume: "" });
+  const [filterMode, setFilterMode] = useState<FilterMode>("month");
+  const [filterOffset, setFilterOffset] = useState(0);
 
-  const totals = entries.reduce(
+  const filterRange = useMemo(() => {
+    const base = new Date();
+    if (filterMode === "week") {
+      const ref = addWeeks(base, filterOffset);
+      return { start: startOfWeek(ref, { weekStartsOn: 1 }), end: endOfWeek(ref, { weekStartsOn: 1 }) };
+    } else if (filterMode === "month") {
+      const ref = addMonths(base, filterOffset);
+      return { start: startOfMonth(ref), end: endOfMonth(ref) };
+    } else {
+      const ref = addYears(base, filterOffset);
+      return { start: new Date(ref.getFullYear(), 0, 1), end: new Date(ref.getFullYear(), 11, 31) };
+    }
+  }, [filterMode, filterOffset]);
+
+  const filterLabel = useMemo(() => {
+    if (filterMode === "week") {
+      return `KW ${getISOWeek(filterRange.start)} · ${format(filterRange.start, "dd.MM.", { locale: de })} – ${format(filterRange.end, "dd.MM.yyyy", { locale: de })}`;
+    } else if (filterMode === "month") {
+      return format(filterRange.start, "MMMM yyyy", { locale: de });
+    } else {
+      return filterRange.start.getFullYear().toString();
+    }
+  }, [filterMode, filterRange]);
+
+  const filteredEntries = useMemo(() => {
+    return entries.filter((e) => {
+      const we = endOfWeek(e.weekStart, { weekStartsOn: 1 });
+      return isWithinInterval(e.weekStart, filterRange) || isWithinInterval(we, filterRange);
+    });
+  }, [entries, filterRange]);
+
+  const totals = filteredEntries.reduce(
     (acc, e) => ({
       scheduled: acc.scheduled + e.scheduled,
       held: acc.held + e.held,
