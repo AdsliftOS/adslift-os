@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, TrendingUp, CalendarCheck, Users, DollarSign, Trash2, Target, Calendar } from "lucide-react";
+import { Plus, TrendingUp, CalendarCheck, Users, DollarSign, Trash2, Target, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import { format, startOfWeek, endOfWeek, getISOWeek, getYear, startOfYear, addWeeks, isWithinInterval } from "date-fns";
+import { format, startOfWeek, endOfWeek, getISOWeek, getYear, startOfYear, addWeeks, isWithinInterval, startOfMonth, endOfMonth, addMonths, addYears } from "date-fns";
 import { de } from "date-fns/locale";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -62,13 +63,48 @@ const initialEntries: SalesEntry[] = [
   })(),
 ];
 
+type FilterMode = "week" | "month" | "year";
+
 export default function Sales() {
   const [entries, setEntries] = useState<SalesEntry[]>(initialEntries);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [form, setForm] = useState({ scheduled: "", held: "", closed: "", dealVolume: "" });
+  const [filterMode, setFilterMode] = useState<FilterMode>("month");
+  const [filterOffset, setFilterOffset] = useState(0);
 
-  const totals = entries.reduce(
+  const filterRange = useMemo(() => {
+    const base = new Date();
+    if (filterMode === "week") {
+      const ref = addWeeks(base, filterOffset);
+      return { start: startOfWeek(ref, { weekStartsOn: 1 }), end: endOfWeek(ref, { weekStartsOn: 1 }) };
+    } else if (filterMode === "month") {
+      const ref = addMonths(base, filterOffset);
+      return { start: startOfMonth(ref), end: endOfMonth(ref) };
+    } else {
+      const ref = addYears(base, filterOffset);
+      return { start: new Date(ref.getFullYear(), 0, 1), end: new Date(ref.getFullYear(), 11, 31) };
+    }
+  }, [filterMode, filterOffset]);
+
+  const filterLabel = useMemo(() => {
+    if (filterMode === "week") {
+      return `KW ${getISOWeek(filterRange.start)} · ${format(filterRange.start, "dd.MM.", { locale: de })} – ${format(filterRange.end, "dd.MM.yyyy", { locale: de })}`;
+    } else if (filterMode === "month") {
+      return format(filterRange.start, "MMMM yyyy", { locale: de });
+    } else {
+      return filterRange.start.getFullYear().toString();
+    }
+  }, [filterMode, filterRange]);
+
+  const filteredEntries = useMemo(() => {
+    return entries.filter((e) => {
+      const we = endOfWeek(e.weekStart, { weekStartsOn: 1 });
+      return isWithinInterval(e.weekStart, filterRange) || isWithinInterval(we, filterRange);
+    });
+  }, [entries, filterRange]);
+
+  const totals = filteredEntries.reduce(
     (acc, e) => ({
       scheduled: acc.scheduled + e.scheduled,
       held: acc.held + e.held,
@@ -124,7 +160,7 @@ export default function Sales() {
     toast.success("Eintrag gelöscht");
   };
 
-  const sortedEntries = [...entries].sort((a, b) => {
+  const sortedEntries = [...filteredEntries].sort((a, b) => {
     if (a.year !== b.year) return a.year - b.year;
     return a.kw - b.kw;
   });
@@ -211,7 +247,29 @@ export default function Sales() {
         </Dialog>
       </div>
 
-      {/* Monthly Goal */}
+      {/* Filter Bar */}
+      <div className="flex items-center justify-between rounded-lg border bg-card p-2">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFilterOffset(filterOffset - 1)}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex items-center gap-3">
+          <ToggleGroup
+            type="single"
+            value={filterMode}
+            onValueChange={(v) => { if (v) { setFilterMode(v as FilterMode); setFilterOffset(0); } }}
+            size="sm"
+          >
+            <ToggleGroupItem value="week">Woche</ToggleGroupItem>
+            <ToggleGroupItem value="month">Monat</ToggleGroupItem>
+            <ToggleGroupItem value="year">Jahr</ToggleGroupItem>
+          </ToggleGroup>
+          <span className="text-sm font-medium">{filterLabel}</span>
+        </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFilterOffset(filterOffset + 1)}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+
       <Card className={goalReached ? "border-success" : ""}>
         <CardContent className="p-5">
           <div className="flex items-center gap-5">
