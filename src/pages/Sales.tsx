@@ -247,7 +247,29 @@ export default function Sales() {
         </Dialog>
       </div>
 
-      {/* Monthly Goal */}
+      {/* Filter Bar */}
+      <div className="flex items-center justify-between rounded-lg border bg-card p-2">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFilterOffset(filterOffset - 1)}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex items-center gap-3">
+          <ToggleGroup
+            type="single"
+            value={filterMode}
+            onValueChange={(v) => { if (v) { setFilterMode(v as FilterMode); setFilterOffset(0); } }}
+            size="sm"
+          >
+            <ToggleGroupItem value="week">Woche</ToggleGroupItem>
+            <ToggleGroupItem value="month">Monat</ToggleGroupItem>
+            <ToggleGroupItem value="year">Jahr</ToggleGroupItem>
+          </ToggleGroup>
+          <span className="text-sm font-medium">{filterLabel}</span>
+        </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFilterOffset(filterOffset + 1)}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+
       <Card className={goalReached ? "border-success" : ""}>
         <CardContent className="p-5">
           <div className="flex items-center gap-5">
