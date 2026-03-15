@@ -271,32 +271,44 @@ export default function Sales() {
         </Button>
       </div>
 
-      <Card className={goalReached ? "border-success" : ""}>
-        <CardContent className="p-5">
-          <div className="flex items-center gap-5">
-            <div className="relative h-24 w-24 shrink-0">
-              <svg className="h-24 w-24 -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="42" fill="none" strokeWidth="8" className="stroke-muted" />
+      <Card className={cn(
+        "overflow-hidden border-0 shadow-lg",
+        goalReached ? "bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent ring-1 ring-emerald-500/20" : "bg-gradient-to-br from-primary/10 via-primary/5 to-transparent ring-1 ring-primary/10"
+      )}>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-6">
+            <div className="relative h-28 w-28 shrink-0">
+              <svg className="h-28 w-28 -rotate-90 drop-shadow-sm" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="42" fill="none" strokeWidth="6" className="stroke-muted/40" />
                 <circle
-                  cx="50" cy="50" r="42" fill="none" strokeWidth="8"
+                  cx="50" cy="50" r="42" fill="none" strokeWidth="6"
                   strokeLinecap="round"
-                  className={goalReached ? "stroke-success" : "stroke-primary"}
+                  className={goalReached ? "stroke-emerald-500" : "stroke-primary"}
                   strokeDasharray={`${2 * Math.PI * 42}`}
                   strokeDashoffset={`${2 * Math.PI * 42 * (1 - goalPercent / 100)}`}
-                  style={{ transition: "stroke-dashoffset 0.5s ease" }}
+                  style={{ transition: "stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)" }}
                 />
               </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-lg font-bold">
-                {goalPercent}%
+              <span className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold tracking-tight">{goalPercent}%</span>
               </span>
             </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Monatsziel {currentMonthName}</p>
-              <p className="text-2xl font-bold">{formatCurrency(currentMonthVolume)} <span className="text-base font-normal text-muted-foreground">/ {formatCurrency(MONTHLY_GOAL)}</span></p>
+            <div className="space-y-1.5 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{goalConfig.label} · {filterLabel}</p>
+              <p className="text-3xl font-bold tracking-tight">{formatCurrency(goalVolume)}</p>
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 flex-1 rounded-full bg-muted/50">
+                  <div
+                    className={cn("h-full rounded-full transition-all duration-500", goalReached ? "bg-emerald-500" : "bg-primary")}
+                    style={{ width: `${goalPercent}%` }}
+                  />
+                </div>
+                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{formatCurrency(goalConfig.goal)}</span>
+              </div>
               {goalReached ? (
-                <p className="text-sm font-medium text-success">🎉 Ziel erreicht!</p>
+                <p className="text-sm font-semibold text-emerald-600">🎉 Ziel erreicht!</p>
               ) : (
-                <p className="text-sm text-muted-foreground">Noch {formatCurrency(MONTHLY_GOAL - currentMonthVolume)} bis zum Ziel</p>
+                <p className="text-sm text-muted-foreground">Noch <span className="font-medium text-foreground">{formatCurrency(goalConfig.goal - goalVolume)}</span> bis zum Ziel</p>
               )}
             </div>
           </div>
