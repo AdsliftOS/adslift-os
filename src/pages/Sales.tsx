@@ -160,7 +160,7 @@ export default function Sales() {
     toast.success("Eintrag gelöscht");
   };
 
-  const sortedEntries = [...entries].sort((a, b) => {
+  const sortedEntries = [...filteredEntries].sort((a, b) => {
     if (a.year !== b.year) return a.year - b.year;
     return a.kw - b.kw;
   });
