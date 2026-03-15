@@ -117,20 +117,21 @@ export default function Sales() {
   const overallShowUp = calcShowUpRate(totals.scheduled, totals.held);
   const overallCloseRate = calcCloseRate(totals.held, totals.closed);
 
-  // Monthly goal based on current month
+  // Dynamic goal based on filter mode
   const MONTHLY_GOAL = 50000;
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const currentMonthVolume = entries
-    .filter((e) => {
-      const we = endOfWeek(e.weekStart, { weekStartsOn: 1 });
-      return isWithinInterval(e.weekStart, { start: currentMonthStart, end: currentMonthEnd }) ||
-             isWithinInterval(we, { start: currentMonthStart, end: currentMonthEnd });
-    })
-    .reduce((s, e) => s + e.dealVolume, 0);
-  const goalPercent = Math.min(Math.round((currentMonthVolume / MONTHLY_GOAL) * 100), 100);
-  const goalReached = currentMonthVolume >= MONTHLY_GOAL;
-  const currentMonthName = format(now, "MMMM", { locale: de });
+  const goalConfig = useMemo(() => {
+    if (filterMode === "week") {
+      return { goal: Math.round(MONTHLY_GOAL / 4.33), label: "Wochenziel" };
+    } else if (filterMode === "month") {
+      return { goal: MONTHLY_GOAL, label: "Monatsziel" };
+    } else {
+      return { goal: MONTHLY_GOAL * 12, label: "Jahresziel" };
+    }
+  }, [filterMode]);
+
+  const goalVolume = totals.dealVolume;
+  const goalPercent = Math.min(Math.round((goalVolume / goalConfig.goal) * 100), 100);
+  const goalReached = goalVolume >= goalConfig.goal;
 
   const handleAdd = () => {
     if (!selectedDate || !form.scheduled || !form.held || !form.closed || !form.dealVolume) {
