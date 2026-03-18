@@ -39,7 +39,7 @@ const categories: { value: Category; label: string; color: string; bg: string }[
 
 const categoryMap = Object.fromEntries(categories.map((c) => [c.value, c]));
 
-const START_HOUR = 0;
+const START_HOUR = 5;
 const END_HOUR = 24;
 const SLOT_HEIGHT = 10;
 const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => i + START_HOUR);
