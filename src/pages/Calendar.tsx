@@ -221,7 +221,7 @@ export default function Calendar() {
 
   // Get event colors — account color overrides type color for Google events
   const getEventColors = (event: CalendarEvent) => {
-    const ec = getEventColors(event); const et = eventTypeMap[event.type];
+    const et = eventTypeMap[event.type] || eventTypes[4];
     if (event.accountColor) {
       return { color: event.accountColor, bgLight: event.accountColorLight || et.bgLight };
     }

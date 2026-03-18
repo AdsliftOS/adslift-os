@@ -18,7 +18,16 @@ export type GoogleAccount = {
 export function getAccounts(): GoogleAccount[] {
   try {
     const stored = localStorage.getItem(ACCOUNTS_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Migrate old accounts without color
+      return parsed.map((a: any, idx: number) => ({
+        email: a.email || "Unknown",
+        token: a.token || "",
+        color: a.color || ACCOUNT_COLORS[idx % ACCOUNT_COLORS.length],
+        colorLight: a.colorLight || ACCOUNT_COLORS_LIGHT[idx % ACCOUNT_COLORS_LIGHT.length],
+      }));
+    }
   } catch {}
   return [];
 }
