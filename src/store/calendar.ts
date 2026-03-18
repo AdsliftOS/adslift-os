@@ -93,8 +93,17 @@ export function useGoogleEvents(): CalendarEvent[] {
 }
 
 // All events combined (calendar store + google events)
+let allEventsCached: CalendarEvent[] = [];
+let allEventsCalRef: CalendarEvent[] = [];
+let allEventsGcalRef: CalendarEvent[] = [];
+
 export function useAllCalendarEvents(): CalendarEvent[] {
   const cal = useSyncExternalStore(subscribe, getSnapshot);
   const gcal = useSyncExternalStore(gSubscribe, gGetSnapshot);
-  return [...cal, ...gcal];
+  if (cal !== allEventsCalRef || gcal !== allEventsGcalRef) {
+    allEventsCalRef = cal;
+    allEventsGcalRef = gcal;
+    allEventsCached = [...cal, ...gcal];
+  }
+  return allEventsCached;
 }

@@ -90,6 +90,10 @@ export default function Sales() {
     return isWithinInterval(e.weekStart, filterRange) || isWithinInterval(we, filterRange);
   }), [weeks, filterRange]);
 
+  // Auto-calculate scheduled/showed per week from Google Calendar
+  const noshowIds = useMemo(() => new Set(noshowList.map((n) => n.eventId)), [noshowList]);
+  const allSalesMeetings = useMemo(() => calendarEvents.filter((e) => isSalesMeeting(e)), [calendarEvents]);
+
   // Totals: manual data + calendar auto-data
   const t = useMemo(() => {
     const manual = filtered.reduce((a, e) => ({
@@ -97,7 +101,6 @@ export default function Sales() {
       closed: a.closed + e.closed, dealVolume: a.dealVolume + e.dealVolume,
     }), { newLeads: 0, reached: 0, closed: 0, dealVolume: 0 });
 
-    // Calendar stats for the filtered range
     const rangeMeetings = allSalesMeetings.filter((e) => {
       const d = new Date(e.date + "T00:00:00");
       return d >= filterRange.start && d <= filterRange.end;
@@ -107,10 +110,6 @@ export default function Sales() {
 
     return { ...manual, scheduled, showed: scheduled - noShows };
   }, [filtered, allSalesMeetings, noshowIds, filterRange]);
-
-  // Auto-calculate scheduled/showed per week from Google Calendar
-  const noshowIds = useMemo(() => new Set(noshowList.map((n) => n.eventId)), [noshowList]);
-  const allSalesMeetings = useMemo(() => calendarEvents.filter((e) => isSalesMeeting(e)), [calendarEvents]);
 
   const getWeekCalendarStats = (ws: Date) => {
     const we = endOfWeek(ws, { weekStartsOn: 1 });
