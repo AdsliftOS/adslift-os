@@ -167,14 +167,14 @@ export default function Calendar() {
   // Today's events for sidebar
   const todayStr = format(today, "yyyy-MM-dd");
   const todayEvents = useMemo(() =>
-    allEvents.filter((e) => e.date === todayStr).sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    allEvents.filter((e) => e.date === todayStr && !e.id.startsWith("proj-deadline-")).sort((a, b) => a.startTime.localeCompare(b.startTime)),
   [allEvents, todayStr]);
 
   // Upcoming events (next 7 days, excluding today)
   const upcomingEvents = useMemo(() => {
     const next7 = Array.from({ length: 7 }, (_, i) => format(addDays(today, i + 1), "yyyy-MM-dd"));
     return allEvents
-      .filter((e) => next7.includes(e.date))
+      .filter((e) => next7.includes(e.date) && !e.id.startsWith("proj-deadline-"))
       .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
       .slice(0, 5);
   }, [allEvents, today]);
