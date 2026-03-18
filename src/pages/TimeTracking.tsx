@@ -443,10 +443,10 @@ export default function TimeTracking() {
                 {/* Current time label */}
                 {nowInRange && weekDays.some((d) => isSameDay(d, today)) && (
                   <div
-                    className="absolute right-1 pointer-events-none -translate-y-1/2"
+                    className="absolute left-0 right-0 pointer-events-none z-10 flex items-center"
                     style={{ top: nowSlotPos }}
                   >
-                    <span className="text-[10px] font-bold text-red-500 tabular-nums bg-card px-1 rounded">
+                    <span className="text-[9px] font-bold text-white bg-red-500 rounded-r-md px-1.5 py-0.5 tabular-nums shadow-sm">
                       {nowHour.toString().padStart(2, "0")}:{nowMinute.toString().padStart(2, "0")}
                     </span>
                   </div>
