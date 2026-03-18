@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,7 @@ import { useSettings } from "@/store/settings";
 import { useAllCalendarEvents } from "@/store/calendar";
 import { useNoShows } from "@/store/noshows";
 import { isSalesMeeting } from "@/lib/sales-meetings";
+import { getLeadsCreatedBetween } from "@/lib/close-api";
 
 type SalesWeek = {
   id: string;
@@ -69,6 +70,8 @@ export default function Sales() {
   const calendarEvents = useAllCalendarEvents();
   const noshowList = useNoShows();
   const [filterMode, setFilterMode] = useState<FilterMode>("month");
+  const [closeLeads, setCloseLeads] = useState<number>(0);
+  const [closeLoading, setCloseLoading] = useState(false);
   const [filterOffset, setFilterOffset] = useState(0);
 
   const filterRange = useMemo(() => {
@@ -84,6 +87,17 @@ export default function Sales() {
     if (filterMode === "month") return format(filterRange.start, "MMMM yyyy", { locale: de });
     return filterRange.start.getFullYear().toString();
   }, [filterMode, filterRange]);
+
+  // Fetch new leads from Close for current filter range
+  useEffect(() => {
+    setCloseLoading(true);
+    const dateFrom = format(filterRange.start, "yyyy-MM-dd");
+    const dateTo = format(filterRange.end, "yyyy-MM-dd");
+    getLeadsCreatedBetween(dateFrom, dateTo)
+      .then((count) => setCloseLeads(count))
+      .catch(() => setCloseLeads(0))
+      .finally(() => setCloseLoading(false));
+  }, [filterRange]);
 
   const filtered = useMemo(() => weeks.filter((e) => {
     const we = endOfWeek(e.weekStart, { weekStartsOn: 1 });
@@ -219,9 +233,14 @@ export default function Sales() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Neue Leads</CardTitle>
-            <PhoneCall className="h-4 w-4 text-muted-foreground" />
+            <UserPlus className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{t.newLeads}</div></CardContent>
+          <CardContent>
+            <div className="text-2xl font-bold">{closeLoading ? "..." : closeLeads}</div>
+            <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />aus Close CRM
+            </p>
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
