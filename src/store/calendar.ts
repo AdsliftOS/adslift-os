@@ -13,6 +13,8 @@ export type CalendarEvent = {
   meetingLink?: string;
   color?: string;
   projectId?: string;
+  accountColor?: string;
+  accountColorLight?: string;
 };
 
 let events: CalendarEvent[] = [];

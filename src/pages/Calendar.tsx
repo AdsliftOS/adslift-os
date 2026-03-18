@@ -74,8 +74,9 @@ export default function Calendar() {
       const timeMin = format(subWeeks(today, 4), "yyyy-MM-dd'T'00:00:00'Z'");
       const timeMax = format(addWeeks(today, 8), "yyyy-MM-dd'T'23:59:59'Z'");
       const allResults = await listAllEvents(timeMin, timeMax);
-      const mapped: CalendarEvent[] = allResults.flatMap(({ email, events: gEvents }) =>
-        gEvents.map((ge: GoogleCalendarEvent) => {
+      const mapped: CalendarEvent[] = allResults.flatMap(({ email, events: gEvents }) => {
+        const account = accounts.find((a) => a.email === email);
+        return gEvents.map((ge: GoogleCalendarEvent) => {
           const start = ge.start.dateTime || ge.start.date || "";
           const end = ge.end.dateTime || ge.end.date || "";
           const startDate = start.split("T")[0];
@@ -101,9 +102,11 @@ export default function Calendar() {
             description: ge.description,
             meetingLink: meetingLink || undefined,
             client: accounts.length > 1 ? email.split("@")[0] : undefined,
+            accountColor: account?.color,
+            accountColorLight: account?.colorLight,
           };
-        })
-      );
+        });
+      });
       setGoogleEvents(mapped);
       toast.success(`${mapped.length} Events von ${allResults.length} Account${allResults.length > 1 ? "s" : ""} geladen`);
     } catch (err: any) {
@@ -216,8 +219,17 @@ export default function Calendar() {
   const nowPos = ((nowH - START_HOUR) * 60 + nowM) / 60 * SLOT_HEIGHT;
   const nowInRange = nowH >= START_HOUR && nowH < END_HOUR;
 
+  // Get event colors — account color overrides type color for Google events
+  const getEventColors = (event: CalendarEvent) => {
+    const ec = getEventColors(event); const et = eventTypeMap[event.type];
+    if (event.accountColor) {
+      return { color: event.accountColor, bgLight: event.accountColorLight || et.bgLight };
+    }
+    return { color: et.color, bgLight: et.bgLight };
+  };
+
   const renderEventBlock = (event: CalendarEvent, height: number) => {
-    const et = eventTypeMap[event.type];
+    const ec = getEventColors(event); const et = eventTypeMap[event.type];
     const platform = event.meetingLink ? getMeetingPlatform(event.meetingLink) : null;
     const isProjectDeadline = event.id.startsWith("proj-deadline-");
 
@@ -383,16 +395,16 @@ export default function Calendar() {
                             const [eh, em] = event.endTime.split(":").map(Number);
                             const top = ((sh - START_HOUR) * 60 + sm) / 60 * SLOT_HEIGHT;
                             const height = Math.max(((eh - START_HOUR) * 60 + em - (sh - START_HOUR) * 60 - sm) / 60 * SLOT_HEIGHT, 24);
-                            const et = eventTypeMap[event.type];
+                            const ec = getEventColors(event);
 
                             return (
                               <div
                                 key={event.id}
-                                className={`absolute left-1 right-1 rounded-lg cursor-pointer hover:shadow-md transition-all overflow-hidden group ${et.bgLight}`}
+                                className={`absolute left-1 right-1 rounded-lg cursor-pointer hover:shadow-md transition-all overflow-hidden group ${ec.bgLight}`}
                                 style={{ top: top + 1, height: height - 2, zIndex: 1 }}
                                 onClick={() => openEdit(event)}
                               >
-                                <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg ${et.color}`} />
+                                <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg ${ec.color}`} />
                                 <div className="pl-2.5 pr-1.5 py-1 h-full">
                                   {renderEventBlock(event, height)}
                                 </div>
@@ -435,10 +447,10 @@ export default function Calendar() {
                         </span>
                         <div className="mt-1 space-y-0.5">
                           {dayEvents.slice(0, 3).map((event) => {
-                            const et = eventTypeMap[event.type];
+                            const ec = getEventColors(event); const et = eventTypeMap[event.type];
                             return (
                               <div key={event.id} className="flex items-center gap-1" onClick={(e) => { e.stopPropagation(); openEdit(event); }}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${et.color} shrink-0`} />
+                                <span className={`h-1.5 w-1.5 rounded-full ${ec.color} shrink-0`} />
                                 <span className="text-[9px] truncate">{event.title}</span>
                               </div>
                             );
@@ -470,10 +482,10 @@ export default function Calendar() {
               ) : (
                 <div className="space-y-2">
                   {todayEvents.map((event) => {
-                    const et = eventTypeMap[event.type];
+                    const ec = getEventColors(event); const et = eventTypeMap[event.type];
                     const platform = event.meetingLink ? getMeetingPlatform(event.meetingLink) : null;
                     return (
-                      <div key={event.id} className={`rounded-lg p-2.5 ${et.bgLight} cursor-pointer`} onClick={() => openEdit(event)}>
+                      <div key={event.id} className={`rounded-lg p-2.5 ${ec.bgLight} cursor-pointer`} onClick={() => openEdit(event)}>
                         <div className="flex items-center gap-1.5 mb-0.5">
                           <span className={`h-1.5 w-1.5 rounded-full ${et.color}`} />
                           <span className="text-xs font-semibold truncate">{event.title}</span>
@@ -510,7 +522,7 @@ export default function Calendar() {
               ) : (
                 <div className="space-y-2">
                   {upcomingEvents.map((event) => {
-                    const et = eventTypeMap[event.type];
+                    const ec = getEventColors(event); const et = eventTypeMap[event.type];
                     const eventDate = new Date(event.date + "T00:00:00");
                     return (
                       <div key={event.id} className="flex items-start gap-2.5 py-1.5 cursor-pointer hover:bg-accent/50 rounded-md px-1 -mx-1" onClick={() => openEdit(event)}>
@@ -520,7 +532,7 @@ export default function Calendar() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1">
-                            <span className={`h-1.5 w-1.5 rounded-full ${et.color} shrink-0`} />
+                            <span className={`h-1.5 w-1.5 rounded-full ${ec.color} shrink-0`} />
                             <span className="text-xs font-medium truncate">{event.title}</span>
                           </div>
                           <div className="text-[10px] text-muted-foreground ml-3">{event.startTime} – {event.endTime}</div>

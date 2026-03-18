@@ -5,9 +5,14 @@ const REDIRECT_URI = window.location.origin + "/auth/callback";
 // Multi-account token storage
 const ACCOUNTS_KEY = "google-calendar-accounts";
 
+const ACCOUNT_COLORS = ["bg-blue-500", "bg-orange-500", "bg-emerald-500", "bg-pink-500", "bg-violet-500"];
+const ACCOUNT_COLORS_LIGHT = ["bg-blue-500/10 text-blue-700 dark:text-blue-300", "bg-orange-500/10 text-orange-700 dark:text-orange-300", "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", "bg-pink-500/10 text-pink-700 dark:text-pink-300", "bg-violet-500/10 text-violet-700 dark:text-violet-300"];
+
 export type GoogleAccount = {
   email: string;
   token: string;
+  color: string;
+  colorLight: string;
 };
 
 export function getAccounts(): GoogleAccount[] {
@@ -24,7 +29,13 @@ function saveAccounts(accounts: GoogleAccount[]) {
 
 export function addAccount(email: string, token: string) {
   const accounts = getAccounts().filter((a) => a.email !== email);
-  accounts.push({ email, token });
+  const idx = accounts.length;
+  accounts.push({
+    email,
+    token,
+    color: ACCOUNT_COLORS[idx % ACCOUNT_COLORS.length],
+    colorLight: ACCOUNT_COLORS_LIGHT[idx % ACCOUNT_COLORS_LIGHT.length],
+  });
   saveAccounts(accounts);
 }
 
