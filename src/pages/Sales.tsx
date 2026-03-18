@@ -25,12 +25,11 @@ type SalesWeek = {
   weekStart: Date;
   kw: number;
   year: number;
-  newLeads: number;   // Neue Leads (angerufen/angeschrieben)
-  reached: number;     // Erreicht
-  scheduled: number;   // Terminiert auf Closing
-  showed: number;      // Zum Closing erschienen
-  closed: number;      // Deal abgeschlossen
-  dealVolume: number;
+  newLeads: number;     // Manuell: Neue Leads
+  reached: number;      // Manuell: Erreicht
+  closed: number;       // Manuell: Deals abgeschlossen
+  dealVolume: number;   // Manuell: Dealvolumen
+  // scheduled + showed werden automatisch aus Google Calendar berechnet
 };
 
 function fmt(value: number) {
@@ -66,7 +65,7 @@ export default function Sales() {
   const [weeks, setWeeks] = useState<SalesWeek[]>(initialWeeks);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [form, setForm] = useState({ newLeads: "", reached: "", scheduled: "", showed: "", closed: "", dealVolume: "" });
+  const [form, setForm] = useState({ newLeads: "", reached: "", closed: "", dealVolume: "" });
   const calendarEvents = useAllCalendarEvents();
   const noshowList = useNoShows();
   const [filterMode, setFilterMode] = useState<FilterMode>("month");
@@ -91,27 +90,38 @@ export default function Sales() {
     return isWithinInterval(e.weekStart, filterRange) || isWithinInterval(we, filterRange);
   }), [weeks, filterRange]);
 
-  const t = filtered.reduce((a, e) => ({
-    newLeads: a.newLeads + e.newLeads, reached: a.reached + e.reached, scheduled: a.scheduled + e.scheduled,
-    showed: a.showed + e.showed, closed: a.closed + e.closed, dealVolume: a.dealVolume + e.dealVolume,
-  }), { newLeads: 0, reached: 0, scheduled: 0, showed: 0, closed: 0, dealVolume: 0 });
+  // Totals: manual data + calendar auto-data
+  const t = useMemo(() => {
+    const manual = filtered.reduce((a, e) => ({
+      newLeads: a.newLeads + e.newLeads, reached: a.reached + e.reached,
+      closed: a.closed + e.closed, dealVolume: a.dealVolume + e.dealVolume,
+    }), { newLeads: 0, reached: 0, closed: 0, dealVolume: 0 });
 
-  // Auto-calculate from Google Calendar sales meetings
-  const calendarSalesStats = useMemo(() => {
-    // All events (including Google Calendar ones from the calendar store's allEvents won't be here,
-    // but googleEvents are synced separately. We check all calendarEvents + detect sales meetings)
-    // For now we work with what's in the calendar store
-    const allSalesMeetings = calendarEvents.filter((e) => isSalesMeeting(e));
-    const inRange = allSalesMeetings.filter((e) => {
+    // Calendar stats for the filtered range
+    const rangeMeetings = allSalesMeetings.filter((e) => {
       const d = new Date(e.date + "T00:00:00");
       return d >= filterRange.start && d <= filterRange.end;
     });
-    const noshowIds = new Set(noshowList.map((n) => n.eventId));
-    const scheduled = inRange.length;
-    const noShows = inRange.filter((e) => noshowIds.has(e.id)).length;
-    const showed = scheduled - noShows;
-    return { scheduled, showed, noShows };
-  }, [calendarEvents, noshowList, filterRange]);
+    const scheduled = rangeMeetings.length;
+    const noShows = rangeMeetings.filter((e) => noshowIds.has(e.id)).length;
+
+    return { ...manual, scheduled, showed: scheduled - noShows };
+  }, [filtered, allSalesMeetings, noshowIds, filterRange]);
+
+  // Auto-calculate scheduled/showed per week from Google Calendar
+  const noshowIds = useMemo(() => new Set(noshowList.map((n) => n.eventId)), [noshowList]);
+  const allSalesMeetings = useMemo(() => calendarEvents.filter((e) => isSalesMeeting(e)), [calendarEvents]);
+
+  const getWeekCalendarStats = (ws: Date) => {
+    const we = endOfWeek(ws, { weekStartsOn: 1 });
+    const weekMeetings = allSalesMeetings.filter((e) => {
+      const d = new Date(e.date + "T00:00:00");
+      return d >= ws && d <= we;
+    });
+    const scheduled = weekMeetings.length;
+    const noShows = weekMeetings.filter((e) => noshowIds.has(e.id)).length;
+    return { scheduled, showed: scheduled - noShows, noShows };
+  };
 
   const monthlyGoal = appSettings.salesGoalMonthly;
   const goalConfig = useMemo(() => {
@@ -127,17 +137,16 @@ export default function Sales() {
     setWeeks((prev) => [...prev, {
       id: Date.now().toString(), weekStart: ws, kw: getISOWeek(ws), year: getYear(ws),
       newLeads: parseInt(form.newLeads) || 0, reached: parseInt(form.reached) || 0,
-      scheduled: parseInt(form.scheduled) || 0, showed: parseInt(form.showed) || 0,
       closed: parseInt(form.closed) || 0, dealVolume: parseFloat(form.dealVolume) || 0,
     }]);
-    setForm({ newLeads: "", reached: "", scheduled: "", showed: "", closed: "", dealVolume: "" });
+    setForm({ newLeads: "", reached: "", closed: "", dealVolume: "" });
     setSelectedDate(undefined);
     setDialogOpen(false);
     toast.success(`KW ${getISOWeek(ws)} eingetragen`);
   };
 
   // Funnel values for display
-  const funnelValues = [t.newLeads, t.reached, t.scheduled, t.showed, t.closed];
+  const funnelValues = useMemo(() => [t.newLeads, t.reached, t.scheduled, t.showed, t.closed], [t]);
 
   return (
     <div className="space-y-5">
@@ -204,35 +213,7 @@ export default function Sales() {
         </CardContent>
       </Card>
 
-      {/* Calendar Sales Stats */}
-      {calendarSalesStats.scheduled > 0 && (
-        <Card className="border-emerald-500/20 bg-emerald-500/5">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <DollarSign className="h-4 w-4 text-emerald-500" />
-              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Sales Meetings aus Google Calendar</span>
-            </div>
-            <div className="flex items-center gap-6">
-              <div>
-                <div className="text-2xl font-bold">{calendarSalesStats.scheduled}</div>
-                <div className="text-[10px] text-muted-foreground">Terminiert</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{calendarSalesStats.showed}</div>
-                <div className="text-[10px] text-muted-foreground">Erschienen</div>
-              </div>
-              <div>
-                <div className={`text-2xl font-bold ${calendarSalesStats.noShows > 0 ? "text-red-500" : ""}`}>{calendarSalesStats.noShows}</div>
-                <div className="text-[10px] text-muted-foreground">No Shows</div>
-              </div>
-              <div className="ml-auto text-right">
-                <div className="text-lg font-bold">{calendarSalesStats.scheduled > 0 ? pct(calendarSalesStats.showed, calendarSalesStats.scheduled) : 0}%</div>
-                <div className="text-[10px] text-muted-foreground">Show-up Rate</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
@@ -331,33 +312,36 @@ export default function Sales() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {[...filtered].sort((a, b) => a.year !== b.year ? a.year - b.year : a.kw - b.kw).map((e, idx) => (
-                <TableRow key={e.id} className={idx % 2 === 1 ? "bg-muted/[0.03]" : ""}>
-                  <TableCell className="font-bold">KW {e.kw}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{getWeekLabel(e.weekStart)}</TableCell>
-                  <TableCell className="text-center font-medium">{e.newLeads}</TableCell>
-                  <TableCell className="text-center">{e.reached} <span className="text-[9px] text-muted-foreground">({pct(e.reached, e.newLeads)}%)</span></TableCell>
-                  <TableCell className="text-center">{e.scheduled} <span className="text-[9px] text-muted-foreground">({pct(e.scheduled, e.reached)}%)</span></TableCell>
-                  <TableCell className="text-center">{e.showed}</TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={pct(e.showed, e.scheduled) >= appSettings.salesGoalShowUpRate ? "default" : "destructive"} className={pct(e.showed, e.scheduled) >= appSettings.salesGoalShowUpRate ? "bg-emerald-500" : ""}>
-                      {pct(e.showed, e.scheduled)}%
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center font-bold text-emerald-600 dark:text-emerald-400">{e.closed}</TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={pct(e.closed, e.showed) >= appSettings.salesGoalCloseRate ? "default" : "destructive"} className={pct(e.closed, e.showed) >= appSettings.salesGoalCloseRate ? "bg-emerald-500" : ""}>
-                      {pct(e.closed, e.showed)}%
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums">{fmt(e.dealVolume)}</TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => setWeeks((prev) => prev.filter((x) => x.id !== e.id))}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {[...filtered].sort((a, b) => a.year !== b.year ? a.year - b.year : a.kw - b.kw).map((e, idx) => {
+                const calStats = getWeekCalendarStats(e.weekStart);
+                return (
+                  <TableRow key={e.id} className={idx % 2 === 1 ? "bg-muted/[0.03]" : ""}>
+                    <TableCell className="font-bold">KW {e.kw}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{getWeekLabel(e.weekStart)}</TableCell>
+                    <TableCell className="text-center font-medium">{e.newLeads}</TableCell>
+                    <TableCell className="text-center">{e.reached} <span className="text-[9px] text-muted-foreground">({pct(e.reached, e.newLeads)}%)</span></TableCell>
+                    <TableCell className="text-center font-medium">{calStats.scheduled} <span className="text-[9px] text-muted-foreground">(auto)</span></TableCell>
+                    <TableCell className="text-center">{calStats.showed}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={calStats.scheduled > 0 && pct(calStats.showed, calStats.scheduled) >= appSettings.salesGoalShowUpRate ? "default" : calStats.scheduled === 0 ? "secondary" : "destructive"} className={calStats.scheduled > 0 && pct(calStats.showed, calStats.scheduled) >= appSettings.salesGoalShowUpRate ? "bg-emerald-500" : ""}>
+                        {calStats.scheduled > 0 ? `${pct(calStats.showed, calStats.scheduled)}%` : "–"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center font-bold text-emerald-600 dark:text-emerald-400">{e.closed}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={calStats.showed > 0 && pct(e.closed, calStats.showed) >= appSettings.salesGoalCloseRate ? "default" : calStats.showed === 0 ? "secondary" : "destructive"} className={calStats.showed > 0 && pct(e.closed, calStats.showed) >= appSettings.salesGoalCloseRate ? "bg-emerald-500" : ""}>
+                        {calStats.showed > 0 ? `${pct(e.closed, calStats.showed)}%` : "–"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{fmt(e.dealVolume)}</TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => setWeeks((prev) => prev.filter((x) => x.id !== e.id))}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {filtered.length === 0 && (
                 <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Keine Einträge für diesen Zeitraum.</TableCell></TableRow>
               )}
@@ -402,8 +386,9 @@ export default function Sales() {
             </div>
 
             <div className="rounded-lg border-2 border-dashed p-3 space-y-3">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Funnel-Daten</div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Manuelle Daten</div>
+              <p className="text-[10px] text-muted-foreground -mt-1">Terminiert & Erschienen werden automatisch aus dem Google Calendar berechnet.</p>
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Neue Leads</Label>
                   <Input type="number" min="0" placeholder="30" value={form.newLeads} onChange={(e) => setForm({ ...form, newLeads: e.target.value })} />
@@ -412,16 +397,8 @@ export default function Sales() {
                   <Label className="text-xs">Erreicht</Label>
                   <Input type="number" min="0" placeholder="20" value={form.reached} onChange={(e) => setForm({ ...form, reached: e.target.value })} />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Terminiert</Label>
-                  <Input type="number" min="0" placeholder="11" value={form.scheduled} onChange={(e) => setForm({ ...form, scheduled: e.target.value })} />
-                </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Erschienen</Label>
-                  <Input type="number" min="0" placeholder="9" value={form.showed} onChange={(e) => setForm({ ...form, showed: e.target.value })} />
-                </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Deals</Label>
                   <Input type="number" min="0" placeholder="4" value={form.closed} onChange={(e) => setForm({ ...form, closed: e.target.value })} />
