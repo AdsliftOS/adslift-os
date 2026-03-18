@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/store/settings";
-import { useCalendar } from "@/store/calendar";
+import { useAllCalendarEvents } from "@/store/calendar";
 import { useNoShows } from "@/store/noshows";
 import { isSalesMeeting } from "@/lib/sales-meetings";
 
@@ -49,12 +49,7 @@ function getWeekLabel(date: Date) {
 
 const now = new Date();
 
-const initialWeeks: SalesWeek[] = [
-  (() => { const ws = startOfWeek(addWeeks(now, -3), { weekStartsOn: 1 }); return { id: "1", weekStart: ws, kw: getISOWeek(ws), year: getYear(ws), newLeads: 45, reached: 28, scheduled: 10, showed: 8, closed: 3, dealVolume: 15000 }; })(),
-  (() => { const ws = startOfWeek(addWeeks(now, -2), { weekStartsOn: 1 }); return { id: "2", weekStart: ws, kw: getISOWeek(ws), year: getYear(ws), newLeads: 52, reached: 34, scheduled: 13, showed: 11, closed: 5, dealVolume: 28000 }; })(),
-  (() => { const ws = startOfWeek(addWeeks(now, -1), { weekStartsOn: 1 }); return { id: "3", weekStart: ws, kw: getISOWeek(ws), year: getYear(ws), newLeads: 48, reached: 30, scheduled: 11, showed: 9, closed: 4, dealVolume: 22000 }; })(),
-  (() => { const ws = startOfWeek(now, { weekStartsOn: 1 }); return { id: "4", weekStart: ws, kw: getISOWeek(ws), year: getYear(ws), newLeads: 35, reached: 22, scheduled: 8, showed: 6, closed: 2, dealVolume: 12000 }; })(),
-];
+const initialWeeks: SalesWeek[] = [];
 
 type FilterMode = "week" | "month" | "year";
 
@@ -72,7 +67,7 @@ export default function Sales() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [form, setForm] = useState({ newLeads: "", reached: "", scheduled: "", showed: "", closed: "", dealVolume: "" });
-  const [calendarEvents] = useCalendar();
+  const calendarEvents = useAllCalendarEvents();
   const noshowList = useNoShows();
   const [filterMode, setFilterMode] = useState<FilterMode>("month");
   const [filterOffset, setFilterOffset] = useState(0);

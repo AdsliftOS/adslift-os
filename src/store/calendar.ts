@@ -74,3 +74,27 @@ export function useCalendar(): [CalendarEvent[], typeof setCalendarEvents] {
   const data = useSyncExternalStore(subscribe, getSnapshot);
   return [data, setCalendarEvents];
 }
+
+// --- Google Events Store (separate, set by Calendar page sync) ---
+let googleEvents: CalendarEvent[] = [];
+let gListeners = new Set<() => void>();
+
+function gEmit() { gListeners.forEach((l) => l()); }
+function gSubscribe(l: () => void) { gListeners.add(l); return () => gListeners.delete(l); }
+function gGetSnapshot() { return googleEvents; }
+
+export function setGoogleEvents(evts: CalendarEvent[]) {
+  googleEvents = evts;
+  gEmit();
+}
+
+export function useGoogleEvents(): CalendarEvent[] {
+  return useSyncExternalStore(gSubscribe, gGetSnapshot);
+}
+
+// All events combined (calendar store + google events)
+export function useAllCalendarEvents(): CalendarEvent[] {
+  const cal = useSyncExternalStore(subscribe, getSnapshot);
+  const gcal = useSyncExternalStore(gSubscribe, gGetSnapshot);
+  return [...cal, ...gcal];
+}

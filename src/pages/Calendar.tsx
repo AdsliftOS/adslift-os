@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, Plus, Phone, Users, Flag, Briefcase, Calendar as CalendarIcon, Trash2, LayoutGrid, List, Video, ExternalLink, FolderKanban, RefreshCw, DollarSign } from "lucide-react";
 import { toast } from "sonner";
-import { useCalendar } from "@/store/calendar";
+import { useCalendar, setGoogleEvents as setGlobalGoogleEvents } from "@/store/calendar";
 import type { CalendarEvent } from "@/store/calendar";
 import { useClients } from "@/store/clients";
 import { useProjects } from "@/store/projects";
@@ -111,6 +111,7 @@ export default function Calendar() {
         });
       });
       setGoogleEvents(mapped);
+      setGlobalGoogleEvents(mapped); // Also set in global store for Sales page
       toast.success(`${mapped.length} Events von ${allResults.length} Account${allResults.length > 1 ? "s" : ""} geladen`);
     } catch (err: any) {
       toast.error("Fehler beim Laden: " + err.message);
@@ -267,7 +268,7 @@ export default function Calendar() {
             <ExternalLink className="h-2 w-2" />
           </a>
         )}
-        {isSales && height > 45 && (
+        {isSales && height > 20 && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -491,14 +492,18 @@ export default function Calendar() {
                   {todayEvents.map((event) => {
                     const ec = getEventColors(event); const et = eventTypeMap[event.type];
                     const platform = event.meetingLink ? getMeetingPlatform(event.meetingLink) : null;
+                    const isSales = isSalesMeeting(event);
+                    const noShow = isNoShow(event.id);
                     return (
-                      <div key={event.id} className={`rounded-lg p-2.5 ${ec.bgLight} cursor-pointer`} onClick={() => openEdit(event)}>
+                      <div key={event.id} className={`rounded-lg p-2.5 ${ec.bgLight} ${noShow ? "opacity-50" : ""}`}>
                         <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className={`h-1.5 w-1.5 rounded-full ${et.color}`} />
-                          <span className="text-xs font-semibold truncate">{event.title}</span>
+                          <span className={`h-1.5 w-1.5 rounded-full ${ec.color}`} />
+                          {isSales && <DollarSign className="h-2.5 w-2.5 text-emerald-500" />}
+                          <span className={`text-xs font-semibold truncate ${noShow ? "line-through" : ""}`}>{event.title}</span>
                         </div>
-                        <div className="text-[10px] opacity-60 ml-3">{event.startTime} – {event.endTime}</div>
-                        {platform && event.meetingLink && (
+                        {noShow && <div className="text-[9px] font-bold text-red-500 ml-3 uppercase">No Show</div>}
+                        {!noShow && <div className="text-[10px] opacity-60 ml-3">{event.startTime} – {event.endTime}</div>}
+                        {!noShow && platform && event.meetingLink && (
                           <a
                             href={event.meetingLink}
                             target="_blank"
@@ -509,6 +514,20 @@ export default function Calendar() {
                             <Video className="h-3 w-3" />
                             {platform.label} beitreten
                           </a>
+                        )}
+                        {isSales && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (noShow) { unmarkNoShow(event.id); toast.success("No-Show entfernt"); }
+                              else { markNoShow(event.id, event.title, event.date); toast.success("Als No-Show markiert"); }
+                            }}
+                            className={`mt-1.5 ml-3 inline-flex items-center gap-1 text-[9px] font-medium rounded px-2 py-0.5 transition-colors ${
+                              noShow ? "bg-emerald-500/20 text-emerald-600 hover:bg-emerald-500/30" : "bg-red-500/20 text-red-500 hover:bg-red-500/30"
+                            }`}
+                          >
+                            {noShow ? "↩ Erschienen" : "✕ No Show"}
+                          </button>
                         )}
                       </div>
                     );
