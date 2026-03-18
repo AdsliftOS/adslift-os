@@ -16,6 +16,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/store/settings";
+import { useCalendar } from "@/store/calendar";
+import { useNoShows } from "@/store/noshows";
+import { isSalesMeeting } from "@/lib/sales-meetings";
 
 type SalesWeek = {
   id: string;
@@ -69,6 +72,8 @@ export default function Sales() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [form, setForm] = useState({ newLeads: "", reached: "", scheduled: "", showed: "", closed: "", dealVolume: "" });
+  const [calendarEvents] = useCalendar();
+  const noshowList = useNoShows();
   const [filterMode, setFilterMode] = useState<FilterMode>("month");
   const [filterOffset, setFilterOffset] = useState(0);
 
@@ -95,6 +100,23 @@ export default function Sales() {
     newLeads: a.newLeads + e.newLeads, reached: a.reached + e.reached, scheduled: a.scheduled + e.scheduled,
     showed: a.showed + e.showed, closed: a.closed + e.closed, dealVolume: a.dealVolume + e.dealVolume,
   }), { newLeads: 0, reached: 0, scheduled: 0, showed: 0, closed: 0, dealVolume: 0 });
+
+  // Auto-calculate from Google Calendar sales meetings
+  const calendarSalesStats = useMemo(() => {
+    // All events (including Google Calendar ones from the calendar store's allEvents won't be here,
+    // but googleEvents are synced separately. We check all calendarEvents + detect sales meetings)
+    // For now we work with what's in the calendar store
+    const allSalesMeetings = calendarEvents.filter((e) => isSalesMeeting(e));
+    const inRange = allSalesMeetings.filter((e) => {
+      const d = new Date(e.date + "T00:00:00");
+      return d >= filterRange.start && d <= filterRange.end;
+    });
+    const noshowIds = new Set(noshowList.map((n) => n.eventId));
+    const scheduled = inRange.length;
+    const noShows = inRange.filter((e) => noshowIds.has(e.id)).length;
+    const showed = scheduled - noShows;
+    return { scheduled, showed, noShows };
+  }, [calendarEvents, noshowList, filterRange]);
 
   const monthlyGoal = appSettings.salesGoalMonthly;
   const goalConfig = useMemo(() => {
@@ -186,6 +208,36 @@ export default function Sales() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Calendar Sales Stats */}
+      {calendarSalesStats.scheduled > 0 && (
+        <Card className="border-emerald-500/20 bg-emerald-500/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <DollarSign className="h-4 w-4 text-emerald-500" />
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Sales Meetings aus Google Calendar</span>
+            </div>
+            <div className="flex items-center gap-6">
+              <div>
+                <div className="text-2xl font-bold">{calendarSalesStats.scheduled}</div>
+                <div className="text-[10px] text-muted-foreground">Terminiert</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{calendarSalesStats.showed}</div>
+                <div className="text-[10px] text-muted-foreground">Erschienen</div>
+              </div>
+              <div>
+                <div className={`text-2xl font-bold ${calendarSalesStats.noShows > 0 ? "text-red-500" : ""}`}>{calendarSalesStats.noShows}</div>
+                <div className="text-[10px] text-muted-foreground">No Shows</div>
+              </div>
+              <div className="ml-auto text-right">
+                <div className="text-lg font-bold">{calendarSalesStats.scheduled > 0 ? pct(calendarSalesStats.showed, calendarSalesStats.scheduled) : 0}%</div>
+                <div className="text-[10px] text-muted-foreground">Show-up Rate</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">

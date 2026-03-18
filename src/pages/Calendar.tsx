@@ -9,12 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Plus, Phone, Users, Flag, Briefcase, Calendar as CalendarIcon, Trash2, LayoutGrid, List, Video, ExternalLink, FolderKanban, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Phone, Users, Flag, Briefcase, Calendar as CalendarIcon, Trash2, LayoutGrid, List, Video, ExternalLink, FolderKanban, RefreshCw, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { useCalendar } from "@/store/calendar";
 import type { CalendarEvent } from "@/store/calendar";
 import { useClients } from "@/store/clients";
 import { useProjects } from "@/store/projects";
+import { useNoShows, markNoShow, unmarkNoShow, isNoShow } from "@/store/noshows";
+import { isSalesMeeting } from "@/lib/sales-meetings";
 import { isGoogleConnected, getAccounts, listAllEvents, type GoogleCalendarEvent } from "@/lib/google-calendar";
 
 const eventTypes: { value: CalendarEvent["type"]; label: string; color: string; bgLight: string; icon: typeof Phone }[] = [
@@ -65,6 +67,7 @@ export default function Calendar() {
   const [googleAccounts, setGoogleAccounts] = useState(getAccounts());
   const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const noshowList = useNoShows();
 
   const syncGoogleCalendar = useCallback(async () => {
     const accounts = getAccounts();
@@ -232,20 +235,26 @@ export default function Calendar() {
     const ec = getEventColors(event); const et = eventTypeMap[event.type];
     const platform = event.meetingLink ? getMeetingPlatform(event.meetingLink) : null;
     const isProjectDeadline = event.id.startsWith("proj-deadline-");
+    const isSales = isSalesMeeting(event);
+    const noShow = isNoShow(event.id);
 
     return (
-      <div className="h-full flex flex-col">
+      <div className={`h-full flex flex-col ${noShow ? "opacity-50" : ""}`}>
         <div className="flex items-center gap-1">
           {isProjectDeadline && <FolderKanban className="h-2.5 w-2.5 shrink-0 opacity-60" />}
-          <span className="text-[11px] font-semibold truncate">{event.title}</span>
+          {isSales && <DollarSign className="h-2.5 w-2.5 shrink-0 text-emerald-500" />}
+          <span className={`text-[11px] font-semibold truncate ${noShow ? "line-through" : ""}`}>{event.title}</span>
         </div>
-        {height > 32 && (
+        {noShow && (
+          <span className="text-[9px] font-bold text-red-500 uppercase tracking-wider">No Show</span>
+        )}
+        {!noShow && height > 32 && (
           <span className="text-[10px] opacity-60">{event.startTime} – {event.endTime}</span>
         )}
-        {height > 48 && event.client && (
+        {!noShow && height > 48 && event.client && (
           <span className="text-[10px] opacity-50 mt-0.5">{event.client}</span>
         )}
-        {height > 60 && platform && event.meetingLink && (
+        {!noShow && height > 60 && platform && event.meetingLink && (
           <a
             href={event.meetingLink}
             target="_blank"
@@ -257,6 +266,27 @@ export default function Calendar() {
             {platform.label} beitreten
             <ExternalLink className="h-2 w-2" />
           </a>
+        )}
+        {isSales && height > 45 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (noShow) {
+                unmarkNoShow(event.id);
+                toast.success("No-Show entfernt");
+              } else {
+                markNoShow(event.id, event.title, event.date);
+                toast.success("Als No-Show markiert");
+              }
+            }}
+            className={`mt-auto inline-flex items-center gap-1 text-[9px] font-medium rounded px-1.5 py-0.5 w-fit transition-colors ${
+              noShow
+                ? "bg-emerald-500/20 text-emerald-600 hover:bg-emerald-500/30"
+                : "bg-red-500/20 text-red-500 hover:bg-red-500/30"
+            }`}
+          >
+            {noShow ? "↩ Erschienen" : "✕ No Show"}
+          </button>
         )}
       </div>
     );
