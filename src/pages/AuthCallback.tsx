@@ -6,9 +6,9 @@ export default function AuthCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const success = handleAuthCallback();
-    // Redirect to calendar after auth
-    navigate("/calendar", { replace: true });
+    handleAuthCallback().then(() => {
+      navigate("/calendar", { replace: true });
+    });
   }, [navigate]);
 
   return (
