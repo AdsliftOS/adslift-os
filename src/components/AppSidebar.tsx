@@ -1,6 +1,5 @@
-import { LayoutDashboard, FolderKanban, Users, UsersRound, DollarSign, Clock, BarChart3 } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Users, DollarSign, Clock, BarChart3, Calendar, ListTodo, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -11,6 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
 
@@ -18,27 +18,27 @@ const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Clients", url: "/clients", icon: Users },
-  { title: "Team", url: "/team", icon: UsersRound },
   { title: "Finances", url: "/finances", icon: DollarSign },
-  { title: "Time Tracking", url: "/time", icon: Clock },
   { title: "Sales", url: "/sales", icon: BarChart3 },
+  { title: "Kalender", url: "/calendar", icon: Calendar },
+  { title: "Aufgaben", url: "/tasks", icon: ListTodo },
+  { title: "Time Tracking", url: "/time", icon: Clock },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="px-4 py-5">
         {!collapsed && (
           <span className="text-lg font-bold tracking-tight text-foreground">
-            Agency<span className="text-primary">OS</span>
+            ads<span className="text-primary">lift</span>
           </span>
         )}
         {collapsed && (
-          <span className="text-lg font-bold text-primary">A</span>
+          <span className="text-lg font-bold text-primary">al</span>
         )}
       </SidebarHeader>
       <SidebarContent>
@@ -65,6 +65,22 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="px-3 py-3">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <NavLink
+                to="/settings"
+                className="hover:bg-accent"
+                activeClassName="bg-accent text-primary font-medium"
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                {!collapsed && <span>Einstellungen</span>}
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }
