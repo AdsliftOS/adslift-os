@@ -15,11 +15,13 @@ function subscribe(l: () => void) { listeners.add(l); return () => listeners.del
 function getSnapshot() { return noshows; }
 
 async function load() {
-  const { data } = await supabase.from("meeting_noshows").select("*");
-  if (data) {
-    noshows = data.map((r: any) => ({ eventId: r.event_id, eventTitle: r.event_title, eventDate: r.event_date }));
-    emit();
-  }
+  try {
+    const { data, error } = await supabase.from("meeting_noshows").select("*");
+    if (!error && data) {
+      noshows = data.map((r: any) => ({ eventId: r.event_id, eventTitle: r.event_title, eventDate: r.event_date }));
+      emit();
+    }
+  } catch {}
 }
 
 load();
