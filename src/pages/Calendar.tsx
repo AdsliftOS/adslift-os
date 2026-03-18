@@ -16,7 +16,7 @@ import type { CalendarEvent } from "@/store/calendar";
 import { useClients } from "@/store/clients";
 import { useProjects } from "@/store/projects";
 import { useNoShows, markNoShow, unmarkNoShow, isNoShow } from "@/store/noshows";
-import { isSalesMeeting } from "@/lib/sales-meetings";
+import { isSalesMeeting, isClientMeeting } from "@/lib/sales-meetings";
 import { isGoogleConnected, getAccounts, listAllEvents, type GoogleCalendarEvent } from "@/lib/google-calendar";
 
 const eventTypes: { value: CalendarEvent["type"]; label: string; color: string; bgLight: string; icon: typeof Phone }[] = [
@@ -226,6 +226,11 @@ export default function Calendar() {
   // Get event colors — account color overrides type color for Google events
   const getEventColors = (event: CalendarEvent) => {
     const et = eventTypeMap[event.type] || eventTypes[4];
+    // Client meetings → green
+    if (isClientMeeting(event)) {
+      return { color: "bg-emerald-500", bgLight: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" };
+    }
+    // Sales meetings → keep account color or type color
     if (event.accountColor) {
       return { color: event.accountColor, bgLight: event.accountColorLight || et.bgLight };
     }
@@ -338,6 +343,30 @@ export default function Calendar() {
                 <List className="h-3.5 w-3.5 inline mr-1" />Monat
               </button>
             </div>
+
+            {/* Today's meeting counts */}
+            {(() => {
+              const todayMeetings = allEvents.filter((e) => e.date === todayStr && !e.id.startsWith("proj-deadline-"));
+              const clientCount = todayMeetings.filter((e) => isClientMeeting(e)).length;
+              const salesCount = todayMeetings.filter((e) => isSalesMeeting(e)).length;
+              if (clientCount === 0 && salesCount === 0) return null;
+              return (
+                <div className="flex items-center gap-3">
+                  {salesCount > 0 && (
+                    <div className="flex items-center gap-1.5 rounded-full bg-blue-500/10 px-2.5 py-1">
+                      <DollarSign className="h-3 w-3 text-blue-500" />
+                      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">{salesCount} Sales</span>
+                    </div>
+                  )}
+                  {clientCount > 0 && (
+                    <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1">
+                      <Users className="h-3 w-3 text-emerald-500" />
+                      <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{clientCount} Kunden</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* WEEK VIEW */}
