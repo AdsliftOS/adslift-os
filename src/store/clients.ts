@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { supabase } from "@/lib/supabase";
 
 export type ClientStatus = "Active" | "Paused";
 
@@ -14,61 +15,97 @@ export type Client = {
   status: ClientStatus;
 };
 
-const STORAGE_KEY = "agencyos-clients";
-
-const defaultClients: Client[] = [
-  { id: "1", name: "Acme Co", contact: "Maria Schmidt", email: "maria@acme.co", phone: "+49 170 1234567", company: "Acme Co GmbH", projects: 3, revenue: 18400, status: "Active" },
-  { id: "2", name: "Nova", contact: "Jan Müller", email: "jan@nova.io", phone: "+49 171 2345678", company: "Nova Technologies", projects: 2, revenue: 12800, status: "Active" },
-  { id: "3", name: "Bolt", contact: "Lisa Weber", email: "lisa@bolt.dev", phone: "+49 172 3456789", company: "Bolt UG", projects: 1, revenue: 8500, status: "Active" },
-  { id: "4", name: "Prism Labs", contact: "Amy Park", email: "amy@prism.co", phone: "+49 173 4567890", company: "Prism Labs Inc.", projects: 1, revenue: 4200, status: "Paused" },
-  { id: "5", name: "TerraFin", contact: "David Wu", email: "david@terrafin.com", phone: "+49 174 5678901", company: "TerraFin AG", projects: 2, revenue: 9300, status: "Active" },
-  { id: "6", name: "Cloudrise Digital", contact: "Sarah Chen", email: "sarah@cloudrise.de", phone: "+49 175 6789012", company: "Cloudrise Digital GmbH", projects: 1, revenue: 5000, status: "Active" },
-  { id: "7", name: "Buzzman", contact: "Tom Becker", email: "tom@buzzman.de", phone: "+49 176 7890123", company: "Buzzman Media", projects: 1, revenue: 8000, status: "Active" },
-  { id: "8", name: "Visual Solutions", contact: "Klara Braun", email: "klara@visualsolutions.de", phone: "+49 177 8901234", company: "Visual Solutions KG", projects: 1, revenue: 5000, status: "Active" },
-];
-
-function loadClients(): Client[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
-  } catch {}
-  return defaultClients;
-}
-
-function saveClients(data: Client[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {}
-}
-
 // --- Store ---
-let clients: Client[] = loadClients();
+let clients: Client[] = [];
+let loaded = false;
 let listeners = new Set<() => void>();
 
-function emit() {
-  listeners.forEach((l) => l());
+function emit() { listeners.forEach((l) => l()); }
+function subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); }
+function getSnapshot() { return clients; }
+
+// Load from Supabase
+async function loadClients() {
+  const { data, error } = await supabase.from("clients").select("*").order("created_at", { ascending: false });
+  if (!error && data) {
+    clients = data.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      contact: row.contact,
+      email: row.email,
+      phone: row.phone,
+      company: row.company,
+      projects: row.projects,
+      revenue: Number(row.revenue),
+      status: row.status as ClientStatus,
+    }));
+    loaded = true;
+    emit();
+  }
 }
 
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+// Initial load
+loadClients();
+
+export async function addClient(client: Omit<Client, "id">) {
+  const { data, error } = await supabase.from("clients").insert({
+    name: client.name,
+    contact: client.contact,
+    email: client.email,
+    phone: client.phone,
+    company: client.company,
+    projects: client.projects,
+    revenue: client.revenue,
+    status: client.status,
+  }).select().single();
+
+  if (!error && data) {
+    clients = [{ ...client, id: data.id }, ...clients];
+    emit();
+    return data.id;
+  }
+  return null;
 }
 
-function getSnapshot(): Client[] {
-  return clients;
-}
-
-export function setClients(updater: Client[] | ((prev: Client[]) => Client[])) {
-  clients = typeof updater === "function" ? updater(clients) : updater;
-  saveClients(clients);
+export async function updateClient(id: string, updates: Partial<Client>) {
+  await supabase.from("clients").update(updates).eq("id", id);
+  clients = clients.map((c) => c.id === id ? { ...c, ...updates } : c);
   emit();
 }
 
-export function getClientNames(): string[] {
-  return clients.map((c) => c.name);
+export async function deleteClient(id: string) {
+  await supabase.from("clients").delete().eq("id", id);
+  clients = clients.filter((c) => c.id !== id);
+  emit();
 }
 
-// React hook
+// Legacy setClients for compatibility — syncs to Supabase
+export function setClients(updater: Client[] | ((prev: Client[]) => Client[])) {
+  const prev = clients;
+  const next = typeof updater === "function" ? updater(prev) : updater;
+
+  // Find new clients (added)
+  const added = next.filter((n) => !prev.find((p) => p.id === n.id));
+  // Find removed clients
+  const removed = prev.filter((p) => !next.find((n) => n.id === p.id));
+
+  // Sync to Supabase
+  added.forEach((c) => {
+    supabase.from("clients").insert({
+      id: c.id.length > 20 ? undefined : c.id, // let supabase generate uuid for new ones
+      name: c.name, contact: c.contact, email: c.email, phone: c.phone,
+      company: c.company, projects: c.projects, revenue: c.revenue, status: c.status,
+    }).then(() => loadClients()); // reload to get proper ids
+  });
+
+  removed.forEach((c) => {
+    supabase.from("clients").delete().eq("id", c.id);
+  });
+
+  clients = next;
+  emit();
+}
+
 export function useClients(): [Client[], typeof setClients] {
   const data = useSyncExternalStore(subscribe, getSnapshot);
   return [data, setClients];

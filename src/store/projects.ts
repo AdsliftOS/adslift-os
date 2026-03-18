@@ -1,29 +1,13 @@
 import { useSyncExternalStore } from "react";
+import { supabase } from "@/lib/supabase";
 
-// Re-export types that pages need
 export type TaskStatus = "todo" | "in-progress" | "done";
 export type ProjectType = "neukunde" | "neue-kampagne" | "optimierung" | "custom";
 export type CreativeFormat = "video" | "bild" | "beides";
 
-export type Task = {
-  id: string;
-  title: string;
-  status: TaskStatus;
-  assignee?: string;
-};
-
-export type Phase = {
-  id: string;
-  title: string;
-  tasks: Task[];
-};
-
-export type Comment = {
-  id: string;
-  author: string;
-  text: string;
-  timestamp: string;
-};
+export type Task = { id: string; title: string; status: TaskStatus; assignee?: string; };
+export type Phase = { id: string; title: string; tasks: Task[]; };
+export type Comment = { id: string; author: string; text: string; timestamp: string; };
 
 export type Project = {
   id: string;
@@ -41,45 +25,80 @@ export type Project = {
   offer: string;
   comments: Comment[];
   onboarding?: Record<string, unknown>;
-  deadline?: string; // YYYY-MM-DD
+  deadline?: string;
 };
 
-const STORAGE_KEY = "agencyos-projects";
-
-function loadProjects(): Project[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
-  } catch {}
-  return [];
-}
-
-function saveProjects(data: Project[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {}
-}
-
-// --- Store ---
-let projects: Project[] = loadProjects();
+let projects: Project[] = [];
 let listeners = new Set<() => void>();
 
-function emit() {
-  listeners.forEach((l) => l());
+function emit() { listeners.forEach((l) => l()); }
+function subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); }
+function getSnapshot() { return projects; }
+
+function rowToProject(row: any): Project {
+  return {
+    id: row.id,
+    client: row.client,
+    name: row.name,
+    product: row.product,
+    type: row.type,
+    creativeFormat: row.creative_format,
+    startDate: row.start_date,
+    assignees: row.assignees || [],
+    phases: row.phases || [],
+    briefing: row.briefing,
+    meetingNotes: row.meeting_notes,
+    targetAudience: row.target_audience,
+    offer: row.offer,
+    comments: row.comments || [],
+    onboarding: row.onboarding,
+    deadline: row.deadline,
+  };
 }
 
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+function projectToRow(p: Project) {
+  return {
+    client: p.client, name: p.name, product: p.product, type: p.type,
+    creative_format: p.creativeFormat, start_date: p.startDate,
+    assignees: p.assignees, phases: p.phases, briefing: p.briefing,
+    meeting_notes: p.meetingNotes, target_audience: p.targetAudience,
+    offer: p.offer, comments: p.comments, onboarding: p.onboarding,
+    deadline: p.deadline,
+  };
 }
 
-function getSnapshot(): Project[] {
-  return projects;
+async function loadProjects() {
+  const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
+  if (!error && data) {
+    projects = data.map(rowToProject);
+    emit();
+  }
 }
+
+loadProjects();
 
 export function setProjects(updater: Project[] | ((prev: Project[]) => Project[])) {
-  projects = typeof updater === "function" ? updater(projects) : updater;
-  saveProjects(projects);
+  const prev = projects;
+  const next = typeof updater === "function" ? updater(prev) : updater;
+
+  const added = next.filter((n) => !prev.find((p) => p.id === n.id));
+  const removed = prev.filter((p) => !next.find((n) => n.id === p.id));
+  const updated = next.filter((n) => {
+    const old = prev.find((p) => p.id === n.id);
+    return old && JSON.stringify(old) !== JSON.stringify(n);
+  });
+
+  added.forEach((p) => {
+    supabase.from("projects").insert(projectToRow(p)).then(() => loadProjects());
+  });
+  removed.forEach((p) => {
+    supabase.from("projects").delete().eq("id", p.id);
+  });
+  updated.forEach((p) => {
+    supabase.from("projects").update(projectToRow(p)).eq("id", p.id);
+  });
+
+  projects = next;
   emit();
 }
 
