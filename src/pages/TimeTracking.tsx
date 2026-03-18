@@ -39,9 +39,9 @@ const categories: { value: Category; label: string; color: string; bg: string }[
 
 const categoryMap = Object.fromEntries(categories.map((c) => [c.value, c]));
 
-const START_HOUR = 7;
-const END_HOUR = 20;
-const SLOT_HEIGHT = 28;
+const START_HOUR = 0;
+const END_HOUR = 24;
+const SLOT_HEIGHT = 18;
 const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => i + START_HOUR);
 
 const timeOptions: string[] = [];
@@ -540,10 +540,10 @@ export default function TimeTracking() {
                                 {entry.startHour.toString().padStart(2, "0")}:{entry.startMinute.toString().padStart(2, "0")}
                               </span>
                             </div>
-                            {height > 38 && (
+                            {height > 25 && (
                               <p className="text-[10px] opacity-60 leading-tight mt-0.5 line-clamp-2">{entry.note}</p>
                             )}
-                            {height > 70 && (
+                            {height > 50 && (
                               <div className="mt-auto">
                                 <span className="text-[9px] opacity-40 tabular-nums">
                                   {entry.endHour.toString().padStart(2, "0")}:{entry.endMinute.toString().padStart(2, "0")}
