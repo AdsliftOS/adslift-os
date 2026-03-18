@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,10 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Repeat, Flame, ArrowUp, Minus, GripVertical, CheckCircle2, Clock, AlertTriangle, Sparkles } from "lucide-react";
+import { Plus, Trash2, Repeat, Flame, ArrowUp, Minus, GripVertical, CheckCircle2, Clock, AlertTriangle, Sparkles, Users } from "lucide-react";
 import { toast } from "sonner";
 import { format, isToday, isPast, addDays } from "date-fns";
 import { de } from "date-fns/locale";
+import { supabase } from "@/lib/supabase";
 
 type Category = "admin" | "growth" | "marketing" | "sales" | "customer-success";
 type Priority = "high" | "medium" | "low";
@@ -25,7 +26,13 @@ type Task = {
   column: Column;
   createdAt: string;
   recurrence: Recurrence;
+  assignee: string; // "alex" | "daniel"
 };
+
+const teamMembers = [
+  { key: "alex", label: "Alex", email: "info@consulting-og.de" },
+  { key: "daniel", label: "Daniel", email: "office@consulting-og.de" },
+];
 
 const categories: { value: Category; label: string; color: string; dot: string }[] = [
   { value: "admin", label: "Admin", color: "bg-orange-500/10 text-orange-600 dark:text-orange-400", dot: "bg-orange-500" },
@@ -54,21 +61,7 @@ const columns: { key: Column; title: string; color: string; dotColor: string; em
 const STORAGE_KEY = "agencyos-tasks";
 const todayStr = format(new Date(), "yyyy-MM-dd");
 
-const defaultTasks: Task[] = [
-  { id: "1", title: "Slack & E-Mails checken", category: "admin", priority: "medium", dueDate: todayStr, column: "todo", createdAt: todayStr, recurrence: "daily" },
-  { id: "2", title: "Ad Account Performance checken", category: "marketing", priority: "high", dueDate: todayStr, column: "todo", createdAt: todayStr, recurrence: "daily" },
-  { id: "3", title: "Kunden-Nachrichten beantworten", category: "customer-success", priority: "high", dueDate: todayStr, column: "in-progress", createdAt: todayStr, recurrence: "daily" },
-  { id: "4", title: "Weekly Team Meeting vorbereiten", category: "admin", priority: "medium", dueDate: todayStr, column: "todo", createdAt: todayStr, recurrence: "weekly" },
-  { id: "5", title: "Kunden-Reportings erstellen", category: "customer-success", priority: "high", dueDate: todayStr, column: "todo", createdAt: todayStr, recurrence: "weekly" },
-  { id: "6", title: "Content für nächste Woche planen", category: "marketing", priority: "medium", dueDate: format(addDays(new Date(), 1), "yyyy-MM-dd"), column: "todo", createdAt: todayStr, recurrence: "weekly" },
-  { id: "7", title: "Sales-Zahlen eintragen", category: "sales", priority: "medium", dueDate: todayStr, column: "in-progress", createdAt: todayStr, recurrence: "weekly" },
-  { id: "8", title: "Neue Landingpage für Lead Gen testen", category: "growth", priority: "high", dueDate: todayStr, column: "in-progress", createdAt: todayStr, recurrence: "none" },
-  { id: "9", title: "Pitch Deck für neuen Kunden erstellen", category: "sales", priority: "high", dueDate: format(addDays(new Date(), 1), "yyyy-MM-dd"), column: "todo", createdAt: todayStr, recurrence: "none" },
-  { id: "10", title: "Case Study für Acme Co schreiben", category: "marketing", priority: "medium", dueDate: format(addDays(new Date(), 3), "yyyy-MM-dd"), column: "todo", createdAt: todayStr, recurrence: "none" },
-  { id: "11", title: "Referral-Programm Ideen brainstormen", category: "growth", priority: "low", column: "todo", createdAt: todayStr, recurrence: "none" },
-  { id: "12", title: "CRM Daten aufräumen", category: "admin", priority: "low", column: "done", createdAt: todayStr, recurrence: "none" },
-  { id: "13", title: "Onboarding-Flow optimieren", category: "customer-success", priority: "medium", column: "done", createdAt: todayStr, recurrence: "none" },
-];
+const defaultTasks: Task[] = [];
 
 function loadTasks(): Task[] {
   try { const s = localStorage.getItem(STORAGE_KEY); if (s) return JSON.parse(s); } catch {} return defaultTasks;
@@ -83,6 +76,16 @@ export default function Tasks() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [quickAdd, setQuickAdd] = useState("");
+  const [viewUser, setViewUser] = useState<string>("alex");
+
+  // Detect current user
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const email = session?.user?.email;
+      const found = teamMembers.find((m) => m.email === email);
+      if (found) setViewUser(found.key);
+    });
+  }, []);
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<Column | null>(null);
 
@@ -106,7 +109,7 @@ export default function Tasks() {
 
   const handleQuickAdd = () => {
     if (!quickAdd.trim()) return;
-    persist((prev) => [{ id: Date.now().toString(), title: quickAdd.trim(), category: "admin" as Category, priority: "medium" as Priority, dueDate: todayStr, column: "todo" as Column, createdAt: todayStr, recurrence: "none" as Recurrence }, ...prev]);
+    persist((prev) => [{ id: Date.now().toString(), title: quickAdd.trim(), category: "admin" as Category, priority: "medium" as Priority, dueDate: todayStr, column: "todo" as Column, createdAt: todayStr, recurrence: "none" as Recurrence, assignee: viewUser }, ...prev]);
     setQuickAdd("");
   };
 
@@ -128,18 +131,19 @@ export default function Tasks() {
       persist((prev) => prev.map((t) => t.id === editingTask.id ? { ...t, title: form.title, category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, recurrence: form.recurrence } : t));
       toast.success("Aufgabe aktualisiert");
     } else {
-      persist((prev) => [{ id: Date.now().toString(), title: form.title.trim(), category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, column: "todo" as Column, createdAt: todayStr, recurrence: form.recurrence }, ...prev]);
+      persist((prev) => [{ id: Date.now().toString(), title: form.title.trim(), category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, column: "todo" as Column, createdAt: todayStr, recurrence: form.recurrence, assignee: viewUser }, ...prev]);
       toast.success("Aufgabe erstellt");
     }
     setDialogOpen(false);
     setEditingTask(null);
   };
 
-  // Filter
+  // Filter by user + category
   const filtered = useMemo(() => {
-    if (filterCategory === "all") return tasks;
-    return tasks.filter((t) => t.category === filterCategory);
-  }, [tasks, filterCategory]);
+    let result = tasks.filter((t) => !t.assignee || t.assignee === viewUser);
+    if (filterCategory !== "all") result = result.filter((t) => t.category === filterCategory);
+    return result;
+  }, [tasks, filterCategory, viewUser]);
 
   // Stats
   const todoCount = tasks.filter((t) => t.column === "todo").length;
@@ -190,6 +194,22 @@ export default function Tasks() {
           <p className="text-sm text-muted-foreground">Tägliche & wiederkehrende To-Dos im Kanban-Board.</p>
         </div>
         <Button size="sm" onClick={openNew}><Plus className="mr-2 h-4 w-4" />Neue Aufgabe</Button>
+      </div>
+
+      {/* User Switch */}
+      <div className="flex items-center gap-2">
+        <Users className="h-4 w-4 text-muted-foreground" />
+        <div className="flex gap-1 border rounded-lg p-0.5">
+          {teamMembers.map((m) => (
+            <button
+              key={m.key}
+              onClick={() => setViewUser(m.key)}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${viewUser === m.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Hero Stats Bar */}

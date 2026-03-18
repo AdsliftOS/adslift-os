@@ -72,76 +72,7 @@ const expenseCategories = [
   "Sonstiges",
 ];
 
-const initialExpenses: Expense[] = [
-  {
-    id: "e1", name: "Alexander G. (Gehalt)", category: "Team/Gehälter", description: "Geschäftsführer",
-    monthlyExpenses: { "2026-01": { amount: 4500, status: "bezahlt" }, "2026-02": { amount: 4500, status: "bezahlt" }, "2026-03": { amount: 4500, status: "bezahlt" }, "2026-04": { amount: 4500, status: "geplant" }, "2026-05": { amount: 4500, status: "geplant" }, "2026-06": { amount: 4500, status: "geplant" } },
-  },
-  {
-    id: "e2", name: "Lena M. (Gehalt)", category: "Team/Gehälter", description: "Creative Director",
-    monthlyExpenses: { "2026-01": { amount: 3800, status: "bezahlt" }, "2026-02": { amount: 3800, status: "bezahlt" }, "2026-03": { amount: 3800, status: "bezahlt" }, "2026-04": { amount: 3800, status: "geplant" }, "2026-05": { amount: 3800, status: "geplant" }, "2026-06": { amount: 3800, status: "geplant" } },
-  },
-  {
-    id: "e3", name: "Tim K. (Gehalt)", category: "Team/Gehälter", description: "Media Buyer",
-    monthlyExpenses: { "2026-01": { amount: 3200, status: "bezahlt" }, "2026-02": { amount: 3200, status: "bezahlt" }, "2026-03": { amount: 3200, status: "bezahlt" }, "2026-04": { amount: 3200, status: "geplant" }, "2026-05": { amount: 3200, status: "geplant" }, "2026-06": { amount: 3200, status: "geplant" } },
-  },
-  {
-    id: "e4", name: "Meta Ads", category: "Ads/Marketing", description: "Facebook & Instagram Ads",
-    monthlyExpenses: { "2026-01": { amount: 2800, status: "bezahlt" }, "2026-02": { amount: 3200, status: "bezahlt" }, "2026-03": { amount: 3500, status: "bezahlt" }, "2026-04": { amount: 3500, status: "geplant" }, "2026-05": { amount: 4000, status: "geplant" }, "2026-06": { amount: 4000, status: "geplant" } },
-  },
-  {
-    id: "e5", name: "Google Ads", category: "Ads/Marketing", description: "Search & Display",
-    monthlyExpenses: { "2026-01": { amount: 1200, status: "bezahlt" }, "2026-02": { amount: 1500, status: "bezahlt" }, "2026-03": { amount: 1800, status: "geplant" }, "2026-04": { amount: 2000, status: "geplant" } },
-  },
-  {
-    id: "e6", name: "Figma", category: "Software & Tools", description: "Design Tool – Team Plan",
-    monthlyExpenses: { "2026-01": { amount: 75, status: "bezahlt" }, "2026-02": { amount: 75, status: "bezahlt" }, "2026-03": { amount: 75, status: "bezahlt" }, "2026-04": { amount: 75, status: "geplant" }, "2026-05": { amount: 75, status: "geplant" }, "2026-06": { amount: 75, status: "geplant" } },
-  },
-  {
-    id: "e7", name: "Slack", category: "Software & Tools", description: "Kommunikation – Pro Plan",
-    monthlyExpenses: { "2026-01": { amount: 62, status: "bezahlt" }, "2026-02": { amount: 62, status: "bezahlt" }, "2026-03": { amount: 62, status: "bezahlt" }, "2026-04": { amount: 62, status: "geplant" }, "2026-05": { amount: 62, status: "geplant" }, "2026-06": { amount: 62, status: "geplant" } },
-  },
-  {
-    id: "e8", name: "Close CRM", category: "Software & Tools", description: "CRM System",
-    monthlyExpenses: { "2026-01": { amount: 149, status: "bezahlt" }, "2026-02": { amount: 149, status: "bezahlt" }, "2026-03": { amount: 149, status: "bezahlt" }, "2026-04": { amount: 149, status: "geplant" }, "2026-05": { amount: 149, status: "geplant" }, "2026-06": { amount: 149, status: "geplant" } },
-  },
-  {
-    id: "e9", name: "Adobe Creative Cloud", category: "Software & Tools", description: "Design Suite",
-    monthlyExpenses: { "2026-01": { amount: 120, status: "bezahlt" }, "2026-02": { amount: 120, status: "bezahlt" }, "2026-03": { amount: 120, status: "bezahlt" }, "2026-04": { amount: 120, status: "geplant" }, "2026-05": { amount: 120, status: "geplant" }, "2026-06": { amount: 120, status: "geplant" } },
-  },
-  {
-    id: "e10", name: "Notion", category: "Software & Tools", description: "Projektmanagement",
-    monthlyExpenses: { "2026-01": { amount: 40, status: "bezahlt" }, "2026-02": { amount: 40, status: "bezahlt" }, "2026-03": { amount: 40, status: "bezahlt" }, "2026-04": { amount: 40, status: "geplant" }, "2026-05": { amount: 40, status: "geplant" }, "2026-06": { amount: 40, status: "geplant" } },
-  },
-  {
-    id: "e11", name: "Büro Kreuzberg", category: "Büro & Miete", description: "Miete + NK",
-    monthlyExpenses: { "2026-01": { amount: 1800, status: "bezahlt" }, "2026-02": { amount: 1800, status: "bezahlt" }, "2026-03": { amount: 1800, status: "bezahlt" }, "2026-04": { amount: 1800, status: "geplant" }, "2026-05": { amount: 1800, status: "geplant" }, "2026-06": { amount: 1800, status: "geplant" } },
-  },
-  {
-    id: "e12", name: "Freelancer – Video", category: "Freelancer", description: "Videoproduktion",
-    monthlyExpenses: { "2026-01": { amount: 1500, status: "bezahlt" }, "2026-02": { amount: 2200, status: "bezahlt" }, "2026-03": { amount: 1800, status: "offen" }, "2026-04": { amount: 2000, status: "geplant" } },
-  },
-  {
-    id: "e13", name: "Freelancer – Copywriting", category: "Freelancer", description: "Texte & Skripte",
-    monthlyExpenses: { "2026-01": { amount: 800, status: "bezahlt" }, "2026-02": { amount: 600, status: "bezahlt" }, "2026-03": { amount: 900, status: "geplant" } },
-  },
-  {
-    id: "e14", name: "Umsatzsteuer-Vorauszahlung", category: "Steuern & Abgaben", description: "Quartalsweise",
-    monthlyExpenses: { "2026-01": { amount: 3200, status: "bezahlt" }, "2026-04": { amount: 3500, status: "geplant" } },
-  },
-  {
-    id: "e15", name: "Steuerberater", category: "Steuern & Abgaben", description: "Monatliche Buchhaltung",
-    monthlyExpenses: { "2026-01": { amount: 450, status: "bezahlt" }, "2026-02": { amount: 450, status: "bezahlt" }, "2026-03": { amount: 450, status: "bezahlt" }, "2026-04": { amount: 450, status: "geplant" }, "2026-05": { amount: 450, status: "geplant" }, "2026-06": { amount: 450, status: "geplant" } },
-  },
-  {
-    id: "e16", name: "Versicherungen", category: "Sonstiges", description: "Betriebshaftpflicht etc.",
-    monthlyExpenses: { "2026-01": { amount: 180, status: "bezahlt" }, "2026-02": { amount: 180, status: "bezahlt" }, "2026-03": { amount: 180, status: "bezahlt" }, "2026-04": { amount: 180, status: "geplant" }, "2026-05": { amount: 180, status: "geplant" }, "2026-06": { amount: 180, status: "geplant" } },
-  },
-  {
-    id: "e17", name: "Telefon & Internet", category: "Sonstiges", description: "Büro-Anschluss",
-    monthlyExpenses: { "2026-01": { amount: 89, status: "bezahlt" }, "2026-02": { amount: 89, status: "bezahlt" }, "2026-03": { amount: 89, status: "bezahlt" }, "2026-04": { amount: 89, status: "geplant" }, "2026-05": { amount: 89, status: "geplant" }, "2026-06": { amount: 89, status: "geplant" } },
-  },
-];
+const initialExpenses: Expense[] = [];
 
 const initialDeals: Deal[] = [];
 

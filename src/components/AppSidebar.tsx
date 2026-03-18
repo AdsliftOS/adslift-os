@@ -33,13 +33,15 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="px-4 py-5">
-        {!collapsed && (
-          <span className="text-lg font-bold tracking-tight text-foreground">
-            ads<span className="text-primary">lift</span>
-          </span>
-        )}
-        {collapsed && (
-          <span className="text-lg font-bold text-primary">al</span>
+        {!collapsed ? (
+          <div className="flex items-center gap-2">
+            <img src="/favicon.png" className="h-7 w-7 rounded-lg" />
+            <span className="text-lg font-bold tracking-tight text-foreground">
+              ads<span className="text-primary">lift</span>
+            </span>
+          </div>
+        ) : (
+          <img src="/favicon.png" className="h-7 w-7 rounded-lg" />
         )}
       </SidebarHeader>
       <SidebarContent>

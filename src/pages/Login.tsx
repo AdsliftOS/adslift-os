@@ -33,13 +33,10 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
       <div className="w-full max-w-sm space-y-8">
         {/* Logo */}
         <div className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <img src="/favicon.png" alt="adslift" className="h-12 w-12 rounded-xl" />
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <img src="/favicon.png" alt="adslift" className="h-16 w-16 rounded-xl" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            ads<span className="text-primary">lift</span>
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Agency Operating System</p>
+          <p className="text-sm text-muted-foreground">Agency Operating System</p>
         </div>
 
         {/* Login Card */}

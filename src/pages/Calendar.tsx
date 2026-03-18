@@ -295,15 +295,17 @@ export default function Calendar() {
           <h1 className="text-2xl font-semibold tracking-tight">Kalender</h1>
           <p className="text-sm text-muted-foreground">Calls, Meetings und Deadlines planen.</p>
         </div>
-        <Button size="sm" onClick={() => openNew()}>
-          <Plus className="mr-2 h-4 w-4" />Neues Event
-        </Button>
-        {googleAccounts.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={syncGoogleCalendar} disabled={syncing} className="gap-1.5">
-            <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Sync..." : "Sync"}
+        <div className="flex items-center gap-2">
+          {googleAccounts.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={syncGoogleCalendar} disabled={syncing} className="gap-1.5">
+              <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Sync..." : "Sync"}
+            </Button>
+          )}
+          <Button size="sm" onClick={() => openNew()}>
+            <Plus className="mr-2 h-4 w-4" />Neues Event
           </Button>
-        )}
+        </div>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
@@ -358,6 +360,32 @@ export default function Calendar() {
                     })}
                   </div>
 
+                  {/* Deadline banners */}
+                  {(() => {
+                    const hasDeadlines = weekDays.some((d) => allEvents.some((e) => e.id.startsWith("proj-deadline-") && e.date === format(d, "yyyy-MM-dd")));
+                    if (!hasDeadlines) return null;
+                    return (
+                      <div className="grid grid-cols-[55px_repeat(7,1fr)] border-b bg-red-500/5">
+                        <div className="p-1 flex items-center justify-end pr-2">
+                          <Flag className="h-3 w-3 text-red-500" />
+                        </div>
+                        {weekDays.map((day) => {
+                          const dateStr = format(day, "yyyy-MM-dd");
+                          const deadlines = allEvents.filter((e) => e.id.startsWith("proj-deadline-") && e.date === dateStr);
+                          return (
+                            <div key={dateStr} className="border-l p-1 space-y-0.5">
+                              {deadlines.map((dl) => (
+                                <div key={dl.id} className="rounded bg-red-500/10 px-1.5 py-0.5 text-[9px] font-medium text-red-600 dark:text-red-400 truncate">
+                                  {dl.title.replace("Deadline: ", "")}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+
                   <div className="grid grid-cols-[55px_repeat(7,1fr)]">
                     <div className="relative">
                       {hours.map((hour) => (
@@ -377,7 +405,7 @@ export default function Calendar() {
                     {weekDays.map((day) => {
                       const dateStr = format(day, "yyyy-MM-dd");
                       const isToday = isSameDay(day, today);
-                      const dayEvents = allEvents.filter((e) => e.date === dateStr);
+                      const dayEvents = allEvents.filter((e) => e.date === dateStr && !e.id.startsWith("proj-deadline-"));
 
                       return (
                         <div key={dateStr} className={`border-l relative ${isToday ? "bg-primary/[0.02]" : ""}`} style={{ height: hours.length * SLOT_HEIGHT }} onDoubleClick={() => openNew(dateStr)}>

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useClients } from "@/store/clients";
@@ -7,11 +7,27 @@ import { FolderKanban, Users, DollarSign, TrendingUp, Clock, ArrowRight, Sparkle
 import { useNavigate } from "react-router-dom";
 import { format, isSameDay, isPast, addDays } from "date-fns";
 import { de } from "date-fns/locale";
+import { supabase } from "@/lib/supabase";
+
+const emailToName: Record<string, string> = {
+  "info@consulting-og.de": "Alex",
+  "office@consulting-og.de": "Daniel",
+};
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [clients] = useClients();
   const [projects] = useProjects();
+  const [userName, setUserName] = useState("Alex");
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const email = session?.user?.email;
+      if (email && emailToName[email]) {
+        setUserName(emailToName[email]);
+      }
+    });
+  }, []);
 
   const activeClients = clients.filter((c) => c.status === "Active").length;
   const pausedClients = clients.length - activeClients;
@@ -43,7 +59,7 @@ export default function Dashboard() {
             <Sparkles className="h-4 w-4 text-primary" />
             <span className="text-xs font-medium text-primary uppercase tracking-wider">adslift</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">{greeting}, Alex</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{greeting}, {userName}</h1>
           <p className="text-sm text-muted-foreground mt-1">Hier ist dein Überblick für heute.</p>
 
           {/* Mini stats inline */}

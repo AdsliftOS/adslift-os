@@ -26,11 +26,8 @@ type TeamMember = {
 };
 
 const initialTeam: TeamMember[] = [
-  { id: "1", name: "Alexander G.", role: "Geschäftsführer", email: "alex@agency.de", status: "active", utilization: 92 },
-  { id: "2", name: "Lena M.", role: "Creative Director", email: "lena@agency.de", status: "active", utilization: 85 },
-  { id: "3", name: "Tim K.", role: "Media Buyer", email: "tim@agency.de", status: "active", utilization: 78 },
-  { id: "4", name: "Sarah L.", role: "Copywriter", email: "sarah@agency.de", status: "active", utilization: 65 },
-  { id: "5", name: "Max P.", role: "Video Editor", email: "max@agency.de", status: "inactive", utilization: 0 },
+  { id: "1", name: "Alex", role: "Geschäftsführer", email: "info@consulting-og.de", status: "active", utilization: 0 },
+  { id: "2", name: "Daniel", role: "Partner", email: "office@consulting-og.de", status: "active", utilization: 0 },
 ];
 
 export default function Settings() {
