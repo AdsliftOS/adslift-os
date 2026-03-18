@@ -246,21 +246,31 @@ export default function Calendar() {
       else { markNoShow(event.id, event.title, event.date); toast.success("Als No-Show markiert"); }
     };
 
+    if (noShow) {
+      return (
+        <div className="h-full flex flex-col relative">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-[11px] font-black text-red-500 uppercase tracking-widest">NO SHOW</span>
+          </div>
+          <span className="text-[9px] text-muted-foreground/50 truncate">{event.title}</span>
+        </div>
+      );
+    }
+
     return (
-      <div className={`h-full flex flex-col ${noShow ? "opacity-40" : ""}`}>
+      <div className="h-full flex flex-col">
         <div className="flex items-center gap-1">
           {isProjectDeadline && <FolderKanban className="h-2.5 w-2.5 shrink-0 opacity-60" />}
-          {isSales && !noShow && <DollarSign className="h-2.5 w-2.5 shrink-0 text-emerald-500" />}
-          {noShow && <span className="text-[9px] font-bold text-red-500 shrink-0">NS</span>}
-          <span className={`text-[11px] font-semibold truncate ${noShow ? "line-through text-muted-foreground" : ""}`}>{event.title}</span>
+          {isSales && <DollarSign className="h-2.5 w-2.5 shrink-0 text-emerald-500" />}
+          <span className="text-[11px] font-semibold truncate">{event.title}</span>
         </div>
-        {!noShow && height > 32 && (
+        {height > 32 && (
           <span className="text-[10px] opacity-60">{event.startTime} – {event.endTime}</span>
         )}
-        {!noShow && height > 48 && event.client && (
+        {height > 48 && event.client && (
           <span className="text-[10px] opacity-50 mt-0.5">{event.client}</span>
         )}
-        {!noShow && height > 60 && platform && event.meetingLink && (
+        {height > 60 && platform && event.meetingLink && (
           <a
             href={event.meetingLink}
             target="_blank"
@@ -272,12 +282,6 @@ export default function Calendar() {
             {platform.label} beitreten
             <ExternalLink className="h-2 w-2" />
           </a>
-        )}
-        {isSales && noShow && (
-          <button onClick={handleNoShowClick}
-            className="mt-auto inline-flex items-center gap-1 text-[9px] font-medium rounded px-1.5 py-0.5 w-fit bg-emerald-500/20 text-emerald-600 hover:bg-emerald-500/30 transition-colors">
-            ↩ Erschienen
-          </button>
         )}
       </div>
     );
@@ -496,13 +500,19 @@ export default function Calendar() {
                     const isSales = isSalesMeeting(event);
                     const noShow = isNoShow(event.id);
                     return (
-                      <div key={event.id} className={`rounded-lg p-2.5 ${ec.bgLight} ${noShow ? "opacity-50" : ""}`}>
+                      <div key={event.id} className={`rounded-lg p-2.5 ${ec.bgLight} ${noShow ? "opacity-50" : ""} cursor-pointer`}
+                        onClick={() => {
+                          if (isSales) {
+                            if (noShow) { unmarkNoShow(event.id); toast.success("No-Show entfernt"); }
+                            else { markNoShow(event.id, event.title, event.date); toast.success("Als No-Show markiert"); }
+                          } else { openEdit(event); }
+                        }}>
                         <div className="flex items-center gap-1.5 mb-0.5">
                           <span className={`h-1.5 w-1.5 rounded-full ${ec.color}`} />
                           {isSales && <DollarSign className="h-2.5 w-2.5 text-emerald-500" />}
                           <span className={`text-xs font-semibold truncate ${noShow ? "line-through" : ""}`}>{event.title}</span>
                         </div>
-                        {noShow && <div className="text-[9px] font-bold text-red-500 ml-3 uppercase">No Show</div>}
+                        {noShow && <div className="text-[10px] font-black text-red-500 ml-3 uppercase tracking-wider">NO SHOW</div>}
                         {!noShow && <div className="text-[10px] opacity-60 ml-3">{event.startTime} – {event.endTime}</div>}
                         {!noShow && platform && event.meetingLink && (
                           <a
@@ -515,18 +525,6 @@ export default function Calendar() {
                             <Video className="h-3 w-3" />
                             {platform.label} beitreten
                           </a>
-                        )}
-                        {isSales && noShow && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              unmarkNoShow(event.id);
-                              toast.success("No-Show entfernt");
-                            }}
-                            className="mt-1.5 ml-3 inline-flex items-center gap-1 text-[9px] font-medium rounded px-2 py-0.5 bg-emerald-500/20 text-emerald-600 hover:bg-emerald-500/30 transition-colors"
-                          >
-                            ↩ Erschienen
-                          </button>
                         )}
                       </div>
                     );
