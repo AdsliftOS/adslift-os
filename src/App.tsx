@@ -15,6 +15,7 @@ import Sales from "./pages/Sales";
 import Calendar from "./pages/Calendar";
 import Tasks from "./pages/Tasks";
 import Onboarding from "./pages/Onboarding";
+import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
           <Routes>
             {/* Onboarding — standalone, no sidebar */}
             <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             {/* Main app with sidebar */}
             <Route path="*" element={
               <AppLayout>
