@@ -1,4 +1,5 @@
-import { LayoutDashboard, FolderKanban, Users, DollarSign, Clock, BarChart3, Calendar, ListTodo, Settings } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Users, DollarSign, Clock, BarChart3, Calendar, ListTodo, Settings, LogOut } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -65,7 +66,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="px-3 py-3">
+      <SidebarFooter className="px-3 py-3 space-y-1">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
@@ -77,6 +78,17 @@ export function AppSidebar() {
                 <Settings className="mr-2 h-4 w-4" />
                 {!collapsed && <span>Einstellungen</span>}
               </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <button
+                onClick={() => supabase.auth.signOut()}
+                className="w-full flex items-center hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                {!collapsed && <span>Abmelden</span>}
+              </button>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
