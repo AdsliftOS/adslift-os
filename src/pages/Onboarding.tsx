@@ -211,7 +211,7 @@ export default function Onboarding() {
     <div className="min-h-screen bg-background">
       <div className="border-b bg-card">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
-          <span className="text-lg font-bold tracking-tight">ads<span className="text-primary">lift</span></span>
+          <span className="text-lg font-bold tracking-tight text-foreground">Adslift</span>
           <Badge variant="secondary" className="text-xs">Kunden-Onboarding</Badge>
         </div>
       </div>

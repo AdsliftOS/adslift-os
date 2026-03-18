@@ -37,7 +37,7 @@ export function AppSidebar() {
           <div className="flex items-center gap-2">
             <img src="/favicon.png" className="h-7 w-7 rounded-lg" />
             <span className="text-lg font-bold tracking-tight text-foreground">
-              ads<span className="text-primary">lift</span>
+              Adslift
             </span>
           </div>
         ) : (
