@@ -239,16 +239,21 @@ export default function Calendar() {
     const isSales = isSalesMeeting(event);
     const noShow = isNoShow(event.id);
 
+    const handleNoShowClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (noShow) { unmarkNoShow(event.id); toast.success("No-Show entfernt"); }
+      else { markNoShow(event.id, event.title, event.date); toast.success("Als No-Show markiert"); }
+    };
+
     return (
-      <div className={`h-full flex flex-col ${noShow ? "opacity-50" : ""}`}>
+      <div className={`h-full flex flex-col ${noShow ? "opacity-40" : ""}`}>
         <div className="flex items-center gap-1">
           {isProjectDeadline && <FolderKanban className="h-2.5 w-2.5 shrink-0 opacity-60" />}
-          {isSales && <DollarSign className="h-2.5 w-2.5 shrink-0 text-emerald-500" />}
-          <span className={`text-[11px] font-semibold truncate ${noShow ? "line-through" : ""}`}>{event.title}</span>
+          {isSales && !noShow && <DollarSign className="h-2.5 w-2.5 shrink-0 text-emerald-500" />}
+          {noShow && <span className="text-[9px] font-bold text-red-500 shrink-0">NS</span>}
+          <span className={`text-[11px] font-semibold truncate ${noShow ? "line-through text-muted-foreground" : ""}`}>{event.title}</span>
         </div>
-        {noShow && (
-          <span className="text-[9px] font-bold text-red-500 uppercase tracking-wider">No Show</span>
-        )}
         {!noShow && height > 32 && (
           <span className="text-[10px] opacity-60">{event.startTime} – {event.endTime}</span>
         )}
@@ -268,25 +273,10 @@ export default function Calendar() {
             <ExternalLink className="h-2 w-2" />
           </a>
         )}
-        {isSales && height > 20 && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (noShow) {
-                unmarkNoShow(event.id);
-                toast.success("No-Show entfernt");
-              } else {
-                markNoShow(event.id, event.title, event.date);
-                toast.success("Als No-Show markiert");
-              }
-            }}
-            className={`mt-auto inline-flex items-center gap-1 text-[9px] font-medium rounded px-1.5 py-0.5 w-fit transition-colors ${
-              noShow
-                ? "bg-emerald-500/20 text-emerald-600 hover:bg-emerald-500/30"
-                : "bg-red-500/20 text-red-500 hover:bg-red-500/30"
-            }`}
-          >
-            {noShow ? "↩ Erschienen" : "✕ No Show"}
+        {isSales && noShow && (
+          <button onClick={handleNoShowClick}
+            className="mt-auto inline-flex items-center gap-1 text-[9px] font-medium rounded px-1.5 py-0.5 w-fit bg-emerald-500/20 text-emerald-600 hover:bg-emerald-500/30 transition-colors">
+            ↩ Erschienen
           </button>
         )}
       </div>
@@ -405,12 +395,23 @@ export default function Calendar() {
                             const height = Math.max(((eh - START_HOUR) * 60 + em - (sh - START_HOUR) * 60 - sm) / 60 * SLOT_HEIGHT, 24);
                             const ec = getEventColors(event);
 
+                            const salesMeeting = isSalesMeeting(event);
+                            const eventNoShow = isNoShow(event.id);
+
                             return (
                               <div
                                 key={event.id}
                                 className={`absolute left-1 right-1 rounded-lg cursor-pointer hover:shadow-md transition-all overflow-hidden group ${ec.bgLight}`}
                                 style={{ top: top + 1, height: height - 2, zIndex: 1 }}
-                                onClick={() => openEdit(event)}
+                                onClick={(e) => {
+                                  if (salesMeeting) {
+                                    e.stopPropagation();
+                                    if (eventNoShow) { unmarkNoShow(event.id); toast.success("No-Show entfernt"); }
+                                    else { markNoShow(event.id, event.title, event.date); toast.success("Als No-Show markiert"); }
+                                  } else {
+                                    openEdit(event);
+                                  }
+                                }}
                               >
                                 <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg ${ec.color}`} />
                                 <div className="pl-2.5 pr-1.5 py-1 h-full">
@@ -515,18 +516,16 @@ export default function Calendar() {
                             {platform.label} beitreten
                           </a>
                         )}
-                        {isSales && (
+                        {isSales && noShow && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (noShow) { unmarkNoShow(event.id); toast.success("No-Show entfernt"); }
-                              else { markNoShow(event.id, event.title, event.date); toast.success("Als No-Show markiert"); }
+                              unmarkNoShow(event.id);
+                              toast.success("No-Show entfernt");
                             }}
-                            className={`mt-1.5 ml-3 inline-flex items-center gap-1 text-[9px] font-medium rounded px-2 py-0.5 transition-colors ${
-                              noShow ? "bg-emerald-500/20 text-emerald-600 hover:bg-emerald-500/30" : "bg-red-500/20 text-red-500 hover:bg-red-500/30"
-                            }`}
+                            className="mt-1.5 ml-3 inline-flex items-center gap-1 text-[9px] font-medium rounded px-2 py-0.5 bg-emerald-500/20 text-emerald-600 hover:bg-emerald-500/30 transition-colors"
                           >
-                            {noShow ? "↩ Erschienen" : "✕ No Show"}
+                            ↩ Erschienen
                           </button>
                         )}
                       </div>
