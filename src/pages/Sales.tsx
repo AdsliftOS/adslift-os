@@ -16,22 +16,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/store/settings";
+import { useSalesWeeks } from "@/store/sales";
+import type { SalesWeek } from "@/store/sales";
 import { useAllCalendarEvents } from "@/store/calendar";
 import { useNoShows } from "@/store/noshows";
 import { isSalesMeeting } from "@/lib/sales-meetings";
 import { getLeadsCreatedBetween } from "@/lib/close-api";
 
-type SalesWeek = {
-  id: string;
-  weekStart: Date;
-  kw: number;
-  year: number;
-  newLeads: number;     // Manuell: Neue Leads
-  reached: number;      // Manuell: Erreicht
-  closed: number;       // Manuell: Deals abgeschlossen
-  dealVolume: number;   // Manuell: Dealvolumen
-  // scheduled + showed werden automatisch aus Google Calendar berechnet
-};
+// SalesWeek type imported from @/store/sales
 
 function fmt(value: number) {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(value);
@@ -49,7 +41,6 @@ function getWeekLabel(date: Date) {
 
 const now = new Date();
 
-const initialWeeks: SalesWeek[] = [];
 
 type FilterMode = "week" | "month" | "year";
 
@@ -63,7 +54,7 @@ const funnelSteps = [
 
 export default function Sales() {
   const [appSettings] = useSettings();
-  const [weeks, setWeeks] = useState<SalesWeek[]>(initialWeeks);
+  const [weeks, setWeeks] = useSalesWeeks();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [form, setForm] = useState({ newLeads: "", reached: "", closed: "", dealVolume: "" });
@@ -100,8 +91,9 @@ export default function Sales() {
   }, [filterRange]);
 
   const filtered = useMemo(() => weeks.filter((e) => {
-    const we = endOfWeek(e.weekStart, { weekStartsOn: 1 });
-    return isWithinInterval(e.weekStart, filterRange) || isWithinInterval(we, filterRange);
+    const ws = new Date(e.weekStart);
+    const we = endOfWeek(ws, { weekStartsOn: 1 });
+    return isWithinInterval(ws, filterRange) || isWithinInterval(we, filterRange);
   }), [weeks, filterRange]);
 
   // Auto-calculate scheduled/showed per week from Google Calendar
@@ -148,7 +140,7 @@ export default function Sales() {
     if (!selectedDate || !form.newLeads) { toast.error("Bitte Woche und Daten ausfüllen"); return; }
     const ws = startOfWeek(selectedDate, { weekStartsOn: 1 });
     setWeeks((prev) => [...prev, {
-      id: Date.now().toString(), weekStart: ws, kw: getISOWeek(ws), year: getYear(ws),
+      id: Date.now().toString(), weekStart: ws.toISOString(), kw: getISOWeek(ws), year: getYear(ws),
       newLeads: parseInt(form.newLeads) || 0, reached: parseInt(form.reached) || 0,
       closed: parseInt(form.closed) || 0, dealVolume: parseFloat(form.dealVolume) || 0,
     }]);
@@ -331,11 +323,11 @@ export default function Sales() {
             </TableHeader>
             <TableBody>
               {[...filtered].sort((a, b) => a.year !== b.year ? a.year - b.year : a.kw - b.kw).map((e, idx) => {
-                const calStats = getWeekCalendarStats(e.weekStart);
+                const calStats = getWeekCalendarStats(new Date(e.weekStart));
                 return (
                   <TableRow key={e.id} className={idx % 2 === 1 ? "bg-muted/[0.03]" : ""}>
                     <TableCell className="font-bold">KW {e.kw}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{getWeekLabel(e.weekStart)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{getWeekLabel(new Date(e.weekStart))}</TableCell>
                     <TableCell className="text-center font-medium">{e.newLeads}</TableCell>
                     <TableCell className="text-center">{e.reached} <span className="text-[9px] text-muted-foreground">({pct(e.reached, e.newLeads)}%)</span></TableCell>
                     <TableCell className="text-center font-medium">{calStats.scheduled} <span className="text-[9px] text-muted-foreground">(auto)</span></TableCell>

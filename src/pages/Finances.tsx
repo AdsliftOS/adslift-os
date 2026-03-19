@@ -12,6 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DollarSign, TrendingUp, Plus, Receipt, Filter, Search, ChevronLeft, ChevronRight, CheckCircle2, Clock, AlertTriangle, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { useClients } from "@/store/clients";
+import { useDeals } from "@/store/deals";
+import { useExpenses } from "@/store/expenses";
+import type { Deal } from "@/store/deals";
+import type { Expense, ExpenseStatus, MonthlyExpense } from "@/store/expenses";
 
 type PaymentStatus = "paid" | "planned" | "overdue" | "open";
 
@@ -95,8 +99,8 @@ const expenseStatusConfig: Record<ExpenseStatus, { label: string; color: string 
 export default function Finances() {
   const [clientsList] = useClients();
   const clientNames = useMemo(() => clientsList.map((c) => c.name), [clientsList]);
-  const [deals, setDeals] = useState<Deal[]>(initialDeals);
-  const [expenses] = useState<Expense[]>(initialExpenses);
+  const [deals, setDeals] = useDeals();
+  const [expenses] = useExpenses();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filterClient, setFilterClient] = useState("");
   const [filterServiceType, setFilterProduct] = useState("all");

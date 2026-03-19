@@ -11,23 +11,8 @@ import { toast } from "sonner";
 import { format, isToday, isPast, addDays } from "date-fns";
 import { de } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
-
-type Category = "admin" | "growth" | "marketing" | "sales" | "customer-success";
-type Priority = "high" | "medium" | "low";
-type Recurrence = "none" | "daily" | "weekly" | "monthly";
-type Column = "todo" | "in-progress" | "done";
-
-type Task = {
-  id: string;
-  title: string;
-  category: Category;
-  priority: Priority;
-  dueDate?: string;
-  column: Column;
-  createdAt: string;
-  recurrence: Recurrence;
-  assignee: string; // "alex" | "daniel"
-};
+import { useTasks, setTasks as setTasksStore } from "@/store/tasks";
+import type { Task, Category, Priority, Recurrence, Column } from "@/store/tasks";
 
 const teamMembers = [
   { key: "alex", label: "Alex", email: "info@consulting-og.de" },
@@ -58,20 +43,10 @@ const columns: { key: Column; title: string; color: string; dotColor: string; em
   { key: "done", title: "Erledigt", color: "text-emerald-500", dotColor: "bg-emerald-500", emptyIcon: CheckCircle2 },
 ];
 
-const STORAGE_KEY = "agencyos-tasks";
 const todayStr = format(new Date(), "yyyy-MM-dd");
 
-const defaultTasks: Task[] = [];
-
-function loadTasks(): Task[] {
-  try { const s = localStorage.getItem(STORAGE_KEY); if (s) return JSON.parse(s); } catch {} return defaultTasks;
-}
-function saveTasks(data: Task[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
-}
-
 export default function Tasks() {
-  const [tasks, setTasks] = useState<Task[]>(loadTasks);
+  const [tasks, setTasks] = useTasks();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
@@ -95,7 +70,7 @@ export default function Tasks() {
   });
 
   const persist = (updater: (prev: Task[]) => Task[]) => {
-    setTasks((prev) => { const next = updater(prev); saveTasks(next); return next; });
+    setTasks((prev) => updater(prev));
   };
 
   const moveTask = (id: string, column: Column) => {

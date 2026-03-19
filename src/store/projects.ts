@@ -88,18 +88,18 @@ export function setProjects(updater: Project[] | ((prev: Project[]) => Project[]
     return old && JSON.stringify(old) !== JSON.stringify(n);
   });
 
+  projects = next;
+  emit();
+
   added.forEach((p) => {
     supabase.from("projects").insert(projectToRow(p)).then(() => loadProjects());
   });
   removed.forEach((p) => {
-    supabase.from("projects").delete().eq("id", p.id);
+    supabase.from("projects").delete().eq("id", p.id).then(() => loadProjects());
   });
   updated.forEach((p) => {
     supabase.from("projects").update(projectToRow(p)).eq("id", p.id);
   });
-
-  projects = next;
-  emit();
 }
 
 export function useProjects(): [Project[], typeof setProjects] {
