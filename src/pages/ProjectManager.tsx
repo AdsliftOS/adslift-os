@@ -206,7 +206,7 @@ const initialProjects: Project[] = [];
 
 const teamMembers = ["Alex", "Lena", "Tim"];
 
-const products = ["Office A - 3.000€", "Office B - 5.000€", "Office C - 10.000€", "Custom"];
+const products = ["Done for you", "Done with you"];
 
 // --- Helpers ---
 
@@ -260,7 +260,7 @@ export default function ProjectManager() {
     client: "",
     clientCustom: "",
     name: "",
-    product: "Office B - 5.000€",
+    product: "Done for you",
     type: "neukunde" as ProjectType,
     creativeFormat: "beides" as CreativeFormat,
     assignees: [] as string[],
@@ -355,7 +355,7 @@ export default function ProjectManager() {
       comments: [],
     };
     setProjectsPersisted((prev) => [newProject, ...prev]);
-    setForm({ client: "", clientCustom: "", name: "", product: "Office B - 5.000€", type: "neukunde", creativeFormat: "beides", assignees: [] });
+    setForm({ client: "", clientCustom: "", name: "", product: "Done for you", type: "neukunde", creativeFormat: "beides", assignees: [] });
     setDialogOpen(false);
     toast.success("Projekt erstellt");
   };
@@ -854,7 +854,7 @@ export default function ProjectManager() {
                     <p className="text-sm font-medium mt-0.5">{selectedProject.client}</p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Produkt</Label>
+                    <Label className="text-xs text-muted-foreground">Offer</Label>
                     <p className="text-sm font-medium mt-0.5">{selectedProject.product}</p>
                   </div>
                   <div>
@@ -1119,7 +1119,7 @@ export default function ProjectManager() {
               )}
 
               <div className="grid gap-2">
-                <Label>Produkt</Label>
+                <Label>Offer</Label>
                 <Select value={form.product} onValueChange={(v) => setForm({ ...form, product: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
