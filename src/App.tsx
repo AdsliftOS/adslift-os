@@ -16,6 +16,7 @@ import TimeTracking from "./pages/TimeTracking";
 import Sales from "./pages/Sales";
 import Calendar from "./pages/Calendar";
 import Tasks from "./pages/Tasks";
+import Files from "./pages/Files";
 import Onboarding from "./pages/Onboarding";
 import AuthCallback from "./pages/AuthCallback";
 import Login from "./pages/Login";
@@ -81,6 +82,7 @@ const App = () => {
                       <Route path="/sales" element={<Sales />} />
                       <Route path="/calendar" element={<Calendar />} />
                       <Route path="/tasks" element={<Tasks />} />
+                  <Route path="/files" element={<Files />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </AppLayout>

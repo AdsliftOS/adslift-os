@@ -92,12 +92,22 @@ export default function Dashboard() {
               {format(today, "EEEE, d. MMMM yyyy", { locale: de })}
             </p>
           </div>
-          <div className="text-right hidden sm:block">
-            <div className="grid grid-cols-3 gap-6">
-              <div><div className="text-2xl font-bold">{clients.length}</div><div className="text-[10px] text-muted-foreground uppercase">Kunden</div></div>
-              <div><div className="text-2xl font-bold">{projects.length}</div><div className="text-[10px] text-muted-foreground uppercase">Projekte</div></div>
-              <div><div className="text-2xl font-bold">{fmt(totalRevenue)}</div><div className="text-[10px] text-muted-foreground uppercase">Umsatz</div></div>
-            </div>
+          <div className="hidden sm:flex items-center gap-3">
+            {[
+              { value: String(clients.length), label: "Kunden", icon: Users, color: "bg-blue-500/15 text-blue-500" },
+              { value: String(projects.length), label: "Projekte", icon: FolderKanban, color: "bg-violet-500/15 text-violet-500" },
+              { value: fmt(totalRevenue), label: "Umsatz", icon: DollarSign, color: "bg-emerald-500/15 text-emerald-500" },
+            ].map((s) => (
+              <div key={s.label} className="flex items-center gap-2.5 rounded-xl bg-card/50 border px-4 py-2.5">
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${s.color}`}>
+                  <s.icon className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-lg font-bold leading-tight">{s.value}</div>
+                  <div className="text-[9px] text-muted-foreground uppercase tracking-wider">{s.label}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
