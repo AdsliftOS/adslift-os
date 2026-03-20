@@ -112,7 +112,9 @@ export async function handleAuthCallback(): Promise<boolean> {
     const data = await res.json();
 
     if (data.error || !data.access_token) {
-      console.error("Auth error:", data.error);
+      console.error("Auth error:", data.error, data.detail);
+      // Store error for display
+      (window as any).__googleAuthError = JSON.stringify(data);
       return false;
     }
 

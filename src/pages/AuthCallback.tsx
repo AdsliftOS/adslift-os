@@ -34,7 +34,9 @@ export default function AuthCallback() {
         setStatus("Verbunden!");
         setTimeout(() => navigate("/calendar", { replace: true }), 1500);
       } else {
+        const apiError = (window as any).__googleAuthError || "Unbekannt";
         setStatus("Token-Austausch fehlgeschlagen.");
+        setDebug((prev) => prev + "\nAPI Response: " + apiError);
       }
     }).catch((err) => {
       setStatus(`Fehler: ${err.message}`);

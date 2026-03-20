@@ -27,7 +27,10 @@ export default async function handler(req: Request) {
 
     const data = await res.json();
     if (data.error) {
-      return new Response(JSON.stringify({ error: data.error_description || data.error }), { status: 400 });
+      return new Response(JSON.stringify({ error: data.error_description || data.error, detail: data }), {
+        status: 200, // Return 200 so frontend can read the error
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
     }
 
     return new Response(JSON.stringify({
