@@ -8,8 +8,11 @@ export default async function handler(req: Request) {
   const code = url.searchParams.get("code");
   const redirectUri = url.searchParams.get("redirect_uri");
 
-  if (!code || !redirectUri || !CLIENT_SECRET) {
+  if (!code || !redirectUri) {
     return new Response(JSON.stringify({ error: "Missing params" }), { status: 400 });
+  }
+  if (!CLIENT_SECRET) {
+    return new Response(JSON.stringify({ error: "No client secret configured", hasEnv: !!process.env.GOOGLE_CLIENT_SECRET }), { status: 400 });
   }
 
   try {
