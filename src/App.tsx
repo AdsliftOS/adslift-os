@@ -18,6 +18,7 @@ import Calendar from "./pages/Calendar";
 import Tasks from "./pages/Tasks";
 import Files from "./pages/Files";
 import Onboarding from "./pages/Onboarding";
+import OnboardingFinanzberater from "./pages/OnboardingFinanzberater";
 import AuthCallback from "./pages/AuthCallback";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -66,6 +67,7 @@ const App = () => {
             <Routes>
               {/* Public routes — no login required */}
               <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/onboarding/finanzberater" element={<OnboardingFinanzberater />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
 
               {/* Everything else requires login */}
