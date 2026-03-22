@@ -54,14 +54,41 @@ for (let h = START_HOUR; h <= END_HOUR; h++) {
 
 const todayStr = format(new Date(), "yyyy-MM-dd");
 
-const initialEntries: TimeEntry[] = [
-  { id: "1", date: todayStr, startHour: 8, startMinute: 0, endHour: 9, endMinute: 0, category: "admin", note: "Emails, Slack, Tagesplanung" },
-  { id: "2", date: todayStr, startHour: 9, startMinute: 0, endHour: 10, endMinute: 0, category: "sales", note: "Discovery Calls mit Leads" },
-  { id: "3", date: todayStr, startHour: 10, startMinute: 0, endHour: 11, endMinute: 30, category: "fulfillment", note: "Ad Creatives für Acme Co" },
-  { id: "4", date: todayStr, startHour: 12, startMinute: 0, endHour: 12, endMinute: 45, category: "pause", note: "Mittagspause" },
-  { id: "5", date: todayStr, startHour: 13, startMinute: 0, endHour: 14, endMinute: 0, category: "growth", note: "Content Strategie Q2" },
-  { id: "6", date: todayStr, startHour: 14, startMinute: 0, endHour: 15, endMinute: 15, category: "creative", note: "Neue Hooks für Nova Kampagne" },
+const initialEntries: TimeEntry[] = [];
+
+// Auto-detect category from note text
+const categoryKeywords: { keywords: string[]; category: Category }[] = [
+  { keywords: ["sales call", "sales", "closing", "discovery", "lead", "angebot", "pitch", "setter", "setting", "deal", "verhandlung", "akquise"], category: "sales" },
+  { keywords: ["fulfillment", "kunde", "kunden", "onboarding", "einarbeiten", "kampagne", "creative", "ad copy", "ads", "meta ads", "reporting", "zielgruppe", "pixel", "ad manager", "creatives erstellen", "briefing"], category: "fulfillment" },
+  { keywords: ["admin", "email", "emails", "slack", "buchhaltung", "rechnung", "steuer", "organisation", "planung", "tagesplanung", "dokument", "vertrag"], category: "admin" },
+  { keywords: ["growth", "strategie", "content", "funnel", "optimierung", "analyse", "skalierung", "prozess", "automation", "system"], category: "growth" },
+  { keywords: ["meeting", "call", "zoom", "teams", "besprechung", "sync", "standup", "abstimmung", "teammeeting"], category: "meeting" },
+  { keywords: ["creative", "design", "hook", "hooks", "angle", "video", "schnitt", "grafik", "thumbnail", "canva", "figma"], category: "creative" },
+  { keywords: ["pause", "mittag", "mittagspause", "break", "essen"], category: "pause" },
 ];
+
+function detectCategory(note: string): Category {
+  const lower = note.toLowerCase();
+  for (const { keywords, category } of categoryKeywords) {
+    for (const kw of keywords) {
+      if (lower.includes(kw)) return category;
+    }
+  }
+  return "admin";
+}
+
+function getCurrentTimeRounded(): { start: string; end: string } {
+  const now = new Date();
+  const h = now.getHours();
+  const m = Math.floor(now.getMinutes() / 15) * 15;
+  const endM = m + 15;
+  const endH = endM >= 60 ? h + 1 : h;
+  const endMFinal = endM >= 60 ? endM - 60 : endM;
+  return {
+    start: `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`,
+    end: `${endH.toString().padStart(2, "0")}:${endMFinal.toString().padStart(2, "0")}`,
+  };
+}
 
 function toSlotIndex(hour: number, minute: number) {
   return (hour - START_HOUR) * 4 + minute / 15;
@@ -89,12 +116,15 @@ export default function TimeTracking() {
   const [entries, setEntries] = useState<TimeEntry[]>(initialEntries);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
-  const [form, setForm] = useState({
-    category: "fulfillment" as Category,
-    note: "",
-    startTime: "08:00",
-    endTime: "09:00",
-    date: todayStr,
+  const [form, setForm] = useState(() => {
+    const { start, end } = getCurrentTimeRounded();
+    return {
+      category: "fulfillment" as Category,
+      note: "",
+      startTime: start,
+      endTime: end,
+      date: todayStr,
+    };
   });
 
   // Drag state
@@ -147,12 +177,23 @@ export default function TimeTracking() {
   };
 
   const openNewDialog = (date: string, hour?: number) => {
-    const startH = hour ?? 8;
+    let startTime: string;
+    let endTime: string;
+    if (hour !== undefined) {
+      startTime = `${hour.toString().padStart(2, "0")}:00`;
+      const endH = hour;
+      const endM = 15;
+      endTime = `${endH.toString().padStart(2, "0")}:${endM.toString().padStart(2, "0")}`;
+    } else {
+      const current = getCurrentTimeRounded();
+      startTime = current.start;
+      endTime = current.end;
+    }
     setForm({
       category: "fulfillment",
       note: "",
-      startTime: `${startH.toString().padStart(2, "0")}:00`,
-      endTime: `${(startH + 1).toString().padStart(2, "0")}:00`,
+      startTime,
+      endTime,
       date,
     });
     setEditingEntry(null);
@@ -861,7 +902,11 @@ export default function TimeTracking() {
                 placeholder="z.B. Ad Creatives für Acme Co erstellt, 3 Varianten..."
                 rows={3}
                 value={form.note}
-                onChange={(e) => setForm({ ...form, note: e.target.value })}
+                onChange={(e) => {
+                  const note = e.target.value;
+                  const detected = detectCategory(note);
+                  setForm({ ...form, note, category: detected });
+                }}
               />
             </div>
           </div>
