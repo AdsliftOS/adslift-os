@@ -656,9 +656,9 @@ export default function TimeTracking() {
                           {/* Colored left stripe */}
                           <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg ${cat.color}`} />
                           <div className={`h-full ${cat.bg} pl-2 pr-1 py-px flex items-start gap-1 select-none overflow-hidden`}>
-                            <span className="text-[11px] font-semibold shrink-0">{cat.label}</span>
-                            <span className="text-[11px] opacity-80 truncate">{entry.note}</span>
-                            <span className="text-[10px] opacity-50 ml-auto shrink-0 tabular-nums">
+                            <span className="text-[9px] font-semibold shrink-0">{cat.label}</span>
+                            <span className="text-[9px] opacity-80 truncate">{entry.note}</span>
+                            <span className="text-[8px] opacity-50 ml-auto shrink-0 tabular-nums">
                               {entry.startHour.toString().padStart(2, "0")}:{entry.startMinute.toString().padStart(2, "0")}
                             </span>
                           </div>
