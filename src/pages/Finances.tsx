@@ -57,14 +57,17 @@ const serviceTypes: { value: ServiceType; label: string; description: string }[]
   { value: "donewithyou", label: "Done With You", description: "Zusammenarbeit — Kunde liefert mit zu." },
 ];
 
-const months = [
-  { key: "2026-01", label: "Jan 2026" },
-  { key: "2026-02", label: "Feb 2026" },
-  { key: "2026-03", label: "Mär 2026" },
-  { key: "2026-04", label: "Apr 2026" },
-  { key: "2026-05", label: "Mai 2026" },
-  { key: "2026-06", label: "Jun 2026" },
-];
+const monthLabels = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+
+function getYearMonths(year: number) {
+  return Array.from({ length: 12 }, (_, i) => ({
+    key: `${year}-${(i + 1).toString().padStart(2, "0")}`,
+    label: monthLabels[i],
+  }));
+}
+
+const currentYear = new Date().getFullYear();
+const months = getYearMonths(currentYear);
 
 const expenseCategories = [
   "Team/Gehälter",
@@ -134,7 +137,7 @@ export default function Finances() {
     return result;
   }, [monthOffset]);
 
-  const visibleMonths = allMonths.slice(0, 6);
+  const visibleMonths = allMonths;
 
   // Expense visible months
   const expenseAllMonths = useMemo(() => {
@@ -710,18 +713,15 @@ export default function Finances() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/30">
-                    <TableHead className="sticky left-0 bg-muted/30 z-10 min-w-[85px] text-[11px] uppercase tracking-wider">Datum</TableHead>
-                    <TableHead className="sticky left-[85px] bg-muted/30 z-10 min-w-[150px] text-[11px] uppercase tracking-wider">Kunde</TableHead>
-                    <TableHead className="min-w-[120px] text-[11px] uppercase tracking-wider">Typ</TableHead>
-                    <TableHead className="text-right min-w-[95px] text-[11px] uppercase tracking-wider">Netto</TableHead>
-                    <TableHead className="text-right min-w-[65px] text-[11px] uppercase tracking-wider">MwSt.</TableHead>
-                    <TableHead className="text-right min-w-[95px] text-[11px] uppercase tracking-wider">Brutto</TableHead>
-                    <TableHead className="min-w-[90px] text-[11px] uppercase tracking-wider">Zahlart</TableHead>
+                    <TableHead className="sticky left-0 bg-muted/30 z-10 min-w-[65px] text-[10px] uppercase tracking-wider">Datum</TableHead>
+                    <TableHead className="sticky left-[65px] bg-muted/30 z-10 min-w-[100px] text-[10px] uppercase tracking-wider">Kunde</TableHead>
+                    <TableHead className="min-w-[55px] text-[10px] uppercase tracking-wider">Typ</TableHead>
+                    <TableHead className="text-right min-w-[70px] text-[10px] uppercase tracking-wider">Netto</TableHead>
                     {visibleMonths.map((m) => {
                       const currentMonth = new Date().toISOString().slice(0, 7);
                       const isCurrent = m.key === currentMonth;
                       return (
-                        <TableHead key={m.key} className={`text-center min-w-[110px] text-[11px] uppercase tracking-wider ${isCurrent ? "bg-primary/5" : ""}`}>
+                        <TableHead key={m.key} className={`text-center min-w-[68px] text-[10px] uppercase tracking-wider ${isCurrent ? "bg-primary/5" : ""}`}>
                           {m.label}
                         </TableHead>
                       );
@@ -733,19 +733,16 @@ export default function Finances() {
                     const brutto = deal.netAmount * (1 + deal.taxRate / 100);
                     return (
                       <TableRow key={deal.id} className={idx % 2 === 0 ? "" : "bg-muted/[0.03]"}>
-                        <TableCell className="sticky left-0 bg-card z-10 text-xs tabular-nums text-muted-foreground">{deal.startDate}</TableCell>
-                        <TableCell className="sticky left-[85px] bg-card z-10 font-medium text-sm">{deal.client}</TableCell>
-                        <TableCell>
-                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                        <TableCell className="sticky left-0 bg-card z-10 text-[10px] tabular-nums text-muted-foreground p-1.5">{deal.startDate}</TableCell>
+                        <TableCell className="sticky left-[65px] bg-card z-10 font-medium text-xs p-1.5 truncate max-w-[100px]">{deal.client}</TableCell>
+                        <TableCell className="p-1.5">
+                          <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium ${
                             deal.serviceType === "done4you" ? "bg-violet-500/10 text-violet-600 dark:text-violet-400" : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
                           }`}>
-                            {deal.serviceType === "done4you" ? "Done 4 You" : "Done With You"}
+                            {deal.serviceType === "done4you" ? "D4Y" : "DWY"}
                           </span>
                         </TableCell>
-                        <TableCell className="text-right text-sm font-semibold tabular-nums">{fmt(deal.netAmount)}</TableCell>
-                        <TableCell className="text-right text-xs text-muted-foreground">{deal.taxRate}%</TableCell>
-                        <TableCell className="text-right text-sm tabular-nums text-muted-foreground">{fmt(brutto)}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{deal.paymentMethod}</TableCell>
+                        <TableCell className="text-right text-xs font-semibold tabular-nums p-1.5">{fmt(deal.netAmount)}</TableCell>
                         {visibleMonths.map((m) => {
                           const payment = deal.monthlyPayments[m.key];
                           const currentMonth = new Date().toISOString().slice(0, 7);
@@ -791,14 +788,11 @@ export default function Finances() {
 
                   {/* Summary Row */}
                   <TableRow className="bg-muted/40 border-t-2">
-                    <TableCell className="sticky left-0 bg-muted/40 z-10 font-bold text-sm" colSpan={2}>
+                    <TableCell className="sticky left-0 bg-muted/40 z-10 font-bold text-xs p-1.5" colSpan={2}>
                       Summe
                     </TableCell>
                     <TableCell />
-                    <TableCell className="text-right font-bold tabular-nums text-sm">{fmt(filteredDeals.reduce((s, d) => s + d.netAmount, 0))}</TableCell>
-                    <TableCell />
-                    <TableCell className="text-right font-bold tabular-nums text-sm">{fmt(filteredDeals.reduce((s, d) => s + d.netAmount * (1 + d.taxRate / 100), 0))}</TableCell>
-                    <TableCell />
+                    <TableCell className="text-right font-bold tabular-nums text-xs p-1.5">{fmt(filteredDeals.reduce((s, d) => s + d.netAmount, 0))}</TableCell>
                     {visibleMonths.map((m) => {
                       const monthTotal = filteredDeals.reduce((s, d) => s + (d.monthlyPayments[m.key]?.amount || 0), 0);
                       const monthPaid = filteredDeals.reduce((s, d) => {
@@ -806,10 +800,10 @@ export default function Finances() {
                         return s + (p?.status === "paid" ? p.amount : 0);
                       }, 0);
                       return (
-                        <TableCell key={m.key} className="text-center">
-                          <div className="text-sm font-bold tabular-nums">{monthTotal > 0 ? fmt(monthTotal) : "–"}</div>
+                        <TableCell key={m.key} className="text-center p-1">
+                          <div className="text-xs font-bold tabular-nums">{monthTotal > 0 ? fmt(monthTotal) : "–"}</div>
                           {monthPaid > 0 && (
-                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium tabular-nums mt-0.5">{fmt(monthPaid)} bezahlt</div>
+                            <div className="text-[9px] text-emerald-600 dark:text-emerald-400 font-medium tabular-nums">{fmt(monthPaid)}</div>
                           )}
                         </TableCell>
                       );
