@@ -58,23 +58,104 @@ const initialEntries: TimeEntry[] = [];
 
 // Auto-detect category from note text
 const categoryKeywords: { keywords: string[]; category: Category }[] = [
-  { keywords: ["sales call", "sales", "closing", "discovery", "lead", "angebot", "pitch", "setter", "setting", "deal", "verhandlung", "akquise"], category: "sales" },
-  { keywords: ["fulfillment", "kunde", "kunden", "onboarding", "einarbeiten", "kampagne", "creative", "ad copy", "ads", "meta ads", "reporting", "zielgruppe", "pixel", "ad manager", "creatives erstellen", "briefing"], category: "fulfillment" },
-  { keywords: ["admin", "email", "emails", "slack", "buchhaltung", "rechnung", "steuer", "organisation", "planung", "tagesplanung", "dokument", "vertrag"], category: "admin" },
-  { keywords: ["growth", "strategie", "content", "funnel", "optimierung", "analyse", "skalierung", "prozess", "automation", "system"], category: "growth" },
-  { keywords: ["meeting", "call", "zoom", "teams", "besprechung", "sync", "standup", "abstimmung", "teammeeting"], category: "meeting" },
-  { keywords: ["creative", "design", "hook", "hooks", "angle", "video", "schnitt", "grafik", "thumbnail", "canva", "figma"], category: "creative" },
-  { keywords: ["pause", "mittag", "mittagspause", "break", "essen"], category: "pause" },
+  // Creative — zuerst, damit "creative erstellen" nicht als fulfillment matcht
+  { keywords: [
+    "creative erstellen", "creatives erstellen", "creatives", "creative", "design", "hook", "hooks", "angle", "angles",
+    "video", "videos", "schnitt", "schneiden", "grafik", "grafiken", "thumbnail", "thumbnails",
+    "canva", "figma", "photoshop", "illustrator", "after effects", "premiere",
+    "mockup", "mockups", "visual", "visuals", "storyboard", "animation",
+    "bildbearbeitung", "reels", "reel", "ugc", "script", "skript",
+    "vorlage", "vorlagen", "template", "templates", "banner", "ad design",
+  ], category: "creative" },
+  // Sales
+  { keywords: [
+    "sales call", "sales", "closing", "closer", "discovery", "discovery call",
+    "lead", "leads", "angebot", "angebote", "pitch", "pitchen",
+    "setter", "setting", "setter call", "deal", "deals",
+    "verhandlung", "verhandeln", "akquise", "kaltakquise", "cold call",
+    "nachfassen", "follow up", "followup", "follow-up",
+    "einwandbehandlung", "qualifizierung", "qualifizieren",
+    "crm", "close crm", "pipeline", "upsell", "cross-sell",
+    "provisionen", "conversion", "abschluss", "abschließen",
+  ], category: "sales" },
+  // Fulfillment
+  { keywords: [
+    "fulfillment", "fulfilment", "kunde einarbeiten", "kunden einarbeiten",
+    "onboarding", "einarbeiten", "einarbeitung",
+    "kampagne", "kampagnen", "ad copy", "adcopy", "copy schreiben", "texte schreiben",
+    "ads", "meta ads", "facebook ads", "instagram ads", "google ads",
+    "reporting", "report", "berichte", "bericht", "auswertung",
+    "zielgruppe", "zielgruppen", "targeting", "retargeting", "lookalike",
+    "pixel", "pixel einrichten", "conversion api",
+    "ad manager", "werbeanzeigenmanager", "business manager",
+    "briefing", "kundenarbeit", "kundenprojekt",
+    "a/b test", "split test", "skalieren", "budget",
+    "landingpage", "landing page", "funnel bauen",
+    "loom", "kundenvideo", "walkthrough",
+  ], category: "fulfillment" },
+  // Admin
+  { keywords: [
+    "admin", "administration", "email", "emails", "e-mail", "e-mails",
+    "slack", "buchhaltung", "buchführung", "rechnung", "rechnungen",
+    "steuer", "steuern", "steuererklärung", "finanzamt",
+    "organisation", "organisieren", "planung", "tagesplanung", "wochenplanung",
+    "dokument", "dokumente", "dokumentation", "vertrag", "verträge",
+    "büro", "office", "aufräumen", "sortieren", "ablage",
+    "datev", "sevdesk", "lexoffice", "banking",
+    "passwort", "passwörter", "lastpass", "1password",
+    "kalender", "termine planen", "termin", "versicherung",
+    "postfach", "inbox", "inbox zero",
+  ], category: "admin" },
+  // Growth
+  { keywords: [
+    "growth", "wachstum", "strategie", "strategisch",
+    "content", "content strategie", "content plan", "contentplan",
+    "funnel", "funnel optimierung", "conversion rate",
+    "optimierung", "optimieren", "analyse", "analysieren", "analytics",
+    "skalierung", "skalieren", "prozess", "prozesse",
+    "automation", "automatisierung", "zapier", "make", "n8n",
+    "system", "systeme", "workflow", "workflows",
+    "kpi", "kpis", "metriken", "dashboard",
+    "marktanalyse", "wettbewerb", "konkurrenz", "benchmark",
+    "brainstorm", "brainstorming", "ideation", "innovation",
+    "test", "testen", "experiment", "hypothese",
+    "roadmap", "quartalsziele", "jahresziele", "okr", "okrs",
+  ], category: "growth" },
+  // Meeting
+  { keywords: [
+    "meeting", "meetings", "call", "calls", "zoom", "zoom call",
+    "google meet", "teams", "microsoft teams",
+    "besprechung", "besprechungen", "sync", "daily sync",
+    "standup", "stand-up", "daily", "weekly",
+    "abstimmung", "abstimmen", "teammeeting", "team meeting",
+    "jour fixe", "retrospektive", "retro",
+    "workshop", "brainstorming session",
+    "kundencall", "kunden call", "interncall", "intern call",
+    "präsentation", "demo", "vorstellung",
+  ], category: "meeting" },
+  // Pause
+  { keywords: [
+    "pause", "mittag", "mittagspause", "mittagessen",
+    "break", "essen", "kaffee", "kaffeepause",
+    "spaziergang", "spazieren", "frische luft",
+    "auszeit", "erholung", "gym", "sport", "training",
+  ], category: "pause" },
 ];
 
 function detectCategory(note: string): Category {
-  const lower = note.toLowerCase();
+  const lower = note.toLowerCase().trim();
+  if (!lower) return "admin";
+
+  // Find all matches, prefer longest keyword match
+  let bestMatch: { category: Category; length: number } | null = null;
   for (const { keywords, category } of categoryKeywords) {
     for (const kw of keywords) {
-      if (lower.includes(kw)) return category;
+      if (lower.includes(kw) && (!bestMatch || kw.length > bestMatch.length)) {
+        bestMatch = { category, length: kw.length };
+      }
     }
   }
-  return "admin";
+  return bestMatch?.category ?? "admin";
 }
 
 function getCurrentTimeRounded(): { start: string; end: string } {
