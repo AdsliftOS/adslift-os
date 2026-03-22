@@ -30,7 +30,7 @@ const eventTypes: { value: CalendarEvent["type"]; label: string; color: string; 
 const eventTypeMap = Object.fromEntries(eventTypes.map((t) => [t.value, t]));
 
 const SLOT_HEIGHT = 40;
-const START_HOUR = 5;
+const START_HOUR = 0;
 const END_HOUR = 24;
 const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => i + START_HOUR);
 
