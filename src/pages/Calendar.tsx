@@ -48,6 +48,70 @@ function hourToSlotIndex(h: number): number {
   return idx;
 }
 
+interface LayoutInfo {
+  column: number;
+  totalColumns: number;
+}
+
+function layoutOverlappingEvents(events: CalendarEvent[]): Map<string, LayoutInfo> {
+  const layout = new Map<string, LayoutInfo>();
+  if (events.length === 0) return layout;
+
+  // Convert events to time ranges in minutes from DAY_START
+  const ranges = events.map((e) => {
+    const [sh, sm] = e.startTime.split(":").map(Number);
+    const [eh, em] = e.endTime.split(":").map(Number);
+    const startMin = hourToSlotIndex(sh) * 60 + sm;
+    const endMin = hourToSlotIndex(eh) * 60 + em + (hourToSlotIndex(eh) < hourToSlotIndex(sh) ? 24 * 60 : 0);
+    return { id: e.id, start: startMin, end: Math.max(endMin, startMin + 15) };
+  }).sort((a, b) => a.start - b.start || a.end - b.end);
+
+  // Group overlapping events into clusters
+  const clusters: typeof ranges[] = [];
+  let current: typeof ranges = [ranges[0]];
+  let clusterEnd = ranges[0].end;
+
+  for (let i = 1; i < ranges.length; i++) {
+    if (ranges[i].start < clusterEnd) {
+      current.push(ranges[i]);
+      clusterEnd = Math.max(clusterEnd, ranges[i].end);
+    } else {
+      clusters.push(current);
+      current = [ranges[i]];
+      clusterEnd = ranges[i].end;
+    }
+  }
+  clusters.push(current);
+
+  // Assign columns within each cluster
+  for (const cluster of clusters) {
+    const columns: number[][] = []; // columns[col] = list of end times
+    for (const ev of cluster) {
+      let placed = false;
+      for (let col = 0; col < columns.length; col++) {
+        const lastEnd = columns[col][columns[col].length - 1];
+        if (ev.start >= lastEnd) {
+          columns[col].push(ev.end);
+          layout.set(ev.id, { column: col, totalColumns: 0 });
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        columns.push([ev.end]);
+        layout.set(ev.id, { column: columns.length - 1, totalColumns: 0 });
+      }
+    }
+    // Set totalColumns for all events in this cluster
+    for (const ev of cluster) {
+      const info = layout.get(ev.id)!;
+      info.totalColumns = columns.length;
+    }
+  }
+
+  return layout;
+}
+
 function getMeetingPlatform(link: string): { label: string; icon: typeof Video } | null {
   if (!link) return null;
   if (link.includes("zoom")) return { label: "Zoom", icon: Video };
@@ -456,7 +520,9 @@ export default function Calendar() {
                             </div>
                           )}
 
-                          {dayEvents.map((event) => {
+                          {(() => {
+                            const eventLayout = layoutOverlappingEvents(dayEvents);
+                            return dayEvents.map((event) => {
                             const [sh, sm] = event.startTime.split(":").map(Number);
                             const [eh, em] = event.endTime.split(":").map(Number);
                             const startIdx = hourToSlotIndex(sh);
@@ -467,6 +533,9 @@ export default function Calendar() {
                               : ((endIdx + 24) * 60 + em - startIdx * 60 - sm);
                             const height = Math.max(duration / 60 * SLOT_HEIGHT, 24);
                             const ec = getEventColors(event);
+                            const li = eventLayout.get(event.id) || { column: 0, totalColumns: 1 };
+                            const colWidth = 100 / li.totalColumns;
+                            const leftPercent = li.column * colWidth;
 
                             const salesMeeting = isSalesMeeting(event);
                             const eventNoShow = isNoShow(event.id);
@@ -474,8 +543,8 @@ export default function Calendar() {
                             return (
                               <div
                                 key={event.id}
-                                className={`absolute left-1 right-1 rounded-lg cursor-pointer hover:shadow-md transition-all overflow-hidden group ${ec.bgLight}`}
-                                style={{ top: top + 1, height: height - 2, zIndex: 1 }}
+                                className={`absolute rounded-lg cursor-pointer hover:shadow-md transition-all overflow-hidden group ${ec.bgLight}`}
+                                style={{ top: top + 1, height: height - 2, zIndex: 1, left: `calc(${leftPercent}% + 2px)`, width: `calc(${colWidth}% - 4px)` }}
                                 onClick={(e) => {
                                   if (salesMeeting) {
                                     e.stopPropagation();
@@ -492,7 +561,8 @@ export default function Calendar() {
                                 </div>
                               </div>
                             );
-                          })}
+                          });
+                          })()}
                         </div>
                       );
                     })}
