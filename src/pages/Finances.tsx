@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DollarSign, TrendingUp, Plus, Receipt, Filter, Search, ChevronLeft, ChevronRight, CheckCircle2, Clock, AlertTriangle, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { DollarSign, TrendingUp, Plus, Receipt, Filter, Search, ChevronLeft, ChevronRight, CheckCircle2, Clock, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useClients } from "@/store/clients";
 import { useDeals } from "@/store/deals";
@@ -711,6 +711,7 @@ export default function Finances() {
                     <TableHead className="sticky left-[65px] bg-muted/30 z-10 min-w-[100px] text-[10px] uppercase tracking-wider">Kunde</TableHead>
                     <TableHead className="min-w-[55px] text-[10px] uppercase tracking-wider">Typ</TableHead>
                     <TableHead className="text-right min-w-[70px] text-[10px] uppercase tracking-wider">Netto</TableHead>
+                    <TableHead className="w-8" />
                     {visibleMonths.map((m) => {
                       const currentMonth = new Date().toISOString().slice(0, 7);
                       const isCurrent = m.key === currentMonth;
@@ -737,6 +738,11 @@ export default function Finances() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right text-xs font-semibold tabular-nums p-1.5">{fmt(deal.netAmount)}</TableCell>
+                        <TableCell className="p-1">
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => setDeals((prev) => prev.filter((d) => d.id !== deal.id))}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </TableCell>
                         {visibleMonths.map((m) => {
                           const payment = deal.monthlyPayments[m.key];
                           const currentMonth = new Date().toISOString().slice(0, 7);
@@ -787,6 +793,7 @@ export default function Finances() {
                     </TableCell>
                     <TableCell />
                     <TableCell className="text-right font-bold tabular-nums text-xs p-1.5">{fmt(filteredDeals.reduce((s, d) => s + d.netAmount, 0))}</TableCell>
+                    <TableCell />
                     {visibleMonths.map((m) => {
                       const monthTotal = filteredDeals.reduce((s, d) => s + (d.monthlyPayments[m.key]?.amount || 0), 0);
                       const monthPaid = filteredDeals.reduce((s, d) => {
