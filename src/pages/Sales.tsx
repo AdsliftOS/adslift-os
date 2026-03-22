@@ -46,7 +46,6 @@ type FilterMode = "week" | "month" | "year";
 
 const funnelSteps = [
   { key: "newLeads", label: "Neue Leads", icon: UserPlus, color: "bg-blue-500" },
-  { key: "reached", label: "Erreicht", icon: PhoneCall, color: "bg-violet-500" },
   { key: "scheduled", label: "Terminiert", icon: PhoneForwarded, color: "bg-amber-500" },
   { key: "showed", label: "Erschienen", icon: Handshake, color: "bg-cyan-500" },
   { key: "closed", label: "Deal", icon: DollarSign, color: "bg-emerald-500" },
@@ -57,7 +56,7 @@ export default function Sales() {
   const [weeks, setWeeks] = useSalesWeeks();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [form, setForm] = useState({ newLeads: "", reached: "", closed: "", dealVolume: "" });
+  const [form, setForm] = useState({ newLeads: "", closed: "", dealVolume: "" });
   const calendarEvents = useAllCalendarEvents();
   const noshowList = useNoShows();
   const [filterMode, setFilterMode] = useState<FilterMode>("month");
@@ -103,9 +102,9 @@ export default function Sales() {
   // Totals: manual data + calendar auto-data
   const t = useMemo(() => {
     const manual = filtered.reduce((a, e) => ({
-      newLeads: a.newLeads + e.newLeads, reached: a.reached + e.reached,
+      newLeads: a.newLeads + e.newLeads,
       closed: a.closed + e.closed, dealVolume: a.dealVolume + e.dealVolume,
-    }), { newLeads: 0, reached: 0, closed: 0, dealVolume: 0 });
+    }), { newLeads: 0, closed: 0, dealVolume: 0 });
 
     const rangeMeetings = allSalesMeetings.filter((e) => {
       const d = new Date(e.date + "T00:00:00");
@@ -141,24 +140,24 @@ export default function Sales() {
     const ws = startOfWeek(selectedDate, { weekStartsOn: 1 });
     setWeeks((prev) => [...prev, {
       id: Date.now().toString(), weekStart: ws.toISOString(), kw: getISOWeek(ws), year: getYear(ws),
-      newLeads: parseInt(form.newLeads) || 0, reached: parseInt(form.reached) || 0,
+      newLeads: parseInt(form.newLeads) || 0,
       closed: parseInt(form.closed) || 0, dealVolume: parseFloat(form.dealVolume) || 0,
     }]);
-    setForm({ newLeads: "", reached: "", closed: "", dealVolume: "" });
+    setForm({ newLeads: "", closed: "", dealVolume: "" });
     setSelectedDate(undefined);
     setDialogOpen(false);
     toast.success(`KW ${getISOWeek(ws)} eingetragen`);
   };
 
   // Funnel values for display
-  const funnelValues = useMemo(() => [t.newLeads, t.reached, t.scheduled, t.showed, t.closed], [t]);
+  const funnelValues = useMemo(() => [t.newLeads, t.scheduled, t.showed, t.closed], [t]);
 
   return (
     <div className="space-y-5">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Sales</h1>
-          <p className="text-sm text-muted-foreground">Neue Leads, Erreicht, Terminiert, Show-up & Deals tracken.</p>
+          <p className="text-sm text-muted-foreground">Neue Leads, Terminiert, Show-up & Deals tracken.</p>
         </div>
         <Button size="sm" onClick={() => setDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />Woche eintragen
@@ -236,28 +235,15 @@ export default function Sales() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Erreicht</CardTitle>
-            <PhoneForwarded className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{t.reached}</div>
-            <div className="mt-1.5 h-1.5 w-full rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct(t.reached, t.newLeads)}%` }} />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">{pct(t.reached, t.newLeads)}% Erreicht-Rate</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Terminiert</CardTitle>
             <Handshake className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{t.scheduled}</div>
             <div className="mt-1.5 h-1.5 w-full rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct(t.scheduled, t.reached)}%` }} />
+              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct(t.scheduled, t.newLeads)}%` }} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">{pct(t.scheduled, t.reached)}% Termin-Rate</p>
+            <p className="text-xs text-muted-foreground mt-1">{pct(t.scheduled, t.newLeads)}% Termin-Rate</p>
           </CardContent>
         </Card>
         <Card>
@@ -311,7 +297,6 @@ export default function Sales() {
                 <TableHead className="text-[11px] uppercase tracking-wider">KW</TableHead>
                 <TableHead className="text-[11px] uppercase tracking-wider">Zeitraum</TableHead>
                 <TableHead className="text-center text-[11px] uppercase tracking-wider">Leads</TableHead>
-                <TableHead className="text-center text-[11px] uppercase tracking-wider">Erreicht</TableHead>
                 <TableHead className="text-center text-[11px] uppercase tracking-wider">Terminiert</TableHead>
                 <TableHead className="text-center text-[11px] uppercase tracking-wider">Erschienen</TableHead>
                 <TableHead className="text-center text-[11px] uppercase tracking-wider">Show-up</TableHead>
@@ -329,7 +314,6 @@ export default function Sales() {
                     <TableCell className="font-bold">KW {e.kw}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{getWeekLabel(new Date(e.weekStart))}</TableCell>
                     <TableCell className="text-center font-medium">{e.newLeads}</TableCell>
-                    <TableCell className="text-center">{e.reached} <span className="text-[9px] text-muted-foreground">({pct(e.reached, e.newLeads)}%)</span></TableCell>
                     <TableCell className="text-center font-medium">{calStats.scheduled} <span className="text-[9px] text-muted-foreground">(auto)</span></TableCell>
                     <TableCell className="text-center">{calStats.showed}</TableCell>
                     <TableCell className="text-center">
@@ -360,7 +344,6 @@ export default function Sales() {
                 <TableRow className="bg-muted/40 border-t-2 font-semibold">
                   <TableCell colSpan={2}>Gesamt</TableCell>
                   <TableCell className="text-center">{t.newLeads}</TableCell>
-                  <TableCell className="text-center">{t.reached}</TableCell>
                   <TableCell className="text-center">{t.scheduled}</TableCell>
                   <TableCell className="text-center">{t.showed}</TableCell>
                   <TableCell className="text-center"><Badge className="bg-primary">{pct(t.showed, t.scheduled)}%</Badge></TableCell>
@@ -404,8 +387,6 @@ export default function Sales() {
                   <Input type="number" min="0" placeholder="30" value={form.newLeads} onChange={(e) => setForm({ ...form, newLeads: e.target.value })} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Erreicht</Label>
-                  <Input type="number" min="0" placeholder="20" value={form.reached} onChange={(e) => setForm({ ...form, reached: e.target.value })} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">

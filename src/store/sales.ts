@@ -7,7 +7,6 @@ export type SalesWeek = {
   kw: number;
   year: number;
   newLeads: number;
-  reached: number;
   closed: number;
   dealVolume: number;
 };
@@ -24,7 +23,7 @@ async function load() {
     if (!error && data) {
       weeks = data.map((r: any) => ({
         id: r.id, weekStart: r.week_start, kw: r.kw, year: r.year,
-        newLeads: r.new_leads, reached: r.reached, closed: r.closed,
+        newLeads: r.new_leads, closed: r.closed,
         dealVolume: Number(r.deal_volume),
       }));
       emit();
@@ -45,7 +44,7 @@ export function setSalesWeeks(updater: SalesWeek[] | ((prev: SalesWeek[]) => Sal
   added.forEach((w) => {
     supabase.from("sales_weeks").insert({
       week_start: w.weekStart, kw: w.kw, year: w.year,
-      new_leads: w.newLeads, reached: w.reached, closed: w.closed, deal_volume: w.dealVolume,
+      new_leads: w.newLeads, closed: w.closed, deal_volume: w.dealVolume,
     }).then(() => load());
   });
   removed.forEach((w) => { supabase.from("sales_weeks").delete().eq("id", w.id).then(() => load()); });
