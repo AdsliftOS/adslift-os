@@ -56,7 +56,7 @@ export default function Sales() {
   const [weeks, setWeeks] = useSalesWeeks();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [form, setForm] = useState({ newLeads: "", closed: "", dealVolume: "" });
+  const [form, setForm] = useState({ closed: "", dealVolume: "" });
   const calendarEvents = useAllCalendarEvents();
   const noshowList = useNoShows();
   const [filterMode, setFilterMode] = useState<FilterMode>("month");
@@ -136,14 +136,14 @@ export default function Sales() {
   const goalPct = goalConfig.goal > 0 ? Math.min(Math.round((t.dealVolume / goalConfig.goal) * 100), 100) : 0;
 
   const handleAdd = () => {
-    if (!selectedDate || !form.newLeads) { toast.error("Bitte Woche und Daten ausfüllen"); return; }
+    if (!selectedDate) { toast.error("Bitte Woche auswählen"); return; }
     const ws = startOfWeek(selectedDate, { weekStartsOn: 1 });
     setWeeks((prev) => [...prev, {
       id: Date.now().toString(), weekStart: ws.toISOString(), kw: getISOWeek(ws), year: getYear(ws),
-      newLeads: parseInt(form.newLeads) || 0,
+      newLeads: 0,
       closed: parseInt(form.closed) || 0, dealVolume: parseFloat(form.dealVolume) || 0,
     }]);
-    setForm({ newLeads: "", closed: "", dealVolume: "" });
+    setForm({ closed: "", dealVolume: "" });
     setSelectedDate(undefined);
     setDialogOpen(false);
     toast.success(`KW ${getISOWeek(ws)} eingetragen`);
@@ -383,8 +383,6 @@ export default function Sales() {
               <p className="text-[10px] text-muted-foreground -mt-1">Terminiert & Erschienen werden automatisch aus dem Google Calendar berechnet.</p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Neue Leads</Label>
-                  <Input type="number" min="0" placeholder="30" value={form.newLeads} onChange={(e) => setForm({ ...form, newLeads: e.target.value })} />
                 </div>
                 <div className="space-y-1">
                 </div>
