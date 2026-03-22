@@ -152,20 +152,24 @@ export default function Sales() {
   // Funnel values for display
   const funnelValues = useMemo(() => [t.newLeads, t.scheduled, t.showed, t.closed], [t]);
 
+  // Current week for highlighting
+  const currentKW = getISOWeek(now);
+  const currentYear = getYear(now);
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Sales</h1>
           <p className="text-sm text-muted-foreground">Neue Leads, Terminiert, Show-up & Deals tracken.</p>
         </div>
-        <Button size="sm" onClick={() => setDialogOpen(true)}>
+        <Button size="sm" onClick={() => setDialogOpen(true)} className="shadow-md hover:shadow-lg transition-shadow">
           <Plus className="mr-2 h-4 w-4" />Woche eintragen
         </Button>
       </div>
 
       {/* Filter */}
-      <div className="flex items-center justify-between rounded-lg border bg-card p-2">
+      <div className="flex items-center justify-between rounded-xl border bg-card/80 backdrop-blur-sm p-2 shadow-sm">
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFilterOffset(filterOffset - 1)}><ChevronLeft className="h-4 w-4" /></Button>
         <div className="flex items-center gap-3">
           <ToggleGroup type="single" value={filterMode} onValueChange={(v) => { if (v) { setFilterMode(v as FilterMode); setFilterOffset(0); } }} size="sm">
@@ -180,156 +184,266 @@ export default function Sales() {
 
       {/* Goal Ring */}
       <Card className={cn(
-        "overflow-hidden border-0 shadow-lg",
-        goalPct >= 100 ? "bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent ring-1 ring-emerald-500/20" : "bg-gradient-to-br from-primary/10 via-primary/5 to-transparent ring-1 ring-primary/10"
+        "overflow-hidden border-0 shadow-lg transition-all duration-300 hover:shadow-xl",
+        goalPct >= 100
+          ? "bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent ring-1 ring-emerald-500/30"
+          : "bg-gradient-to-br from-primary/15 via-primary/5 to-transparent ring-1 ring-primary/15"
       )}>
-        <CardContent className="p-6">
-          <div className="flex items-center gap-6">
-            <div className="relative h-28 w-28 shrink-0">
-              <svg className="h-28 w-28 -rotate-90 drop-shadow-sm" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="42" fill="none" strokeWidth="6" className="stroke-muted/40" />
+        <CardContent className="p-8">
+          <div className="flex items-center gap-8">
+            <div className="relative h-32 w-32 shrink-0">
+              <svg className="h-32 w-32 -rotate-90 drop-shadow-md" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="42" fill="none" strokeWidth="5" className="stroke-muted/30" />
                 <circle cx="50" cy="50" r="42" fill="none" strokeWidth="6" strokeLinecap="round"
                   className={goalPct >= 100 ? "stroke-emerald-500" : "stroke-primary"}
                   strokeDasharray={`${2 * Math.PI * 42}`}
                   strokeDashoffset={`${2 * Math.PI * 42 * (1 - goalPct / 100)}`}
-                  style={{ transition: "stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)" }}
+                  style={{ transition: "stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)", filter: goalPct >= 100 ? "drop-shadow(0 0 6px rgba(16,185,129,0.5))" : "drop-shadow(0 0 6px rgba(var(--primary),0.3))" }}
                 />
               </svg>
               <span className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold tracking-tight">{goalPct}%</span>
+                <span className="text-3xl font-black tracking-tight">{goalPct}%</span>
               </span>
             </div>
-            <div className="space-y-1.5 flex-1">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{goalConfig.label} · {filterLabel}</p>
-              <p className="text-3xl font-bold tracking-tight">{fmt(t.dealVolume)}</p>
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 flex-1 rounded-full bg-muted/50">
-                  <div className={cn("h-full rounded-full transition-all duration-500", goalPct >= 100 ? "bg-emerald-500" : "bg-primary")} style={{ width: `${goalPct}%` }} />
+            <div className="space-y-2 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{goalConfig.label} · {filterLabel}</p>
+              <p className="text-4xl font-black tracking-tight">{fmt(t.dealVolume)}</p>
+              <div className="flex items-center gap-3">
+                <div className="h-2 flex-1 rounded-full bg-muted/40 overflow-hidden">
+                  <div className={cn("h-full rounded-full transition-all duration-700 ease-out", goalPct >= 100 ? "bg-gradient-to-r from-emerald-500 to-emerald-400" : "bg-gradient-to-r from-primary to-primary/70")} style={{ width: `${goalPct}%` }} />
                 </div>
-                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{fmt(goalConfig.goal)}</span>
+                <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">{fmt(goalConfig.goal)}</span>
               </div>
               {goalPct >= 100
-                ? <p className="text-sm font-semibold text-emerald-600">Ziel erreicht!</p>
-                : <p className="text-sm text-muted-foreground">Noch <span className="font-medium text-foreground">{fmt(goalConfig.goal - t.dealVolume)}</span> bis zum Ziel</p>
+                ? <p className="text-sm font-bold text-emerald-600 flex items-center gap-1.5">{"🔥"} Ziel erreicht! {"✨"}</p>
+                : <p className="text-sm text-muted-foreground">Noch <span className="font-semibold text-foreground">{fmt(goalConfig.goal - t.dealVolume)}</span> bis zum Ziel</p>
               }
             </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Funnel Visualization */}
+      <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card via-card to-muted/20">
+        <CardContent className="p-6">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-5">Sales Funnel</p>
+          <div className="flex items-center justify-between gap-2">
+            {funnelSteps.map((step, i) => {
+              const value = funnelValues[i];
+              const maxVal = Math.max(...funnelValues, 1);
+              const barPct = Math.max((value / maxVal) * 100, 12);
+              const conversionRate = i > 0 && funnelValues[i - 1] > 0
+                ? pct(value, funnelValues[i - 1])
+                : null;
 
+              const gradients = [
+                "from-blue-500/20 to-blue-600/5 ring-blue-500/20",
+                "from-amber-500/20 to-amber-600/5 ring-amber-500/20",
+                "from-cyan-500/20 to-cyan-600/5 ring-cyan-500/20",
+                "from-emerald-500/20 to-emerald-600/5 ring-emerald-500/20",
+              ];
+              const barColors = [
+                "from-blue-500 to-blue-400",
+                "from-amber-500 to-amber-400",
+                "from-cyan-500 to-cyan-400",
+                "from-emerald-500 to-emerald-400",
+              ];
+              const iconBg = [
+                "bg-blue-500/15 text-blue-500",
+                "bg-amber-500/15 text-amber-500",
+                "bg-cyan-500/15 text-cyan-500",
+                "bg-emerald-500/15 text-emerald-500",
+              ];
+
+              const StepIcon = step.icon;
+
+              return (
+                <div key={step.key} className="flex items-center flex-1 min-w-0">
+                  <div className={cn("flex-1 rounded-xl p-4 ring-1 bg-gradient-to-b transition-all duration-200 hover:scale-[1.02]", gradients[i])}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", iconBg[i])}>
+                        <StepIcon className="h-4 w-4" />
+                      </div>
+                      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate">{step.label}</span>
+                    </div>
+                    <p className="text-3xl font-black tracking-tight mb-2">{value}</p>
+                    <div className="h-2 w-full rounded-full bg-muted/30 overflow-hidden">
+                      <div
+                        className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-700", barColors[i])}
+                        style={{ width: `${barPct}%` }}
+                      />
+                    </div>
+                    {conversionRate !== null && (
+                      <p className="text-[10px] font-semibold text-muted-foreground mt-1.5">{conversionRate}% Conversion</p>
+                    )}
+                  </div>
+                  {i < funnelSteps.length - 1 && (
+                    <div className="flex flex-col items-center mx-1 shrink-0">
+                      <ArrowRight className="h-4 w-4 text-muted-foreground/50" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card>
+        {/* Neue Leads */}
+        <Card className="overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent ring-1 ring-blue-500/15">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Neue Leads</CardTitle>
-            <UserPlus className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Neue Leads</CardTitle>
+            <div className="h-9 w-9 rounded-xl bg-blue-500/15 flex items-center justify-center shadow-sm">
+              <UserPlus className="h-4.5 w-4.5 text-blue-500" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{closeLoading ? "..." : closeLeads}</div>
-            <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />aus Close CRM
+            <div className="text-3xl font-black tracking-tight text-blue-600 dark:text-blue-400">{closeLoading ? "..." : closeLeads}</div>
+            <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />aus Close CRM
             </p>
           </CardContent>
         </Card>
-        <Card>
+
+        {/* Terminiert */}
+        <Card className="overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent ring-1 ring-amber-500/15">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Terminiert</CardTitle>
-            <Handshake className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Terminiert</CardTitle>
+            <div className="h-9 w-9 rounded-xl bg-amber-500/15 flex items-center justify-center shadow-sm">
+              <Handshake className="h-4.5 w-4.5 text-amber-500" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{t.scheduled}</div>
-            <div className="mt-1.5 h-1.5 w-full rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct(t.scheduled, t.newLeads)}%` }} />
+            <div className="text-3xl font-black tracking-tight text-amber-600 dark:text-amber-400">{t.scheduled}</div>
+            <div className="mt-2 h-1.5 w-full rounded-full bg-amber-500/10 overflow-hidden">
+              <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-500" style={{ width: `${pct(t.scheduled, t.newLeads)}%` }} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">{pct(t.scheduled, t.newLeads)}% Termin-Rate</p>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium">{pct(t.scheduled, t.newLeads)}% Termin-Rate</p>
           </CardContent>
         </Card>
-        <Card>
+
+        {/* Show-up Rate */}
+        <Card className="overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 bg-gradient-to-br from-cyan-500/10 via-cyan-500/5 to-transparent ring-1 ring-cyan-500/15">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Show-up Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Show-up Rate</CardTitle>
+            <div className="h-9 w-9 rounded-xl bg-cyan-500/15 flex items-center justify-center shadow-sm">
+              <TrendingUp className="h-4.5 w-4.5 text-cyan-500" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{pct(t.showed, t.scheduled)}%</div>
-            <div className="mt-1.5 h-1.5 w-full rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct(t.showed, t.scheduled)}%` }} />
+            <div className="text-3xl font-black tracking-tight text-cyan-600 dark:text-cyan-400">{pct(t.showed, t.scheduled)}%</div>
+            <div className="mt-2 h-1.5 w-full rounded-full bg-cyan-500/10 overflow-hidden">
+              <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-400 transition-all duration-500" style={{ width: `${pct(t.showed, t.scheduled)}%` }} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">{t.showed} von {t.scheduled} erschienen</p>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium">{t.showed} von {t.scheduled} erschienen</p>
           </CardContent>
         </Card>
-        <Card>
+
+        {/* Close Rate */}
+        <Card className="overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-transparent ring-1 ring-purple-500/15">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Close Rate</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Close Rate</CardTitle>
+            <div className="h-9 w-9 rounded-xl bg-purple-500/15 flex items-center justify-center shadow-sm">
+              <Target className="h-4.5 w-4.5 text-purple-500" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{pct(t.closed, t.showed)}%</div>
-            <div className="mt-1.5 h-1.5 w-full rounded-full bg-muted">
-              <div className="h-full rounded-full bg-success transition-all" style={{ width: `${pct(t.closed, t.showed)}%` }} />
+            <div className="text-3xl font-black tracking-tight text-purple-600 dark:text-purple-400">{pct(t.closed, t.showed)}%</div>
+            <div className="mt-2 h-1.5 w-full rounded-full bg-purple-500/10 overflow-hidden">
+              <div className="h-full rounded-full bg-gradient-to-r from-purple-500 to-purple-400 transition-all duration-500" style={{ width: `${pct(t.closed, t.showed)}%` }} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">{t.closed} von {t.showed} abgeschlossen</p>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium">{t.closed} von {t.showed} abgeschlossen</p>
           </CardContent>
         </Card>
-        <Card>
+
+        {/* Deals */}
+        <Card className="overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent ring-1 ring-emerald-500/15">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Deals</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Deals</CardTitle>
+            <div className="h-9 w-9 rounded-xl bg-emerald-500/15 flex items-center justify-center shadow-sm">
+              <DollarSign className="h-4.5 w-4.5 text-emerald-500" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{t.closed}</div>
-            <p className="text-xs text-muted-foreground mt-1">{fmt(t.dealVolume)} Volumen</p>
-            <p className="text-xs text-muted-foreground">Ø {t.closed > 0 ? fmt(t.dealVolume / t.closed) : "–"} / Deal</p>
+            <div className="text-3xl font-black tracking-tight text-emerald-600 dark:text-emerald-400">{t.closed}</div>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium">{fmt(t.dealVolume)} Volumen</p>
+            <p className="text-[10px] text-muted-foreground font-medium">{"\u00D8"} {t.closed > 0 ? fmt(t.dealVolume / t.closed) : "\u2013"} / Deal</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Weekly Table */}
-      <Card className="overflow-hidden">
-        <CardHeader className="pb-0">
-          <CardTitle className="text-base">Wochenübersicht</CardTitle>
+      <Card className="overflow-hidden border-0 shadow-lg">
+        <CardHeader className="pb-0 px-6 pt-6">
+          <CardTitle className="text-base font-semibold">Wochenübersicht</CardTitle>
         </CardHeader>
-        <CardContent className="p-0 mt-3">
+        <CardContent className="p-0 mt-4">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/30">
-                <TableHead className="text-[11px] uppercase tracking-wider">KW</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider">Zeitraum</TableHead>
-                <TableHead className="text-center text-[11px] uppercase tracking-wider">Leads</TableHead>
-                <TableHead className="text-center text-[11px] uppercase tracking-wider">Terminiert</TableHead>
-                <TableHead className="text-center text-[11px] uppercase tracking-wider">Erschienen</TableHead>
-                <TableHead className="text-center text-[11px] uppercase tracking-wider">Show-up</TableHead>
-                <TableHead className="text-center text-[11px] uppercase tracking-wider">Deals</TableHead>
-                <TableHead className="text-center text-[11px] uppercase tracking-wider">Close</TableHead>
-                <TableHead className="text-right text-[11px] uppercase tracking-wider">Volumen</TableHead>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold pl-6">KW</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Zeitraum</TableHead>
+                <TableHead className="text-center text-[11px] uppercase tracking-wider font-semibold">Leads</TableHead>
+                <TableHead className="text-center text-[11px] uppercase tracking-wider font-semibold">Terminiert</TableHead>
+                <TableHead className="text-center text-[11px] uppercase tracking-wider font-semibold">Erschienen</TableHead>
+                <TableHead className="text-center text-[11px] uppercase tracking-wider font-semibold">Show-up</TableHead>
+                <TableHead className="text-center text-[11px] uppercase tracking-wider font-semibold">Deals</TableHead>
+                <TableHead className="text-center text-[11px] uppercase tracking-wider font-semibold">Close</TableHead>
+                <TableHead className="text-right text-[11px] uppercase tracking-wider font-semibold pr-4">Volumen</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {[...filtered].sort((a, b) => a.year !== b.year ? a.year - b.year : a.kw - b.kw).map((e, idx) => {
                 const calStats = getWeekCalendarStats(new Date(e.weekStart));
+                const isCurrentWeek = e.kw === currentKW && e.year === currentYear;
                 return (
-                  <TableRow key={e.id} className={idx % 2 === 1 ? "bg-muted/[0.03]" : ""}>
-                    <TableCell className="font-bold">KW {e.kw}</TableCell>
+                  <TableRow
+                    key={e.id}
+                    className={cn(
+                      "transition-colors duration-150 hover:bg-muted/20",
+                      idx % 2 === 1 ? "bg-muted/[0.06]" : "",
+                      isCurrentWeek && "bg-primary/[0.06] hover:bg-primary/[0.1] ring-1 ring-inset ring-primary/10"
+                    )}
+                  >
+                    <TableCell className="font-bold pl-6">
+                      <span className={cn("inline-flex items-center gap-1.5", isCurrentWeek && "text-primary")}>
+                        KW {e.kw}
+                        {isCurrentWeek && <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />}
+                      </span>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{getWeekLabel(new Date(e.weekStart))}</TableCell>
                     <TableCell className="text-center font-medium">{e.newLeads}</TableCell>
                     <TableCell className="text-center font-medium">{calStats.scheduled} <span className="text-[9px] text-muted-foreground">(auto)</span></TableCell>
                     <TableCell className="text-center">{calStats.showed}</TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={calStats.scheduled > 0 && pct(calStats.showed, calStats.scheduled) >= appSettings.salesGoalShowUpRate ? "default" : calStats.scheduled === 0 ? "secondary" : "destructive"} className={calStats.scheduled > 0 && pct(calStats.showed, calStats.scheduled) >= appSettings.salesGoalShowUpRate ? "bg-emerald-500" : ""}>
-                        {calStats.scheduled > 0 ? `${pct(calStats.showed, calStats.scheduled)}%` : "–"}
+                      <Badge
+                        variant={calStats.scheduled > 0 && pct(calStats.showed, calStats.scheduled) >= appSettings.salesGoalShowUpRate ? "default" : calStats.scheduled === 0 ? "secondary" : "destructive"}
+                        className={cn(
+                          "text-[10px] font-semibold px-2 py-0.5 shadow-sm",
+                          calStats.scheduled > 0 && pct(calStats.showed, calStats.scheduled) >= appSettings.salesGoalShowUpRate ? "bg-emerald-500 shadow-emerald-500/20" : ""
+                        )}
+                      >
+                        {calStats.scheduled > 0 ? `${pct(calStats.showed, calStats.scheduled)}%` : "\u2013"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center font-bold text-emerald-600 dark:text-emerald-400">{e.closed}</TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={calStats.showed > 0 && pct(e.closed, calStats.showed) >= appSettings.salesGoalCloseRate ? "default" : calStats.showed === 0 ? "secondary" : "destructive"} className={calStats.showed > 0 && pct(e.closed, calStats.showed) >= appSettings.salesGoalCloseRate ? "bg-emerald-500" : ""}>
-                        {calStats.showed > 0 ? `${pct(e.closed, calStats.showed)}%` : "–"}
+                      <Badge
+                        variant={calStats.showed > 0 && pct(e.closed, calStats.showed) >= appSettings.salesGoalCloseRate ? "default" : calStats.showed === 0 ? "secondary" : "destructive"}
+                        className={cn(
+                          "text-[10px] font-semibold px-2 py-0.5 shadow-sm",
+                          calStats.showed > 0 && pct(e.closed, calStats.showed) >= appSettings.salesGoalCloseRate ? "bg-emerald-500 shadow-emerald-500/20" : ""
+                        )}
+                      >
+                        {calStats.showed > 0 ? `${pct(e.closed, calStats.showed)}%` : "\u2013"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">{fmt(e.dealVolume)}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums pr-4">{fmt(e.dealVolume)}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => setWeeks((prev) => prev.filter((x) => x.id !== e.id))}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors" onClick={() => setWeeks((prev) => prev.filter((x) => x.id !== e.id))}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </TableCell>
@@ -337,19 +451,19 @@ export default function Sales() {
                 );
               })}
               {filtered.length === 0 && (
-                <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Keine Einträge für diesen Zeitraum.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">Keine Einträge für diesen Zeitraum.</TableCell></TableRow>
               )}
               {/* Summary */}
               {filtered.length > 0 && (
-                <TableRow className="bg-muted/40 border-t-2 font-semibold">
-                  <TableCell colSpan={2}>Gesamt</TableCell>
+                <TableRow className="bg-muted/50 border-t-2 font-semibold hover:bg-muted/50">
+                  <TableCell colSpan={2} className="pl-6">Gesamt</TableCell>
                   <TableCell className="text-center">{t.newLeads}</TableCell>
                   <TableCell className="text-center">{t.scheduled}</TableCell>
                   <TableCell className="text-center">{t.showed}</TableCell>
-                  <TableCell className="text-center"><Badge className="bg-primary">{pct(t.showed, t.scheduled)}%</Badge></TableCell>
+                  <TableCell className="text-center"><Badge className="bg-primary shadow-sm shadow-primary/20 text-[10px] font-semibold px-2 py-0.5">{pct(t.showed, t.scheduled)}%</Badge></TableCell>
                   <TableCell className="text-center text-emerald-600 dark:text-emerald-400">{t.closed}</TableCell>
-                  <TableCell className="text-center"><Badge className="bg-primary">{pct(t.closed, t.showed)}%</Badge></TableCell>
-                  <TableCell className="text-right">{fmt(t.dealVolume)}</TableCell>
+                  <TableCell className="text-center"><Badge className="bg-primary shadow-sm shadow-primary/20 text-[10px] font-semibold px-2 py-0.5">{pct(t.closed, t.showed)}%</Badge></TableCell>
+                  <TableCell className="text-right pr-4">{fmt(t.dealVolume)}</TableCell>
                   <TableCell />
                 </TableRow>
               )}
