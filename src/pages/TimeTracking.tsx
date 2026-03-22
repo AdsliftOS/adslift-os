@@ -41,7 +41,7 @@ const categoryMap = Object.fromEntries(categories.map((c) => [c.value, c]));
 
 const START_HOUR = 5;
 const END_HOUR = 24;
-const SLOT_HEIGHT = 10;
+const SLOT_HEIGHT = 20;
 const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => i + START_HOUR);
 
 const timeOptions: string[] = [];
@@ -655,19 +655,17 @@ export default function TimeTracking() {
                         >
                           {/* Colored left stripe */}
                           <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg ${cat.color}`} />
-                          <div className={`h-full ${cat.bg} pl-2 pr-1.5 py-1 flex flex-col select-none`}>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] font-bold truncate">{cat.label}</span>
-                              <span className="text-[9px] opacity-50 ml-auto shrink-0 tabular-nums">
+                          <div className={`h-full ${cat.bg} pl-2 pr-1.5 py-0.5 flex flex-col select-none overflow-hidden`}>
+                            <div className="flex items-center gap-1 min-h-0">
+                              <span className="text-xs font-bold truncate">{cat.label}</span>
+                              <span className="text-[10px] opacity-50 ml-auto shrink-0 tabular-nums">
                                 {entry.startHour.toString().padStart(2, "0")}:{entry.startMinute.toString().padStart(2, "0")}
                               </span>
                             </div>
-                            {height > 15 && (
-                              <p className="text-[10px] opacity-60 leading-tight mt-0.5 line-clamp-2">{entry.note}</p>
-                            )}
-                            {height > 35 && (
+                            <p className="text-[11px] opacity-70 leading-tight mt-0.5 line-clamp-1 truncate">{entry.note}</p>
+                            {height > 50 && (
                               <div className="mt-auto">
-                                <span className="text-[9px] opacity-40 tabular-nums">
+                                <span className="text-[10px] opacity-40 tabular-nums">
                                   {entry.endHour.toString().padStart(2, "0")}:{entry.endMinute.toString().padStart(2, "0")}
                                 </span>
                               </div>
