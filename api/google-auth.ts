@@ -1,6 +1,6 @@
 export const config = { runtime: "edge" };
 
-const CLIENT_ID = "468650314215-le2sfqid627e1acprplf2fdg1jk0cfj3.apps.googleusercontent.com";
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
 export default async function handler(req: Request) {
@@ -11,8 +11,8 @@ export default async function handler(req: Request) {
   if (!code || !redirectUri) {
     return new Response(JSON.stringify({ error: "Missing params" }), { status: 400 });
   }
-  if (!CLIENT_SECRET) {
-    return new Response(JSON.stringify({ error: "No client secret configured", hasEnv: !!process.env.GOOGLE_CLIENT_SECRET }), { status: 400 });
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    return new Response(JSON.stringify({ error: "No client credentials configured" }), { status: 400 });
   }
 
   try {
@@ -30,8 +30,8 @@ export default async function handler(req: Request) {
 
     const data = await res.json();
     if (data.error) {
-      return new Response(JSON.stringify({ error: data.error_description || data.error, detail: data }), {
-        status: 200, // Return 200 so frontend can read the error
+      return new Response(JSON.stringify({ error: data.error_description || data.error, detail: data, debug: { hasSecret: !!CLIENT_SECRET, secretLength: CLIENT_SECRET?.length, redirectUri } }), {
+        status: 200,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       });
     }
