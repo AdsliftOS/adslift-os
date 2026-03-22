@@ -292,19 +292,13 @@ export default function Finances() {
 
   const maxExpenseMonth = Math.max(...expenseMonthlyStats.map((m) => m.total), 1);
 
-  // Generate month options for distribution
+  // Generate month options for distribution — full current year
   const distributionMonths = useMemo(() => {
-    const result: { key: string; label: string }[] = [];
-    const now = new Date();
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-      const monthNames = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
-      result.push({
-        key: `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}`,
-        label: `${monthNames[d.getMonth()]} ${d.getFullYear()}`,
-      });
-    }
-    return result;
+    const year = new Date().getFullYear();
+    return Array.from({ length: 12 }, (_, i) => ({
+      key: `${year}-${(i + 1).toString().padStart(2, "0")}`,
+      label: `${monthLabels[i]} ${year}`,
+    }));
   }, []);
 
   const distributedTotal = useMemo(() => {
