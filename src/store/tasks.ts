@@ -54,8 +54,8 @@ export async function addTask(task: Omit<Task, "id">) {
     category: task.category,
     priority: task.priority,
     due_date: task.dueDate || null,
-    status: task.column,
-    recurring: task.recurrence,
+    col: task.column,
+    recurrence: task.recurrence,
     assignee: task.assignee,
   }).select().single();
 
@@ -74,8 +74,8 @@ export async function updateTask(id: string, updates: Partial<Task>) {
   if (updates.category !== undefined) dbUpdates.category = updates.category;
   if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
   if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate || null;
-  if (updates.column !== undefined) dbUpdates.status = updates.column;
-  if (updates.recurrence !== undefined) dbUpdates.recurring = updates.recurrence;
+  if (updates.column !== undefined) dbUpdates.col = updates.column;
+  if (updates.recurrence !== undefined) dbUpdates.recurrence = updates.recurrence;
   if (updates.assignee !== undefined) dbUpdates.assignee = updates.assignee;
   dbUpdates.updated_at = new Date().toISOString();
 
