@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { format, isToday, isPast, addDays } from "date-fns";
 import { de } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
-import { useTasks, setTasks as setTasksStore } from "@/store/tasks";
+import { useTasks, addTask as addTaskDB, updateTask as updateTaskDB, deleteTask as deleteTaskDB, moveTask as moveTaskDB } from "@/store/tasks";
 import type { Task, Category, Priority, Recurrence, Column } from "@/store/tasks";
 
 const teamMembers = [
@@ -46,7 +46,7 @@ const columns: { key: Column; title: string; color: string; dotColor: string; em
 const todayStr = format(new Date(), "yyyy-MM-dd");
 
 export default function Tasks() {
-  const [tasks, setTasks] = useTasks();
+  const [tasks] = useTasks();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
@@ -69,22 +69,18 @@ export default function Tasks() {
     dueDate: todayStr, recurrence: "none" as Recurrence,
   });
 
-  const persist = (updater: (prev: Task[]) => Task[]) => {
-    setTasks((prev) => updater(prev));
+  const handleMoveTask = async (id: string, column: Column) => {
+    await moveTaskDB(id, column);
   };
 
-  const moveTask = (id: string, column: Column) => {
-    persist((prev) => prev.map((t) => t.id === id ? { ...t, column } : t));
-  };
-
-  const deleteTask = (id: string) => {
-    persist((prev) => prev.filter((t) => t.id !== id));
+  const handleDeleteTask = async (id: string) => {
+    await deleteTaskDB(id);
     toast.success("Aufgabe gelöscht");
   };
 
-  const handleQuickAdd = () => {
+  const handleQuickAdd = async () => {
     if (!quickAdd.trim()) return;
-    persist((prev) => [{ id: Date.now().toString(), title: quickAdd.trim(), category: "admin" as Category, priority: "medium" as Priority, dueDate: todayStr, column: "todo" as Column, createdAt: todayStr, recurrence: "none" as Recurrence, assignee: viewUser }, ...prev]);
+    await addTaskDB({ title: quickAdd.trim(), category: "admin" as Category, priority: "medium" as Priority, dueDate: todayStr, column: "todo" as Column, recurrence: "none" as Recurrence, assignee: viewUser });
     setQuickAdd("");
   };
 
@@ -100,13 +96,13 @@ export default function Tasks() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim()) { toast.error("Bitte Titel eingeben"); return; }
     if (editingTask) {
-      persist((prev) => prev.map((t) => t.id === editingTask.id ? { ...t, title: form.title, category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, recurrence: form.recurrence } : t));
+      await updateTaskDB(editingTask.id, { title: form.title, category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, recurrence: form.recurrence });
       toast.success("Aufgabe aktualisiert");
     } else {
-      persist((prev) => [{ id: Date.now().toString(), title: form.title.trim(), category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, column: "todo" as Column, createdAt: todayStr, recurrence: form.recurrence, assignee: viewUser }, ...prev]);
+      await addTaskDB({ title: form.title.trim(), category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, column: "todo" as Column, recurrence: form.recurrence, assignee: viewUser });
       toast.success("Aufgabe erstellt");
     }
     setDialogOpen(false);
@@ -131,7 +127,7 @@ export default function Tasks() {
   const handleDragOver = (e: React.DragEvent, col: Column) => { e.preventDefault(); setDragOverCol(col); };
   const handleDragLeave = () => setDragOverCol(null);
   const handleDrop = (col: Column) => {
-    if (dragTaskId) { moveTask(dragTaskId, col); }
+    if (dragTaskId) { handleMoveTask(dragTaskId, col); }
     setDragTaskId(null);
     setDragOverCol(null);
   };
@@ -427,7 +423,7 @@ export default function Tasks() {
           </div>
           <DialogFooter className="flex gap-2">
             {editingTask && (
-              <Button variant="destructive" size="sm" onClick={() => { deleteTask(editingTask.id); setDialogOpen(false); }}>
+              <Button variant="destructive" size="sm" onClick={() => { handleDeleteTask(editingTask.id); setDialogOpen(false); }}>
                 <Trash2 className="h-3.5 w-3.5 mr-1" />Löschen
               </Button>
             )}

@@ -19,48 +19,93 @@ export type Task = {
 
 let tasks: Task[] = [];
 let listeners = new Set<() => void>();
+let loaded = false;
+
 function emit() { listeners.forEach((l) => l()); }
 function subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); }
 function getSnapshot() { return tasks; }
 
-async function load() {
+export async function loadTasks() {
   try {
     const { data, error } = await supabase.from("tasks").select("*").order("created_at", { ascending: false });
     if (!error && data) {
       tasks = data.map((r: any) => ({
-        id: r.id, title: r.title, category: r.category || "admin", priority: r.priority || "medium",
-        dueDate: r.due_date || undefined, column: r.col || "todo", recurrence: r.recurrence || "none",
+        id: r.id,
+        title: r.title || "",
+        category: r.category || "admin",
+        priority: r.priority || "medium",
+        dueDate: r.due_date || undefined,
+        column: (r.status || r.col || "todo") as Column,
+        recurrence: r.recurring || "none",
         assignee: r.assignee || "alex",
       }));
+      loaded = true;
       emit();
     }
-  } catch {}
+  } catch (e) {
+    console.error("Failed to load tasks:", e);
+  }
 }
-load();
+loadTasks();
 
+export async function addTask(task: Omit<Task, "id">) {
+  const { data, error } = await supabase.from("tasks").insert({
+    title: task.title,
+    category: task.category,
+    priority: task.priority,
+    due_date: task.dueDate || null,
+    status: task.column,
+    recurring: task.recurrence,
+    assignee: task.assignee,
+  }).select().single();
+
+  if (!error && data) {
+    await loadTasks();
+    return data.id;
+  } else {
+    console.error("Failed to add task:", error);
+    return null;
+  }
+}
+
+export async function updateTask(id: string, updates: Partial<Task>) {
+  const dbUpdates: any = {};
+  if (updates.title !== undefined) dbUpdates.title = updates.title;
+  if (updates.category !== undefined) dbUpdates.category = updates.category;
+  if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
+  if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate || null;
+  if (updates.column !== undefined) dbUpdates.status = updates.column;
+  if (updates.recurrence !== undefined) dbUpdates.recurring = updates.recurrence;
+  if (updates.assignee !== undefined) dbUpdates.assignee = updates.assignee;
+  dbUpdates.updated_at = new Date().toISOString();
+
+  const { error } = await supabase.from("tasks").update(dbUpdates).eq("id", id);
+  if (!error) {
+    await loadTasks();
+  } else {
+    console.error("Failed to update task:", error);
+  }
+}
+
+export async function deleteTask(id: string) {
+  const { error } = await supabase.from("tasks").delete().eq("id", id);
+  if (!error) {
+    await loadTasks();
+  } else {
+    console.error("Failed to delete task:", error);
+  }
+}
+
+export async function moveTask(id: string, column: Column) {
+  await updateTask(id, { column });
+}
+
+// Legacy setter for compatibility
 export function setTasks(updater: Task[] | ((prev: Task[]) => Task[])) {
-  const prev = tasks;
-  const next = typeof updater === "function" ? updater(prev) : updater;
-  const added = next.filter((n) => !prev.find((p) => p.id === n.id));
-  const removed = prev.filter((p) => !next.find((n) => n.id === p.id));
-  const updated = next.filter((n) => { const o = prev.find((p) => p.id === n.id); return o && JSON.stringify(o) !== JSON.stringify(n); });
-
+  // This is kept for compatibility but shouldn't be used for persistence
+  const next = typeof updater === "function" ? updater(tasks) : updater;
   tasks = next;
   emit();
-
-  added.forEach((t) => {
-    supabase.from("tasks").insert({
-      title: t.title, category: t.category, priority: t.priority, due_date: t.dueDate || null,
-      col: t.column, recurrence: t.recurrence, assignee: t.assignee,
-    }).then(() => load());
-  });
-  removed.forEach((t) => { supabase.from("tasks").delete().eq("id", t.id).then(() => load()); });
-  updated.forEach((t) => {
-    supabase.from("tasks").update({
-      title: t.title, category: t.category, priority: t.priority, due_date: t.dueDate || null,
-      col: t.column, recurrence: t.recurrence, assignee: t.assignee,
-    }).eq("id", t.id);
-  });
 }
 
 export function useTasks(): [Task[], typeof setTasks] {
