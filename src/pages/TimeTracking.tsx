@@ -13,19 +13,8 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronLeft, ChevronRight, Clock, Trash2, Plus, BarChart3, CalendarDays, TrendingUp, Target } from "lucide-react";
 import { toast } from "sonner";
-
-type Category = "fulfillment" | "sales" | "admin" | "growth" | "meeting" | "creative" | "pause";
-
-type TimeEntry = {
-  id: string;
-  date: string;
-  startHour: number;
-  startMinute: number;
-  endHour: number;
-  endMinute: number;
-  category: Category;
-  note: string;
-};
+import { useTimeEntries, addTimeEntry, updateTimeEntry, deleteTimeEntry } from "@/store/timeEntries";
+import type { TimeEntry, Category } from "@/store/timeEntries";
 
 const categories: { value: Category; label: string; color: string; bg: string }[] = [
   { value: "fulfillment", label: "Fulfillment", color: "bg-blue-500", bg: "bg-blue-500/15 text-blue-700 dark:text-blue-300" },
@@ -53,8 +42,6 @@ for (let h = START_HOUR; h <= END_HOUR; h++) {
 }
 
 const todayStr = format(new Date(), "yyyy-MM-dd");
-
-const initialEntries: TimeEntry[] = [];
 
 // Auto-detect category from note text
 const categoryKeywords: { keywords: string[]; category: Category }[] = [
@@ -194,7 +181,7 @@ function hasOverlap(entries: TimeEntry[], date: string, startSlot: number, endSl
 export default function TimeTracking() {
   const today = new Date();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(today, { weekStartsOn: 1 }));
-  const [entries, setEntries] = useState<TimeEntry[]>(initialEntries);
+  const entries = useTimeEntries();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [form, setForm] = useState(() => {
@@ -313,22 +300,28 @@ export default function TimeTracking() {
       return;
     }
 
-    const entry: TimeEntry = {
-      id: editingEntry?.id ?? Date.now().toString(),
-      date: form.date,
-      startHour: start.hour,
-      startMinute: start.minute,
-      endHour: end.hour,
-      endMinute: end.minute,
-      category: form.category,
-      note: form.note,
-    };
-
     if (editingEntry) {
-      setEntries((prev) => prev.map((e) => (e.id === editingEntry.id ? entry : e)));
+      updateTimeEntry(editingEntry.id, {
+        date: form.date,
+        startHour: start.hour,
+        startMinute: start.minute,
+        endHour: end.hour,
+        endMinute: end.minute,
+        category: form.category,
+        note: form.note,
+      });
       toast.success("Eintrag aktualisiert");
     } else {
-      setEntries((prev) => [...prev, entry]);
+      addTimeEntry({
+        date: form.date,
+        startHour: start.hour,
+        startMinute: start.minute,
+        endHour: end.hour,
+        endMinute: end.minute,
+        category: form.category,
+        note: form.note,
+        assignee: "alex",
+      });
       toast.success("Eintrag hinzugefügt");
     }
     setDialogOpen(false);
@@ -336,7 +329,7 @@ export default function TimeTracking() {
   };
 
   const handleDelete = (id: string) => {
-    setEntries((prev) => prev.filter((e) => e.id !== id));
+    deleteTimeEntry(id);
     toast.success("Eintrag gelöscht");
   };
 
@@ -399,13 +392,13 @@ export default function TimeTracking() {
       return;
     }
 
-    setEntries((prev) =>
-      prev.map((en) =>
-        en.id === dragEntry.id
-          ? { ...en, date: dragGhostDate!, startHour: newStart.hour, startMinute: newStart.minute, endHour: newEnd.hour, endMinute: newEnd.minute }
-          : en
-      )
-    );
+    updateTimeEntry(dragEntry.id, {
+      date: dragGhostDate!,
+      startHour: newStart.hour,
+      startMinute: newStart.minute,
+      endHour: newEnd.hour,
+      endMinute: newEnd.minute,
+    });
 
     setDragEntry(null);
     setDragGhostDate(null);
