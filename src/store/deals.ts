@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
 
-export type PaymentStatus = "paid" | "planned" | "overdue" | "open";
+export type PaymentStatus = "paid" | "planned" | "overdue" | "open" | "potenzial";
 export type ServiceType = "done4you" | "donewithyou";
 
 export type MonthlyPayment = { amount: number; status: PaymentStatus };
@@ -58,10 +58,10 @@ export function setDeals(updater: Deal[] | ((prev: Deal[]) => Deal[])) {
   removed.forEach((d) => { supabase.from("deals").delete().eq("id", d.id).then(() => load()); });
   updated.forEach((d) => {
     supabase.from("deals").update({
-      start_date: d.startDate, client: d.client, service_type: d.serviceType,
-      net_amount: d.netAmount, tax_rate: d.taxRate, payment_method: d.paymentMethod,
       monthly_payments: d.monthlyPayments,
-    }).eq("id", d.id);
+    }).eq("id", d.id).then(({ error }) => {
+      if (error) console.error("Failed to update deal:", error);
+    });
   });
 }
 
