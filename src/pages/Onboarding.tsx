@@ -45,7 +45,7 @@ type OnboardingData = {
   // Step 5 — Ads & Budget
   adExperience: string;
   monthlyAdBudget: string;
-  adGoal: string;
+  adGoal: string[];
   targetLeadsPerMonth: string;
   timeline: string;
   // Step 6 — Assets & Material
@@ -70,7 +70,7 @@ const initialData: OnboardingData = {
   mainOffer: "", priceRange: "", usp: "", caseStudies: "", currentClients: "",
   idealClient: "", idealIndustry: [], idealBudget: "", clientProblems: "", targetAudienceChoice: "",
   currentMarketing: [], monthlyLeads: "", closingRate: "", biggestChallenge: "",
-  adExperience: "", monthlyAdBudget: "", adGoal: "", targetLeadsPerMonth: "", timeline: "",
+  adExperience: "", monthlyAdBudget: "", adGoal: [], targetLeadsPerMonth: "", timeline: "",
   driveLink: "", existingAds: "",
   metaBusinessManager: "", adAccountId: "", pixelId: "", websiteForAds: "", additionalNotes: "",
   instagramUrl: "", facebookUrl: "", tiktokUrl: "", linkedinUrl: "",
@@ -81,7 +81,7 @@ const serviceOptions = [
   "SEO", "Branding / Logo", "UI/UX Design", "App-Entwicklung",
   "Content-Erstellung", "Wartung & Support", "Hosting",
   "Meta Ads (Facebook/Instagram)", "Google Ads", "TikTok Ads",
-  "Social Media Management", "E-Mail Marketing", "Funnel-Building", "Geo",
+  "Social Media Management", "E-Mail Marketing", "Funnel-Building", "GEO",
 ];
 
 const industryOptions = [
@@ -93,7 +93,7 @@ const industryOptions = [
 const marketingOptions = [
   "Empfehlungen / Mundpropaganda", "Eigene Website / SEO", "Social Media (organisch)",
   "Meta Ads (Facebook/Instagram)", "Google Ads", "Kaltakquise / Outreach",
-  "Netzwerk-Events", "Freelancer-Plattformen", "eBay", "Nichts davon",
+  "Netzwerk-Events", "Freelancer-Plattformen", "eBay Kleinanzeigen", "Nichts davon",
 ];
 
 const steps = [
@@ -130,11 +130,18 @@ export default function Onboarding() {
       case 0: return !!data.variant;
       case 1: return data.companyName && data.contactName && data.contactEmail && data.contactPhone && data.website && data.teamSize && data.services.length > 0;
       case 2: return data.mainOffer && data.priceRange && data.usp && data.caseStudies && data.currentClients;
-      case 3: return data.idealClient && data.idealIndustry.length > 0 && data.idealBudget && data.clientProblems && data.targetAudienceChoice;
+      case 3: return data.targetAudienceChoice && data.idealIndustry.length > 0 && data.idealBudget && data.clientProblems && (data.targetAudienceChoice === "together" || data.idealClient);
       case 4: return data.currentMarketing.length > 0 && data.monthlyLeads && data.closingRate && data.biggestChallenge;
-      case 5: return data.monthlyAdBudget && data.adGoal && data.adExperience && data.targetLeadsPerMonth && data.timeline;
-      case 6: return data.driveLink && data.existingAds;
-      case 7: return data.websiteForAds && data.instagramUrl && data.facebookUrl && data.tiktokUrl && data.linkedinUrl && data.additionalNotes && (data.variant === "donewithyou" || (data.metaBusinessManager && data.adAccountId && data.pixelId));
+      case 5: return data.monthlyAdBudget && data.adGoal.length > 0 && data.adExperience && data.targetLeadsPerMonth && data.timeline;
+      case 6: return data.driveLink.startsWith("https://") && data.existingAds;
+      case 7: {
+        const baseValid = data.additionalNotes !== undefined;
+        if (data.variant === "done4you") {
+          return data.websiteForAds && data.metaBusinessManager && data.adAccountId && data.pixelId && baseValid;
+        }
+        // DWY — no Meta Ads fields, no websiteForAds required
+        return baseValid;
+      }
       default: return true;
     }
   };
@@ -204,7 +211,7 @@ export default function Onboarding() {
               <div className="grid gap-2 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Modell</span><span className="font-medium">{data.variant === "done4you" ? "Done 4 You" : "Done With You"}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Agentur</span><span className="font-medium">{data.companyName}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Ziel</span><span className="font-medium">{data.adGoal}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Ziel</span><span className="font-medium">{data.adGoal.join(", ")}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Ad-Budget</span><span className="font-medium">{data.monthlyAdBudget}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Traumkunden</span><span className="font-medium truncate ml-4">{data.idealClient.slice(0, 50)}{data.idealClient.length > 50 ? "..." : ""}</span></div>
               </div>
@@ -410,6 +417,9 @@ export default function Onboarding() {
                       </button>
                     ))}
                   </div>
+                  {data.targetAudienceChoice === "existing" && (
+                    <Textarea rows={3} placeholder="Beschreibe deine Zielgruppe (z.B. Handwerker, 25-55 Jahre, Umkreis 50km, Umsatz 500k+)" value={data.idealClient} onChange={(e) => update("idealClient", e.target.value)} className="mt-2" />
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label>Welche Branchen willst du ansprechen?</Label>
@@ -503,12 +513,12 @@ export default function Onboarding() {
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Was ist dein Ziel?</Label>
+                  <Label>Was ist dein Ziel? (Mehrfachauswahl möglich)</Label>
                   <div className="grid grid-cols-2 gap-2">
                     {["Mehr Anfragen / Leads", "Mehr Sichtbarkeit / Brand Awareness", "Erstgespräche buchen lassen", "Direkt Projekte verkaufen"].map((goal) => (
-                      <button key={goal} onClick={() => update("adGoal", goal)}
-                        className={`text-left rounded-lg border p-3 transition-all ${data.adGoal === goal ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/30"}`}>
-                        <span className="text-sm">{goal}</span>
+                      <button key={goal} onClick={() => toggleArray("adGoal", goal)}
+                        className={`text-left rounded-lg border p-3 transition-all ${data.adGoal.includes(goal) ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/30"}`}>
+                        <div className="flex items-center gap-2"><Checkbox checked={data.adGoal.includes(goal)} /><span className="text-sm">{goal}</span></div>
                       </button>
                     ))}
                   </div>
@@ -579,7 +589,7 @@ export default function Onboarding() {
                       placeholder="https://drive.google.com/drive/folders/..."
                       value={data.driveLink}
                       onChange={(e) => update("driveLink", e.target.value)}
-                      className="flex-1"
+                      className={`flex-1 ${data.driveLink && !data.driveLink.startsWith("https://") ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
                     {data.driveLink && (
                       <a href={data.driveLink} target="_blank" rel="noopener noreferrer" className="shrink-0">
@@ -589,6 +599,9 @@ export default function Onboarding() {
                       </a>
                     )}
                   </div>
+                  {data.driveLink && !data.driveLink.startsWith("https://") && (
+                    <p className="text-[10px] text-red-500">Bitte gib einen gültigen Link ein (muss mit https:// beginnen)</p>
+                  )}
                   <p className="text-[10px] text-muted-foreground">
                     Erstelle einen Google Drive oder Dropbox Ordner mit deinen Dateien und teile den Link mit uns.
                     Stelle sicher, dass wir Zugriff haben (Link-Freigabe auf "Jeder mit dem Link").
@@ -646,10 +659,12 @@ export default function Onboarding() {
                   </>
                 )}
 
-                <div className="grid gap-2">
-                  <Label>Auf welche Website sollen die Ads verlinken?</Label>
-                  <Input placeholder="z.B. www.deineagentur.de/angebot" value={data.websiteForAds} onChange={(e) => update("websiteForAds", e.target.value)} />
-                </div>
+                {data.variant === "done4you" && (
+                  <div className="grid gap-2">
+                    <Label>Auf welche Website sollen die Ads verlinken?</Label>
+                    <Input placeholder="z.B. www.deineagentur.de/angebot" value={data.websiteForAds} onChange={(e) => update("websiteForAds", e.target.value)} />
+                  </div>
+                )}
 
                 {/* Social Media Links — both variants */}
                 <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-3">
