@@ -7,12 +7,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronRight, ChevronLeft, Building2, Target, DollarSign, KeyRound, Megaphone, Users, CheckCircle2, Sparkles, FolderOpen, ExternalLink } from "lucide-react";
+import { ChevronRight, ChevronLeft, Building2, Target, DollarSign, KeyRound, Megaphone, Users, CheckCircle2, Sparkles, FolderOpen, ExternalLink, Handshake } from "lucide-react";
 import { setClients } from "@/store/clients";
 import { setProjects } from "@/store/projects";
 import type { Project } from "@/store/projects";
 
+type OnboardingVariant = "done4you" | "donewithyou" | "";
+
 type OnboardingData = {
+  // Step 0 — Variant
+  variant: OnboardingVariant;
   // Step 1 — Agentur/Webdesigner
   companyName: string;
   website: string;
@@ -32,6 +36,7 @@ type OnboardingData = {
   idealIndustry: string[];
   idealBudget: string;
   clientProblems: string;
+  targetAudienceChoice: string;
   // Step 4 — Aktuelle Kundengewinnung
   currentMarketing: string[];
   monthlyLeads: string;
@@ -52,16 +57,23 @@ type OnboardingData = {
   pixelId: string;
   websiteForAds: string;
   additionalNotes: string;
+  // Social Links
+  instagramUrl: string;
+  facebookUrl: string;
+  tiktokUrl: string;
+  linkedinUrl: string;
 };
 
 const initialData: OnboardingData = {
+  variant: "",
   companyName: "", website: "", contactName: "", contactEmail: "", contactPhone: "", teamSize: "", services: [],
   mainOffer: "", priceRange: "", usp: "", caseStudies: "", currentClients: "",
-  idealClient: "", idealIndustry: [], idealBudget: "", clientProblems: "",
+  idealClient: "", idealIndustry: [], idealBudget: "", clientProblems: "", targetAudienceChoice: "",
   currentMarketing: [], monthlyLeads: "", closingRate: "", biggestChallenge: "",
   adExperience: "", monthlyAdBudget: "", adGoal: "", targetLeadsPerMonth: "", timeline: "",
   driveLink: "", existingAds: "",
   metaBusinessManager: "", adAccountId: "", pixelId: "", websiteForAds: "", additionalNotes: "",
+  instagramUrl: "", facebookUrl: "", tiktokUrl: "", linkedinUrl: "",
 };
 
 const serviceOptions = [
@@ -69,7 +81,7 @@ const serviceOptions = [
   "SEO", "Branding / Logo", "UI/UX Design", "App-Entwicklung",
   "Content-Erstellung", "Wartung & Support", "Hosting",
   "Meta Ads (Facebook/Instagram)", "Google Ads", "TikTok Ads",
-  "Social Media Management", "E-Mail Marketing", "Funnel-Building",
+  "Social Media Management", "E-Mail Marketing", "Funnel-Building", "Geo",
 ];
 
 const industryOptions = [
@@ -81,10 +93,11 @@ const industryOptions = [
 const marketingOptions = [
   "Empfehlungen / Mundpropaganda", "Eigene Website / SEO", "Social Media (organisch)",
   "Meta Ads (Facebook/Instagram)", "Google Ads", "Kaltakquise / Outreach",
-  "Netzwerk-Events", "Freelancer-Plattformen", "Nichts davon",
+  "Netzwerk-Events", "Freelancer-Plattformen", "eBay", "Nichts davon",
 ];
 
 const steps = [
+  { title: "Modell wählen", icon: Handshake, description: "Wie möchtest du mit uns zusammenarbeiten?" },
   { title: "Deine Agentur", icon: Building2, description: "Erzähl uns von deinem Business" },
   { title: "Angebot & USP", icon: Megaphone, description: "Was bietest du an und was macht dich besonders?" },
   { title: "Traumkunden", icon: Target, description: "Welche Kunden willst du gewinnen?" },
@@ -114,13 +127,14 @@ export default function Onboarding() {
 
   const canProceed = () => {
     switch (step) {
-      case 0: return data.companyName && data.contactName && data.contactEmail && data.services.length > 0;
-      case 1: return data.mainOffer && data.priceRange;
-      case 2: return data.idealClient;
-      case 3: return data.currentMarketing.length > 0;
-      case 4: return data.monthlyAdBudget && data.adGoal;
-      case 5: return true; // Assets optional
-      case 6: return true; // Zugänge optional
+      case 0: return !!data.variant;
+      case 1: return data.companyName && data.contactName && data.contactEmail && data.contactPhone && data.website && data.teamSize && data.services.length > 0;
+      case 2: return data.mainOffer && data.priceRange && data.usp && data.caseStudies && data.currentClients;
+      case 3: return data.idealClient && data.idealIndustry.length > 0 && data.idealBudget && data.clientProblems && data.targetAudienceChoice;
+      case 4: return data.currentMarketing.length > 0 && data.monthlyLeads && data.closingRate && data.biggestChallenge;
+      case 5: return data.monthlyAdBudget && data.adGoal && data.adExperience && data.targetLeadsPerMonth && data.timeline;
+      case 6: return data.driveLink && data.existingAds;
+      case 7: return data.websiteForAds && data.instagramUrl && data.facebookUrl && data.tiktokUrl && data.linkedinUrl && data.additionalNotes && (data.variant === "donewithyou" || (data.metaBusinessManager && data.adAccountId && data.pixelId));
       default: return true;
     }
   };
@@ -143,12 +157,13 @@ export default function Onboarding() {
     ]);
 
     // 2. Create project with raw onboarding data in separate field
+    const projectType = data.variant === "done4you" ? "done4you" : "donewithyou";
     const newProject: Project = {
       id: `onb-${Date.now()}`,
       client: data.companyName,
       name: `Meta Ads — ${data.companyName}`,
       product: data.monthlyAdBudget || "TBD",
-      type: "neukunde",
+      type: projectType,
       creativeFormat: "beides",
       startDate: new Date().toLocaleDateString("de-DE"),
       assignees: [],
@@ -187,6 +202,7 @@ export default function Onboarding() {
             <CardContent className="p-5 space-y-3">
               <h3 className="font-semibold text-sm">Zusammenfassung</h3>
               <div className="grid gap-2 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Modell</span><span className="font-medium">{data.variant === "done4you" ? "Done 4 You" : "Done With You"}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Agentur</span><span className="font-medium">{data.companyName}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Ziel</span><span className="font-medium">{data.adGoal}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Ad-Budget</span><span className="font-medium">{data.monthlyAdBudget}</span></div>
@@ -254,11 +270,36 @@ export default function Onboarding() {
 
         <Card>
           <CardContent className="p-6">
-            {/* Step 1 — Deine Agentur */}
+            {/* Step 0 — Modell wählen (D4Y / DWY) */}
             {step === 0 && (
               <div className="grid gap-4">
+                <Label>Welches Modell passt zu dir?</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => update("variant", "done4you")}
+                    className={`rounded-xl border-2 p-6 text-center transition-all ${data.variant === "done4you" ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border hover:border-primary/30"}`}
+                  >
+                    <div className="text-2xl mb-2">🚀</div>
+                    <div className="font-bold text-base">Done 4 You</div>
+                    <p className="text-xs text-muted-foreground mt-2">Wir übernehmen alles für dich — Strategie, Creatives, Kampagnen-Management.</p>
+                  </button>
+                  <button
+                    onClick={() => update("variant", "donewithyou")}
+                    className={`rounded-xl border-2 p-6 text-center transition-all ${data.variant === "donewithyou" ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border hover:border-primary/30"}`}
+                  >
+                    <div className="text-2xl mb-2">🤝</div>
+                    <div className="font-bold text-base">Done With You</div>
+                    <p className="text-xs text-muted-foreground mt-2">Wir arbeiten zusammen — du bekommst Coaching, Templates und unsere Unterstützung.</p>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 1 — Deine Agentur */}
+            {step === 1 && (
+              <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label>Name deiner Agentur / Firma *</Label>
+                  <Label>Name deiner Agentur / Firma</Label>
                   <Input placeholder="z.B. Pixel Perfect Webdesign" value={data.companyName} onChange={(e) => update("companyName", e.target.value)} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -280,12 +321,12 @@ export default function Onboarding() {
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Ansprechpartner *</Label>
+                  <Label>Ansprechpartner</Label>
                   <Input placeholder="Vor- und Nachname" value={data.contactName} onChange={(e) => update("contactName", e.target.value)} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="grid gap-2">
-                    <Label>E-Mail *</Label>
+                    <Label>E-Mail</Label>
                     <Input type="email" placeholder="name@agentur.de" value={data.contactEmail} onChange={(e) => update("contactEmail", e.target.value)} />
                   </div>
                   <div className="grid gap-2">
@@ -294,7 +335,7 @@ export default function Onboarding() {
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Welche Services bietest du an? *</Label>
+                  <Label>Welche Services bietest du an?</Label>
                   <div className="grid grid-cols-2 gap-2">
                     {serviceOptions.map((svc) => (
                       <button key={svc} onClick={() => toggleArray("services", svc)}
@@ -308,15 +349,15 @@ export default function Onboarding() {
             )}
 
             {/* Step 2 — Angebot & USP */}
-            {step === 1 && (
+            {step === 2 && (
               <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label>Was ist dein Hauptangebot? *</Label>
+                  <Label>Was ist dein Hauptangebot?</Label>
                   <Textarea rows={3} placeholder="z.B. Professionelle Websites für Handwerker in 14 Tagen — WordPress, SEO-optimiert, mit Terminbuchung." value={data.mainOffer} onChange={(e) => update("mainOffer", e.target.value)} />
                   <p className="text-[10px] text-muted-foreground">Beschreibe dein Kernangebot so, wie du es einem potenziellen Kunden erklären würdest.</p>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Preisrange deiner Website-Projekte *</Label>
+                  <Label>Preisrange deiner Website-Projekte</Label>
                   <div className="grid grid-cols-2 gap-2">
                     {["500 - 1.500€", "1.500 - 3.000€", "3.000 - 5.000€", "5.000 - 10.000€", "10.000€+", "Individuell"].map((p) => (
                       <button key={p} onClick={() => update("priceRange", p)}
@@ -350,11 +391,25 @@ export default function Onboarding() {
             )}
 
             {/* Step 3 — Traumkunden */}
-            {step === 2 && (
+            {step === 3 && (
               <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label>Beschreibe deinen Traumkunden *</Label>
+                  <Label>Beschreibe deinen Traumkunden</Label>
                   <Textarea rows={4} placeholder="Wer ist dein idealer Kunde? (z.B. Handwerker mit 5-20 Mitarbeitern, die keine Website haben oder eine veraltete, und bereit sind 3-5k zu investieren)" value={data.idealClient} onChange={(e) => update("idealClient", e.target.value)} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Zielgruppe</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: "existing", label: "Ich habe bereits eine Zielgruppe" },
+                      { value: "together", label: "Wir müssen gemeinsam eine Zielgruppe auswählen" },
+                    ].map((opt) => (
+                      <button key={opt.value} onClick={() => update("targetAudienceChoice", opt.value)}
+                        className={`text-left rounded-lg border p-3 transition-all ${data.targetAudienceChoice === opt.value ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/30"}`}>
+                        <span className="text-sm">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <Label>Welche Branchen willst du ansprechen?</Label>
@@ -387,10 +442,10 @@ export default function Onboarding() {
             )}
 
             {/* Step 4 — Aktuelle Kundengewinnung */}
-            {step === 3 && (
+            {step === 4 && (
               <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label>Wie gewinnst du aktuell Kunden? *</Label>
+                  <Label>Wie gewinnst du aktuell Kunden?</Label>
                   <div className="grid grid-cols-2 gap-2">
                     {marketingOptions.map((opt) => (
                       <button key={opt} onClick={() => toggleArray("currentMarketing", opt)}
@@ -434,7 +489,7 @@ export default function Onboarding() {
             )}
 
             {/* Step 5 — Ads & Budget */}
-            {step === 4 && (
+            {step === 5 && (
               <div className="grid gap-4">
                 <div className="grid gap-2">
                   <Label>Hast du schon mal Ads geschaltet?</Label>
@@ -448,7 +503,7 @@ export default function Onboarding() {
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Was ist dein Ziel? *</Label>
+                  <Label>Was ist dein Ziel?</Label>
                   <div className="grid grid-cols-2 gap-2">
                     {["Mehr Anfragen / Leads", "Mehr Sichtbarkeit / Brand Awareness", "Erstgespräche buchen lassen", "Direkt Projekte verkaufen"].map((goal) => (
                       <button key={goal} onClick={() => update("adGoal", goal)}
@@ -460,7 +515,7 @@ export default function Onboarding() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="grid gap-2">
-                    <Label>Monatliches Ad-Budget *</Label>
+                    <Label>Monatliches Ad-Budget</Label>
                     <Select value={data.monthlyAdBudget} onValueChange={(v) => update("monthlyAdBudget", v)}>
                       <SelectTrigger><SelectValue placeholder="Wählen..." /></SelectTrigger>
                       <SelectContent>
@@ -501,7 +556,7 @@ export default function Onboarding() {
             )}
 
             {/* Step 6 — Material & Assets */}
-            {step === 5 && (
+            {step === 6 && (
               <div className="grid gap-4">
                 <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-4">
                   <div className="flex items-start gap-3">
@@ -564,31 +619,65 @@ export default function Onboarding() {
             )}
 
             {/* Step 7 — Zugänge */}
-            {step === 6 && (
+            {step === 7 && (
               <div className="grid gap-4">
-                <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
-                  <p className="text-xs text-amber-700 dark:text-amber-300">
-                    Falls du die IDs nicht zur Hand hast — kein Problem. Wir helfen dir im Kick-off Call dabei. Du kannst diesen Schritt überspringen.
-                  </p>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Meta Business Manager ID</Label>
-                  <Input placeholder="z.B. 123456789012345" value={data.metaBusinessManager} onChange={(e) => update("metaBusinessManager", e.target.value)} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="grid gap-2">
-                    <Label>Ad Account ID</Label>
-                    <Input placeholder="act_123456789" value={data.adAccountId} onChange={(e) => update("adAccountId", e.target.value)} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Pixel ID</Label>
-                    <Input placeholder="123456789012345" value={data.pixelId} onChange={(e) => update("pixelId", e.target.value)} />
-                  </div>
-                </div>
+                {/* Meta Ads access — only for D4Y */}
+                {data.variant === "done4you" && (
+                  <>
+                    <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
+                      <p className="text-xs text-amber-700 dark:text-amber-300">
+                        Als Done 4 You Kunde benötigen wir Zugang zu deinen Meta Ads Accounts.
+                      </p>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Meta Business Manager ID</Label>
+                      <Input placeholder="z.B. 123456789012345" value={data.metaBusinessManager} onChange={(e) => update("metaBusinessManager", e.target.value)} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-2">
+                        <Label>Ad Account ID</Label>
+                        <Input placeholder="act_123456789" value={data.adAccountId} onChange={(e) => update("adAccountId", e.target.value)} />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Pixel ID</Label>
+                        <Input placeholder="123456789012345" value={data.pixelId} onChange={(e) => update("pixelId", e.target.value)} />
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 <div className="grid gap-2">
                   <Label>Auf welche Website sollen die Ads verlinken?</Label>
                   <Input placeholder="z.B. www.deineagentur.de/angebot" value={data.websiteForAds} onChange={(e) => update("websiteForAds", e.target.value)} />
                 </div>
+
+                {/* Social Media Links — both variants */}
+                <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-3">
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    Deine Social Media Profile helfen uns, deine Marke besser zu verstehen.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-2">
+                    <Label>Instagram URL</Label>
+                    <Input placeholder="https://instagram.com/..." value={data.instagramUrl} onChange={(e) => update("instagramUrl", e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Facebook URL</Label>
+                    <Input placeholder="https://facebook.com/..." value={data.facebookUrl} onChange={(e) => update("facebookUrl", e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-2">
+                    <Label>TikTok URL</Label>
+                    <Input placeholder="https://tiktok.com/@..." value={data.tiktokUrl} onChange={(e) => update("tiktokUrl", e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>LinkedIn URL</Label>
+                    <Input placeholder="https://linkedin.com/company/..." value={data.linkedinUrl} onChange={(e) => update("linkedinUrl", e.target.value)} />
+                  </div>
+                </div>
+
                 <div className="grid gap-2">
                   <Label>Noch etwas das wir wissen sollten?</Label>
                   <Textarea rows={4} placeholder="Besondere Wünsche, Erfahrungen, Bedenken — alles was dir wichtig ist..." value={data.additionalNotes} onChange={(e) => update("additionalNotes", e.target.value)} />
@@ -607,7 +696,7 @@ export default function Onboarding() {
               Weiter<ChevronRight className="h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={handleSubmit} className="gap-1.5 bg-emerald-500 hover:bg-emerald-600">
+            <Button onClick={handleSubmit} disabled={!canProceed()} className="gap-1.5 bg-emerald-500 hover:bg-emerald-600">
               <Sparkles className="h-4 w-4" />Onboarding abschließen
             </Button>
           )}

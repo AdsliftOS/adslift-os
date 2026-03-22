@@ -1,26 +1,60 @@
-import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useMemo, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Users, CheckCircle2, PauseCircle, Trash2, Link2, Copy } from "lucide-react";
+import { Plus, Search, Users, CheckCircle2, PauseCircle, Trash2, Link2, Copy, Pencil, MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 import { useClients, setClients } from "@/store/clients";
-import type { Client } from "@/store/clients";
+import type { Client, ClientStatus } from "@/store/clients";
+import { supabase } from "@/lib/supabase";
+
+type ClientComment = {
+  id: string;
+  client_id: string;
+  author: string;
+  text: string;
+  created_at: string;
+};
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n);
+
+const statusLabels: Record<ClientStatus, string> = {
+  Active: "Aktiv",
+  Paused: "Pausiert",
+  Inactive: "Inaktiv",
+};
+
+const statusColors: Record<ClientStatus, string> = {
+  Active: "bg-emerald-500 hover:bg-emerald-600",
+  Paused: "bg-amber-500 hover:bg-amber-600",
+  Inactive: "bg-gray-500 hover:bg-gray-600",
+};
 
 export default function Clients() {
   const [clients] = useClients();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [form, setForm] = useState({ name: "", contact: "", email: "", phone: "", company: "" });
+  const [editForm, setEditForm] = useState<{ id: string; name: string; contact: string; email: string; phone: string; company: string; revenue: string; status: ClientStatus }>({
+    id: "", name: "", contact: "", email: "", phone: "", company: "", revenue: "0", status: "Active",
+  });
+
+  // Comments state
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [comments, setComments] = useState<ClientComment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [commentAuthor, setCommentAuthor] = useState<"Alex" | "Daniel">("Alex");
+  const [loadingComments, setLoadingComments] = useState(false);
 
   const filteredClients = useMemo(() => {
     if (!searchQuery) return clients;
@@ -53,16 +87,102 @@ export default function Clients() {
     toast.success("Kunde hinzugefügt");
   };
 
-  const toggleStatus = (id: string) => {
+  const openEditDialog = (c: Client) => {
+    setEditForm({
+      id: c.id,
+      name: c.name,
+      contact: c.contact,
+      email: c.email,
+      phone: c.phone,
+      company: c.company,
+      revenue: c.revenue.toString(),
+      status: c.status,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSave = () => {
     setClients((prev) =>
-      prev.map((c) => c.id === id ? { ...c, status: c.status === "Active" ? "Paused" : "Active" } : c)
+      prev.map((c) =>
+        c.id === editForm.id
+          ? {
+              ...c,
+              name: editForm.name,
+              contact: editForm.contact,
+              email: editForm.email,
+              phone: editForm.phone,
+              company: editForm.company,
+              revenue: parseFloat(editForm.revenue) || 0,
+              status: editForm.status,
+            }
+          : c
+      )
     );
+    setEditDialogOpen(false);
+    toast.success("Kunde aktualisiert");
   };
 
   const deleteClient = (id: string) => {
     setClients((prev) => prev.filter((c) => c.id !== id));
     toast.success("Kunde gelöscht");
   };
+
+  // Comments functions
+  const loadComments = async (clientId: string) => {
+    setLoadingComments(true);
+    try {
+      const { data, error } = await supabase
+        .from("client_comments")
+        .select("*")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: true });
+      if (!error && data) {
+        setComments(data);
+      } else {
+        setComments([]);
+      }
+    } catch {
+      setComments([]);
+    }
+    setLoadingComments(false);
+  };
+
+  const openComments = (clientId: string) => {
+    setSelectedClientId(clientId);
+    setCommentDialogOpen(true);
+    loadComments(clientId);
+  };
+
+  const addComment = async () => {
+    if (!newComment.trim()) return;
+    const comment = {
+      client_id: selectedClientId,
+      author: commentAuthor,
+      text: newComment.trim(),
+    };
+    try {
+      const { error } = await supabase.from("client_comments").insert(comment);
+      if (!error) {
+        setNewComment("");
+        loadComments(selectedClientId);
+      } else {
+        // Fallback: add locally
+        setComments((prev) => [
+          ...prev,
+          { ...comment, id: Date.now().toString(), created_at: new Date().toISOString() },
+        ]);
+        setNewComment("");
+      }
+    } catch {
+      setComments((prev) => [
+        ...prev,
+        { ...comment, id: Date.now().toString(), created_at: new Date().toISOString() },
+      ]);
+      setNewComment("");
+    }
+  };
+
+  const selectedClient = clients.find((c) => c.id === selectedClientId);
 
   return (
     <div className="space-y-6">
@@ -189,7 +309,7 @@ export default function Clients() {
                 <TableHead className="text-center text-[11px] uppercase tracking-wider">Projekte</TableHead>
                 <TableHead className="text-right text-[11px] uppercase tracking-wider">Umsatz</TableHead>
                 <TableHead className="text-center text-[11px] uppercase tracking-wider">Status</TableHead>
-                <TableHead className="w-[40px]" />
+                <TableHead className="w-[100px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -212,22 +332,37 @@ export default function Clients() {
                   <TableCell className="text-center text-sm font-medium">{c.projects}</TableCell>
                   <TableCell className="text-right text-sm font-semibold tabular-nums">{fmt(c.revenue)}</TableCell>
                   <TableCell className="text-center">
-                    <button onClick={() => toggleStatus(c.id)}>
-                      <Badge
-                        variant={c.status === "Active" ? "default" : "secondary"}
-                        className={`text-[10px] cursor-pointer ${c.status === "Active" ? "bg-emerald-500 hover:bg-emerald-600" : ""}`}
-                      >
-                        {c.status === "Active" ? "Aktiv" : "Pausiert"}
-                      </Badge>
-                    </button>
+                    <Badge
+                      variant="default"
+                      className={`text-[10px] ${statusColors[c.status]}`}
+                    >
+                      {statusLabels[c.status]}
+                    </Badge>
                   </TableCell>
                   <TableCell>
-                    <button
-                      onClick={() => deleteClient(c.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => openEditDialog(c)}
+                        className="text-muted-foreground hover:text-primary"
+                        title="Bearbeiten"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => openComments(c.id)}
+                        className="text-muted-foreground hover:text-primary"
+                        title="Kommentare"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => deleteClient(c.id)}
+                        className="text-muted-foreground hover:text-destructive"
+                        title="Löschen"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -242,6 +377,120 @@ export default function Clients() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit Client Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Kunde bearbeiten</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label>Kundenname</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Firma / Rechtsform</Label>
+              <Input value={editForm.company} onChange={(e) => setEditForm({ ...editForm, company: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label>Ansprechpartner</Label>
+                <Input value={editForm.contact} onChange={(e) => setEditForm({ ...editForm, contact: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Telefon</Label>
+                <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>E-Mail</Label>
+              <Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label>Umsatz (EUR)</Label>
+                <Input type="number" value={editForm.revenue} onChange={(e) => setEditForm({ ...editForm, revenue: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Status</Label>
+                <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v as ClientStatus })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Active">Aktiv</SelectItem>
+                    <SelectItem value="Paused">Pausiert</SelectItem>
+                    <SelectItem value="Inactive">Inaktiv</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Abbrechen</Button>
+            <Button onClick={handleEditSave}>Speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Comments Dialog */}
+      <Dialog open={commentDialogOpen} onOpenChange={setCommentDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Kommentare — {selectedClient?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1">
+              {loadingComments && <p className="text-sm text-muted-foreground">Lade Kommentare...</p>}
+              {!loadingComments && comments.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">Noch keine Kommentare.</p>
+              )}
+              {comments.map((comment) => (
+                <div key={comment.id} className="rounded-lg border p-3 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="secondary" className="text-[10px]">{comment.author}</Badge>
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(comment.created_at).toLocaleString("de-DE", {
+                        day: "2-digit", month: "2-digit", year: "numeric",
+                        hour: "2-digit", minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                  <p className="text-sm">{comment.text}</p>
+                </div>
+              ))}
+            </div>
+            <div className="border-t pt-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <Label className="text-xs shrink-0">Autor:</Label>
+                <Select value={commentAuthor} onValueChange={(v) => setCommentAuthor(v as "Alex" | "Daniel")}>
+                  <SelectTrigger className="h-8 w-[120px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Alex">Alex</SelectItem>
+                    <SelectItem value="Daniel">Daniel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                <Textarea
+                  rows={2}
+                  placeholder="Kommentar schreiben..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                      addComment();
+                    }
+                  }}
+                  className="flex-1"
+                />
+                <Button size="icon" onClick={addComment} className="shrink-0 self-end">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

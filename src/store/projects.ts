@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
 
 export type TaskStatus = "todo" | "in-progress" | "done";
-export type ProjectType = "neukunde" | "neue-kampagne" | "optimierung" | "custom";
+export type ProjectType = "neukunde" | "neue-kampagne" | "optimierung" | "custom" | "done4you" | "donewithyou";
 export type CreativeFormat = "video" | "bild" | "beides";
 
 export type Task = { id: string; title: string; status: TaskStatus; assignee?: string; };

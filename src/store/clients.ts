@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
 
-export type ClientStatus = "Active" | "Paused";
+export type ClientStatus = "Active" | "Paused" | "Inactive";
 
 export type Client = {
   id: string;
