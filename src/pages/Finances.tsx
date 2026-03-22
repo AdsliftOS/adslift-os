@@ -17,7 +17,7 @@ import { useExpenses } from "@/store/expenses";
 import type { Deal } from "@/store/deals";
 import type { Expense, ExpenseStatus, MonthlyExpense } from "@/store/expenses";
 
-type PaymentStatus = "paid" | "planned" | "overdue" | "open";
+type PaymentStatus = "paid" | "planned" | "overdue" | "open" | "potenzial";
 
 type MonthlyPayment = {
   amount: number;
@@ -91,6 +91,7 @@ const statusConfig: Record<PaymentStatus, { label: string; color: string; varian
   planned: { label: "Geplant", color: "bg-blue-500", variant: "secondary" },
   overdue: { label: "Überfällig", color: "bg-red-500", variant: "destructive" },
   open: { label: "Offen", color: "bg-gray-400", variant: "outline" },
+  potenzial: { label: "Potenzial", color: "bg-amber-500", variant: "secondary" },
 };
 
 const expenseStatusConfig: Record<ExpenseStatus, { label: string; color: string }> = {
@@ -341,7 +342,7 @@ export default function Finances() {
   };
 
   const cycleStatus = (dealId: string, monthKey: string) => {
-    const order: PaymentStatus[] = ["planned", "paid", "overdue", "open"];
+    const order: PaymentStatus[] = ["planned", "paid", "overdue", "open", "potenzial"];
     setDeals((prev) =>
       prev.map((d) => {
         if (d.id !== dealId) return d;
