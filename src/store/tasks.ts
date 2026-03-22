@@ -97,6 +97,9 @@ export async function deleteTask(id: string) {
 }
 
 export async function moveTask(id: string, column: Column) {
+  // Optimistic update — move immediately in UI, then persist
+  tasks = tasks.map((t) => t.id === id ? { ...t, column } : t);
+  emit();
   await updateTask(id, { column });
 }
 
