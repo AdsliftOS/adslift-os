@@ -30,16 +30,22 @@ const eventTypes: { value: CalendarEvent["type"]; label: string; color: string; 
 const eventTypeMap = Object.fromEntries(eventTypes.map((t) => [t.value, t]));
 
 const SLOT_HEIGHT = 40;
-const START_HOUR = 0;
-const END_HOUR = 24;
-const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => i + START_HOUR);
+const DAY_START = 5;
+const TOTAL_HOURS = 24;
+const hours = Array.from({ length: TOTAL_HOURS }, (_, i) => (i + DAY_START) % 24);
 
 const timeOptions: string[] = [];
-for (let h = START_HOUR; h <= END_HOUR; h++) {
+for (let i = 0; i <= TOTAL_HOURS; i++) {
+  const h = (i + DAY_START) % 24;
   for (const m of [0, 15, 30, 45]) {
-    if (h === END_HOUR && m > 0) break;
+    if (i === TOTAL_HOURS && m > 0) break;
     timeOptions.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
   }
+}
+
+function hourToSlotIndex(h: number): number {
+  const idx = h >= DAY_START ? h - DAY_START : h + 24 - DAY_START;
+  return idx;
 }
 
 function getMeetingPlatform(link: string): { label: string; icon: typeof Video } | null {
@@ -220,8 +226,9 @@ export default function Calendar() {
   // Now line
   const nowH = today.getHours();
   const nowM = today.getMinutes();
-  const nowPos = ((nowH - START_HOUR) * 60 + nowM) / 60 * SLOT_HEIGHT;
-  const nowInRange = nowH >= START_HOUR && nowH < END_HOUR;
+  const nowSlotIdx = hourToSlotIndex(nowH);
+  const nowPos = (nowSlotIdx * 60 + nowM) / 60 * SLOT_HEIGHT;
+  const nowInRange = true;
 
   // Get event colors — account color overrides type color for Google events
   const getEventColors = (event: CalendarEvent) => {
@@ -452,8 +459,13 @@ export default function Calendar() {
                           {dayEvents.map((event) => {
                             const [sh, sm] = event.startTime.split(":").map(Number);
                             const [eh, em] = event.endTime.split(":").map(Number);
-                            const top = ((sh - START_HOUR) * 60 + sm) / 60 * SLOT_HEIGHT;
-                            const height = Math.max(((eh - START_HOUR) * 60 + em - (sh - START_HOUR) * 60 - sm) / 60 * SLOT_HEIGHT, 24);
+                            const startIdx = hourToSlotIndex(sh);
+                            const endIdx = hourToSlotIndex(eh);
+                            const top = (startIdx * 60 + sm) / 60 * SLOT_HEIGHT;
+                            const duration = endIdx > startIdx || (endIdx === startIdx && em > sm)
+                              ? (endIdx * 60 + em - startIdx * 60 - sm)
+                              : ((endIdx + 24) * 60 + em - startIdx * 60 - sm);
+                            const height = Math.max(duration / 60 * SLOT_HEIGHT, 24);
                             const ec = getEventColors(event);
 
                             const salesMeeting = isSalesMeeting(event);
