@@ -15,7 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { Plus, Search, ChevronRight, ChevronDown, Clock, CheckCircle2, AlertCircle, ArrowLeft, MessageSquare, FileText, ListChecks, Send, Trash2, GripVertical, ChevronUp, Wrench, ClipboardList, Building2, Target, DollarSign, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { useClients } from "@/store/clients";
-import { useProjects, setProjects as setProjectsStore } from "@/store/projects";
+import { useProjects, addProject as addProjectDB, updateProject as updateProjectDB, deleteProject as deleteProjectDB } from "@/store/projects";
 import type { Project, Phase, Task, Comment, TaskStatus, ProjectType, CreativeFormat } from "@/store/projects";
 
 // --- Types (re-exported from store) ---
@@ -312,7 +312,7 @@ const phaseColors = [
 export default function ProjectManager() {
   const [clientsList] = useClients();
   const existingClients = useMemo(() => clientsList.map((c) => c.name), [clientsList]);
-  const [projects, setProjectsPersisted] = useProjects();
+  const [projects, setProjectsLocal] = useProjects();
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -355,25 +355,14 @@ export default function ProjectManager() {
   };
 
   const toggleTask = (projectId: string, phaseId: string, taskId: string) => {
-    setProjectsPersisted((prev) =>
-      prev.map((p) => {
-        if (p.id !== projectId) return p;
-        return {
-          ...p,
-          phases: p.phases.map((ph) => {
-            if (ph.id !== phaseId) return ph;
-            return {
-              ...ph,
-              tasks: ph.tasks.map((t) => {
-                if (t.id !== taskId) return t;
-                const next = t.status === "done" ? "todo" : "done";
-                return { ...t, status: next };
-              }),
-            };
-          }),
-        };
-      })
-    );
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return;
+    const newPhases = project.phases.map((ph) => {
+      if (ph.id !== phaseId) return ph;
+      return { ...ph, tasks: ph.tasks.map((t) => t.id !== taskId ? t : { ...t, status: t.status === "done" ? "todo" as TaskStatus : "done" as TaskStatus }) };
+    });
+    setProjectsLocal((prev) => prev.map((p) => p.id === projectId ? { ...p, phases: newPhases } : p));
+    updateProjectDB(projectId, { phases: newPhases });
   };
 
   const toggleCustomPhase = (key: string) => {
@@ -391,7 +380,7 @@ export default function ProjectManager() {
     });
   };
 
-  const handleAddProject = () => {
+  const handleAddProject = async () => {
     const clientName = form.client === "__custom" ? form.clientCustom : form.client;
     if (!clientName || !form.name) {
       toast.error("Bitte Kunde und Projektname ausfüllen");
@@ -401,8 +390,7 @@ export default function ProjectManager() {
       toast.error("Bitte mindestens eine Phase auswählen");
       return;
     }
-    const newProject: Project = {
-      id: Date.now().toString(),
+    const newProject = {
       client: clientName,
       name: form.name,
       product: form.product,
@@ -417,7 +405,7 @@ export default function ProjectManager() {
       offer: "",
       comments: [],
     };
-    setProjectsPersisted((prev) => [newProject, ...prev]);
+    await addProjectDB(newProject as any);
     setForm({ client: "", clientCustom: "", name: "", product: "Done for you", type: "neukunde", creativeFormat: "beides", assignees: [] });
     setDialogOpen(false);
     toast.success("Projekt erstellt");
@@ -425,34 +413,37 @@ export default function ProjectManager() {
 
   const addComment = (projectId: string) => {
     if (!commentText.trim()) return;
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return;
     const comment: Comment = {
       id: Date.now().toString(),
       author: "Alex",
       text: commentText.trim(),
       timestamp: new Date().toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
     };
-    setProjectsPersisted((prev) =>
-      prev.map((p) => p.id === projectId ? { ...p, comments: [...p.comments, comment] } : p)
-    );
+    const newComments = [...project.comments, comment];
+    setProjectsLocal((prev) => prev.map((p) => p.id === projectId ? { ...p, comments: newComments } : p));
+    updateProjectDB(projectId, { comments: newComments });
     setCommentText("");
   };
 
-  const deleteProject = (projectId: string) => {
-    setProjectsPersisted((prev) => prev.filter((p) => p.id !== projectId));
+  const handleDeleteProject = async (projectId: string) => {
+    await deleteProjectDB(projectId);
     setSelectedProjectId(null);
     toast.success("Projekt gelöscht");
   };
 
   const deleteComment = (projectId: string, commentId: string) => {
-    setProjectsPersisted((prev) =>
-      prev.map((p) => p.id === projectId ? { ...p, comments: p.comments.filter((c) => c.id !== commentId) } : p)
-    );
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return;
+    const newComments = project.comments.filter((c) => c.id !== commentId);
+    setProjectsLocal((prev) => prev.map((p) => p.id === projectId ? { ...p, comments: newComments } : p));
+    updateProjectDB(projectId, { comments: newComments });
   };
 
   const updateProjectField = (projectId: string, field: keyof Project, value: string) => {
-    setProjectsPersisted((prev) =>
-      prev.map((p) => p.id === projectId ? { ...p, [field]: value } : p)
-    );
+    setProjectsLocal((prev) => prev.map((p) => p.id === projectId ? { ...p, [field]: value } : p));
+    updateProjectDB(projectId, { [field]: value } as Partial<Project>);
   };
 
   const toggleAssignee = (name: string) => {
@@ -478,7 +469,7 @@ export default function ProjectManager() {
             <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={() => { setSelectedProjectId(null); setExpandedPhases(new Set()); }}>
               <ArrowLeft className="h-4 w-4" />Zurück
             </Button>
-            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-destructive" onClick={() => deleteProject(selectedProject.id)}>
+            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteProject(selectedProject.id)}>
               <Trash2 className="h-3.5 w-3.5" />Löschen
             </Button>
           </div>
@@ -589,12 +580,9 @@ export default function ProjectManager() {
                       <button
                         key={pt.value}
                         onClick={() => {
-                          setProjectsPersisted((prev) =>
-                            prev.map((p) => p.id === selectedProject.id
-                              ? { ...p, type: pt.value, phases: createPhases(pt.value, undefined, p.creativeFormat) }
-                              : p
-                            )
-                          );
+                          const newPhases = createPhases(pt.value, undefined, selectedProject.creativeFormat);
+                          setProjectsLocal((prev) => prev.map((p) => p.id === selectedProject.id ? { ...p, type: pt.value, phases: newPhases } : p));
+                          updateProjectDB(selectedProject.id, { type: pt.value, phases: newPhases });
                           toast.success(`Pipeline "${pt.label}" erstellt`);
                         }}
                         className="text-left rounded-xl border p-4 hover:border-primary/40 hover:bg-primary/5 transition-all group"
@@ -610,14 +598,10 @@ export default function ProjectManager() {
                     {/* Custom option */}
                     <button
                       onClick={() => {
-                        // For custom, we'll use all phases as default — user can remove later
                         const allKeys = allPhaseBlocks.map((b) => b.key);
-                        setProjectsPersisted((prev) =>
-                          prev.map((p) => p.id === selectedProject.id
-                            ? { ...p, type: "custom" as ProjectType, phases: createPhases("custom" as ProjectType, allKeys, p.creativeFormat) }
-                            : p
-                          )
-                        );
+                        const newPhases = createPhases("custom" as ProjectType, allKeys, selectedProject.creativeFormat);
+                        setProjectsLocal((prev) => prev.map((p) => p.id === selectedProject.id ? { ...p, type: "custom" as ProjectType, phases: newPhases } : p));
+                        updateProjectDB(selectedProject.id, { type: "custom" as ProjectType, phases: newPhases });
                         toast.success("Custom Pipeline erstellt — du kannst Phasen entfernen");
                       }}
                       className="text-left rounded-xl border border-dashed p-4 hover:border-primary/40 hover:bg-primary/5 transition-all group"

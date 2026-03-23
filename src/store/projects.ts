@@ -46,10 +46,10 @@ function rowToProject(row: any): Project {
     startDate: row.start_date,
     assignees: row.assignees || [],
     phases: row.phases || [],
-    briefing: row.briefing,
-    meetingNotes: row.meeting_notes,
-    targetAudience: row.target_audience,
-    offer: row.offer,
+    briefing: row.briefing || "",
+    meetingNotes: row.meeting_notes || "",
+    targetAudience: row.target_audience || "",
+    offer: row.offer || "",
     comments: row.comments || [],
     onboarding: row.onboarding,
     deadline: row.deadline,
@@ -67,7 +67,7 @@ function projectToRow(p: Project) {
   };
 }
 
-async function loadProjects() {
+export async function loadProjects() {
   const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
   if (!error && data) {
     projects = data.map(rowToProject);
@@ -77,29 +77,60 @@ async function loadProjects() {
 
 loadProjects();
 
+// --- Direct CRUD operations (no more diff-based setProjects) ---
+
+export async function addProject(project: Omit<Project, "id"> & { id?: string }): Promise<string | null> {
+  const row = projectToRow(project as Project);
+  const { data, error } = await supabase.from("projects").insert(row).select().single();
+  if (!error && data) {
+    await loadProjects();
+    return data.id;
+  }
+  console.error("Failed to add project:", error);
+  return null;
+}
+
+export async function updateProject(id: string, updates: Partial<Project>) {
+  const dbUpdates: any = {};
+  if (updates.client !== undefined) dbUpdates.client = updates.client;
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.product !== undefined) dbUpdates.product = updates.product;
+  if (updates.type !== undefined) dbUpdates.type = updates.type;
+  if (updates.creativeFormat !== undefined) dbUpdates.creative_format = updates.creativeFormat;
+  if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
+  if (updates.assignees !== undefined) dbUpdates.assignees = updates.assignees;
+  if (updates.phases !== undefined) dbUpdates.phases = updates.phases;
+  if (updates.briefing !== undefined) dbUpdates.briefing = updates.briefing;
+  if (updates.meetingNotes !== undefined) dbUpdates.meeting_notes = updates.meetingNotes;
+  if (updates.targetAudience !== undefined) dbUpdates.target_audience = updates.targetAudience;
+  if (updates.offer !== undefined) dbUpdates.offer = updates.offer;
+  if (updates.comments !== undefined) dbUpdates.comments = updates.comments;
+  if (updates.onboarding !== undefined) dbUpdates.onboarding = updates.onboarding;
+  if (updates.deadline !== undefined) dbUpdates.deadline = updates.deadline;
+
+  const { error } = await supabase.from("projects").update(dbUpdates).eq("id", id);
+  if (!error) {
+    await loadProjects();
+  } else {
+    console.error("Failed to update project:", error);
+  }
+}
+
+export async function deleteProject(id: string) {
+  const { error } = await supabase.from("projects").delete().eq("id", id);
+  if (!error) {
+    await loadProjects();
+  } else {
+    console.error("Failed to delete project:", error);
+  }
+}
+
+// Legacy setProjects — only updates local state, does NOT sync to Supabase
+// Used for optimistic UI updates; real persistence goes through add/update/deleteProject
 export function setProjects(updater: Project[] | ((prev: Project[]) => Project[])) {
-  const prev = projects;
-  const next = typeof updater === "function" ? updater(prev) : updater;
-
-  const added = next.filter((n) => !prev.find((p) => p.id === n.id));
-  const removed = prev.filter((p) => !next.find((n) => n.id === p.id));
-  const updated = next.filter((n) => {
-    const old = prev.find((p) => p.id === n.id);
-    return old && JSON.stringify(old) !== JSON.stringify(n);
-  });
-
+  const next = typeof updater === "function" ? updater(projects) : updater;
   projects = next;
   emit();
-
-  added.forEach((p) => {
-    supabase.from("projects").insert(projectToRow(p)).then(() => loadProjects());
-  });
-  removed.forEach((p) => {
-    supabase.from("projects").delete().eq("id", p.id).then(() => loadProjects());
-  });
-  updated.forEach((p) => {
-    supabase.from("projects").update(projectToRow(p)).eq("id", p.id);
-  });
 }
 
 export function useProjects(): [Project[], typeof setProjects] {

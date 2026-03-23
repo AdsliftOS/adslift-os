@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronRight, ChevronLeft, Building2, Target, DollarSign, KeyRound, Megaphone, Users, CheckCircle2, Sparkles, FolderOpen, ExternalLink, Handshake } from "lucide-react";
 import { setClients } from "@/store/clients";
-import { setProjects } from "@/store/projects";
+import { addProject as addProjectDB } from "@/store/projects";
 import type { Project } from "@/store/projects";
 
 type OnboardingVariant = "done4you" | "donewithyou" | "";
@@ -147,7 +147,7 @@ export default function Onboarding() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // 1. Create client
     setClients((prev) => [
       ...prev,
@@ -183,7 +183,7 @@ export default function Onboarding() {
       comments: [],
       onboarding: data as unknown as Record<string, unknown>,
     };
-    setProjects((prev) => [newProject, ...prev]);
+    await addProjectDB(newProject as any);
 
     setSubmitted(true);
   };

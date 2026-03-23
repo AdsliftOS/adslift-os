@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "ad-creative": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceType": "github",
+      "computedHash": "5d8f869c7e683e4d4fc7aa7a2b0d370b0ad54a81d9cffb48736ffc47759b3f4d"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+    }
+  }
+}
