@@ -506,6 +506,32 @@ export default function MetaAds() {
       {/* KPIs + Charts + Table */}
       {!loading && !error && (
         <>
+          {/* ─── Overall Performance Status ─── */}
+          {(() => {
+            const overallStatus = getCampaignStatus(totals.ctr, totals.leads > 0 ? totals.spend / totals.leads : 0, totals.leads, totals.spend);
+            const statusExplanations: Record<string, string> = {
+              "Top Performer": "Deine Ads performen exzellent — niedrige Kosten pro Lead und starke Klickrate.",
+              "Läuft gut": "Solide Performance — Kosten pro Lead und CTR sind in einem guten Bereich.",
+              "Stabil": "Die Kampagnen laufen stabil. Es gibt Potenzial für Optimierung.",
+              "Optimieren": "Die Performance könnte besser sein — CTR oder CPL sollten verbessert werden.",
+              "Kritisch": "Achtung: Hohe Kosten pro Lead. Creatives und Targeting prüfen.",
+              "Keine Leads": "Es kommen keine Leads rein trotz Spend. Dringend optimieren.",
+              "Inaktiv": "Aktuell keine aktiven Ausgaben in diesem Zeitraum.",
+              "Läuft": "Die Kampagnen laufen — schau auf die Details für mehr Insights.",
+            };
+            return (
+              <div className={cn("rounded-xl border p-4 flex items-center gap-4 shadow-sm", overallStatus.bg, `ring-1 ring-inset`)}>
+                <div className={cn("text-2xl font-bold", overallStatus.color)}>
+                  {overallStatus.label}
+                </div>
+                <div className="h-8 w-px bg-border/50" />
+                <p className="text-sm text-muted-foreground">
+                  {statusExplanations[overallStatus.label] || ""}
+                </p>
+              </div>
+            );
+          })()}
+
           {/* ─── Row 1: Big KPI Cards ─── */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {/* Gesamtausgaben */}
