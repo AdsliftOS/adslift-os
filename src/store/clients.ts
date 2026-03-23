@@ -13,6 +13,8 @@ export type Client = {
   projects: number;
   revenue: number;
   status: ClientStatus;
+  contract_start?: string;
+  contract_end?: string;
 };
 
 // --- Store ---
@@ -37,6 +39,8 @@ async function loadClients() {
         projects: row.projects || 0,
         revenue: Number(row.revenue) || 0,
         status: (row.status as ClientStatus) || "Active",
+        contract_start: row.contract_start || undefined,
+        contract_end: row.contract_end || undefined,
       }));
       emit();
     }
@@ -69,6 +73,7 @@ export function setClients(updater: Client[] | ((prev: Client[]) => Client[])) {
     supabase.from("clients").insert({
       name: c.name, contact: c.contact, email: c.email, phone: c.phone,
       company: c.company, projects: c.projects, revenue: c.revenue, status: c.status,
+      contract_start: c.contract_start || null, contract_end: c.contract_end || null,
     }).then(() => loadClients());
   });
 
@@ -80,6 +85,7 @@ export function setClients(updater: Client[] | ((prev: Client[]) => Client[])) {
     supabase.from("clients").update({
       name: c.name, contact: c.contact, email: c.email, phone: c.phone,
       company: c.company, projects: c.projects, revenue: c.revenue, status: c.status,
+      contract_start: c.contract_start || null, contract_end: c.contract_end || null,
     }).eq("id", c.id);
   });
 }

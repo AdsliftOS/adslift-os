@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import { supabase } from "@/lib/supabase";
+import { generateAutoTasks } from "@/lib/autoTasks";
 import Dashboard from "./pages/Dashboard";
 import ProjectManager from "./pages/ProjectManager";
 import Clients from "./pages/Clients";
@@ -41,6 +42,11 @@ const App = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setLoggedIn(!!session);
       setUserEmail(session?.user?.email || "");
+    });
+
+    // Run auto-task generation once on mount (after auth check)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) generateAutoTasks();
     });
 
     return () => subscription.unsubscribe();

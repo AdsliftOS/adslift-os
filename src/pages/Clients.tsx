@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,8 +45,8 @@ export default function Clients() {
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [form, setForm] = useState({ name: "", contact: "", email: "", phone: "", company: "" });
-  const [editForm, setEditForm] = useState<{ id: string; name: string; contact: string; email: string; phone: string; company: string; revenue: string; status: ClientStatus }>({
-    id: "", name: "", contact: "", email: "", phone: "", company: "", revenue: "0", status: "Active",
+  const [editForm, setEditForm] = useState<{ id: string; name: string; contact: string; email: string; phone: string; company: string; revenue: string; status: ClientStatus; contract_start: string; contract_end: string }>({
+    id: "", name: "", contact: "", email: "", phone: "", company: "", revenue: "0", status: "Active", contract_start: "", contract_end: "",
   });
 
   // Comments state
@@ -97,6 +97,8 @@ export default function Clients() {
       company: c.company,
       revenue: c.revenue.toString(),
       status: c.status,
+      contract_start: c.contract_start || "",
+      contract_end: c.contract_end || "",
     });
     setEditDialogOpen(true);
   };
@@ -114,6 +116,8 @@ export default function Clients() {
               company: editForm.company,
               revenue: parseFloat(editForm.revenue) || 0,
               status: editForm.status,
+              contract_start: editForm.contract_start || undefined,
+              contract_end: editForm.contract_end || undefined,
             }
           : c
       )
@@ -308,6 +312,7 @@ export default function Clients() {
                 <TableHead className="text-[11px] uppercase tracking-wider">Telefon</TableHead>
                 <TableHead className="text-center text-[11px] uppercase tracking-wider">Projekte</TableHead>
                 <TableHead className="text-right text-[11px] uppercase tracking-wider">Umsatz</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider">Laufzeit</TableHead>
                 <TableHead className="text-center text-[11px] uppercase tracking-wider">Status</TableHead>
                 <TableHead className="w-[100px]" />
               </TableRow>
@@ -331,6 +336,11 @@ export default function Clients() {
                   <TableCell className="text-sm text-muted-foreground">{c.phone}</TableCell>
                   <TableCell className="text-center text-sm font-medium">{c.projects}</TableCell>
                   <TableCell className="text-right text-sm font-semibold tabular-nums">{fmt(c.revenue)}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {c.contract_end
+                      ? `Läuft bis: ${new Date(c.contract_end).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}`
+                      : "—"}
+                  </TableCell>
                   <TableCell className="text-center">
                     <Badge
                       variant="default"
@@ -368,7 +378,7 @@ export default function Clients() {
               ))}
               {filteredClients.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     Keine Kunden gefunden.
                   </TableCell>
                 </TableRow>
@@ -422,6 +432,20 @@ export default function Clients() {
                     <SelectItem value="Inactive">Inaktiv</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            {/* Laufzeit */}
+            <div className="grid gap-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Laufzeit</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-2">
+                  <Label>Vertragsbeginn</Label>
+                  <Input type="date" value={editForm.contract_start} onChange={(e) => setEditForm({ ...editForm, contract_start: e.target.value })} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Vertragsende</Label>
+                  <Input type="date" value={editForm.contract_end} onChange={(e) => setEditForm({ ...editForm, contract_end: e.target.value })} />
+                </div>
               </div>
             </div>
           </div>
