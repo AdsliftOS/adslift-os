@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, Users, DollarSign, Clock, BarChart3, Calendar, ListTodo, FolderOpen, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Users, DollarSign, Clock, BarChart3, Megaphone, Calendar, ListTodo, FolderOpen, Settings, LogOut } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -21,6 +21,7 @@ const navItems = [
   { title: "Clients", url: "/clients", icon: Users },
   { title: "Finances", url: "/finances", icon: DollarSign },
   { title: "Sales", url: "/sales", icon: BarChart3 },
+  { title: "Meta Ads", url: "/meta-ads", icon: Megaphone },
   { title: "Kalender", url: "/calendar", icon: Calendar },
   { title: "Aufgaben", url: "/tasks", icon: ListTodo },
   { title: "Dateien", url: "/files", icon: FolderOpen },

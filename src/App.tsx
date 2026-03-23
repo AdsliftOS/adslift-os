@@ -14,6 +14,7 @@ import Finances from "./pages/Finances";
 import Settings from "./pages/Settings";
 import TimeTracking from "./pages/TimeTracking";
 import Sales from "./pages/Sales";
+import MetaAds from "./pages/MetaAds";
 import Calendar from "./pages/Calendar";
 import Tasks from "./pages/Tasks";
 import Files from "./pages/Files";
@@ -82,6 +83,7 @@ const App = () => {
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/time" element={<TimeTracking />} />
                       <Route path="/sales" element={<Sales />} />
+                      <Route path="/meta-ads" element={<MetaAds />} />
                       <Route path="/calendar" element={<Calendar />} />
                       <Route path="/tasks" element={<Tasks />} />
                   <Route path="/files" element={<Files />} />
