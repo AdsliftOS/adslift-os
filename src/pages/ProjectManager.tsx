@@ -108,6 +108,66 @@ const phaseTemplates: Record<ProjectType, { title: string; tasks: string[] }[]> 
       tasks: ["KPIs tracken", "Wöchentliches Reporting erstellen", "Kunden-Call / Update", "Optimierungsvorschläge dokumentieren"],
     },
   ],
+  donewithyou: [
+    {
+      title: "Onboarding",
+      tasks: ["Kick-off Call", "WhatsApp Gruppe erstellen", "Material zugesendet", "Fragebogen / Briefing-Dokument senden", "Briefing ausgefüllt"],
+    },
+    {
+      title: "Zielgruppe & Offer",
+      tasks: ["Zielgruppen Material zugesendet", "Zielgruppe gefunden", "Offer Building Material zugesendet", "Offer gefunden"],
+    },
+    {
+      title: "Coldcall",
+      tasks: ["Coldcall Skripte gesendet", "Leadgen Tutorial gesendet", "Tracking Exceltabelle gesendet"],
+    },
+    {
+      title: "Sales",
+      tasks: ["Skripte gesendet", "Setting geübt", "Closing geübt", "Sales-Sparring gehabt"],
+    },
+    {
+      title: "LinkedIn",
+      tasks: ["LinkedIn Outreach Skripte gesendet", "LinkedIn Branding gesendet", "LinkedIn Profil ready", "Prosp AI Tutorial gesendet", "Prosp AI eingerichtet", "Kampagne läuft"],
+    },
+    {
+      title: "Email / Instantly",
+      tasks: ["Instantly Tutorial senden", "Instantly eingerichtet", "Email warmgelaufen", "Email Outreach Skripte senden", "Email Outreach Nachrichten eingereicht", "Email Nachrichten ready", "Email Kampagne läuft"],
+    },
+  ],
+  done4you: [
+    {
+      title: "Onboarding",
+      tasks: ["Kick-off Call", "Zugänge einrichten (Ad Manager, Pixel, etc.)", "Fragebogen / Briefing-Dokument senden", "Assets vom Kunden einsammeln"],
+    },
+    {
+      title: "Briefing & Strategie",
+      tasks: ["Zielgruppe definieren", "Wettbewerbsanalyse", "Funnel-Strategie festlegen", "Angebots-Positionierung klären", "Budget & Laufzeit planen"],
+    },
+    {
+      title: "Creative Production",
+      tasks: ["Hooks & Angles brainstormen", "Ad Creatives designen", "Video-Skripte schreiben", "Creator/UGC beauftragen (falls nötig)", "Creatives finalisieren"],
+    },
+    {
+      title: "Ad Copy",
+      tasks: ["Primary Text schreiben (3+ Varianten)", "Headlines schreiben", "Descriptions schreiben", "CTA festlegen"],
+    },
+    {
+      title: "Kampagnen-Setup",
+      tasks: ["Ad Manager verbinden", "Pixel / Conversion API einrichten", "Custom Audiences erstellen", "Lookalike Audiences erstellen", "Kampagnenstruktur aufsetzen", "Anzeigen einpflegen"],
+    },
+    {
+      title: "Review & Freigabe",
+      tasks: ["Interne Review", "Kundenfreigabe einholen", "Feedback einarbeiten", "Finale Freigabe"],
+    },
+    {
+      title: "Launch",
+      tasks: ["Kampagnen live schalten", "Initiales Monitoring (24h)", "Budget-Check nach 48h", "Erste Optimierungen"],
+    },
+    {
+      title: "Reporting",
+      tasks: ["KPIs tracken", "Wöchentliches Reporting erstellen", "Kunden-Call / Update", "Optimierungsvorschläge dokumentieren"],
+    },
+  ],
   optimierung: [
     {
       title: "Analyse",
@@ -134,6 +194,7 @@ const phaseTemplates: Record<ProjectType, { title: string; tasks: string[] }[]> 
       tasks: ["Vorher/Nachher Vergleich", "KPI-Entwicklung dokumentieren", "Kunden-Call / Update", "Nächste Optimierungsrunde planen"],
     },
   ],
+  custom: [],
 };
 
 // All available phase blocks (superset for custom builder)
