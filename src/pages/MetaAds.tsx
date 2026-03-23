@@ -694,13 +694,13 @@ export default function MetaAds() {
                 {/* Chart area with Y-axis labels */}
                 <div className="flex gap-2">
                   {/* Y-axis */}
-                  <div className="flex flex-col justify-between h-56 text-[10px] text-muted-foreground pr-1 py-1">
+                  <div className="flex flex-col justify-between h-44 text-[10px] text-muted-foreground pr-1 py-1">
                     <span>{fmtEur(maxSpend)}</span>
                     <span>{fmtEur(maxSpend / 2)}</span>
                     <span>0 €</span>
                   </div>
                   {/* Bars */}
-                  <div className="flex-1 flex items-end gap-1 h-56 relative border-l border-b border-border/30 pl-1 pb-6">
+                  <div className="flex-1 flex items-end gap-1.5 h-44 relative border-l border-b border-border/30 pl-1 pb-6">
                     {chartData.map((d, i) => {
                       const barH = maxSpend > 0 ? (d.spend / maxSpend) * 100 : 0;
                       const day = new Date(d.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
@@ -723,12 +723,17 @@ export default function MetaAds() {
                               <span>Leads: <span className="font-medium text-emerald-400">{d.leads}</span></span>
                             </div>
                           </div>
-                          {/* Lead count above bar */}
-                          {d.leads > 0 && (
-                            <div className="text-[10px] font-bold text-emerald-400 mb-1">
-                              {d.leads}
+                          {/* Values above bar */}
+                          <div className="flex flex-col items-center mb-1 gap-0.5">
+                            <div className="text-[9px] font-medium text-red-400/80">
+                              {d.spend >= 1000 ? `${(d.spend/1000).toFixed(1)}k` : d.spend >= 1 ? `${Math.round(d.spend)}€` : ""}
                             </div>
-                          )}
+                            {d.leads > 0 && (
+                              <div className="text-[9px] font-bold text-emerald-400">
+                                {d.leads}L
+                              </div>
+                            )}
+                          </div>
                           {/* Spend bar */}
                           <div
                             className="w-full rounded-t bg-gradient-to-t from-red-500/80 to-red-400/40 transition-all duration-300 hover:from-red-500 hover:to-red-400/70 min-h-[3px]"
@@ -878,7 +883,7 @@ export default function MetaAds() {
                               : "text-red-500"
                           )}
                         >
-                          {row.linkClicks > 0 ? fmtPct(row.convRate) : "\u2013"}
+                          {row.clicks > 0 ? fmtPct(row.convRate) : "\u2013"}
                         </TableCell>
                       </TableRow>
                     ))}
