@@ -28,6 +28,7 @@ type OnboardingData = {
   // Step 2 — Angebot & Positionierung
   mainOffer: string;
   priceRange: string;
+  uspChoice: "known" | "unknown" | "";
   usp: string;
   caseStudies: string;
   currentClients: string;
@@ -67,7 +68,7 @@ type OnboardingData = {
 const initialData: OnboardingData = {
   variant: "",
   companyName: "", website: "", contactName: "", contactEmail: "", contactPhone: "", teamSize: "", services: [],
-  mainOffer: "", priceRange: "", usp: "", caseStudies: "", currentClients: "",
+  mainOffer: "", priceRange: "", uspChoice: "", usp: "", caseStudies: "", currentClients: "",
   idealClient: "", idealIndustry: [], idealBudget: "", clientProblems: "", targetAudienceChoice: "",
   currentMarketing: [], monthlyLeads: "", closingRate: "", biggestChallenge: "",
   adExperience: "", monthlyAdBudget: "", adGoal: [], targetLeadsPerMonth: "", timeline: "",
@@ -129,10 +130,10 @@ export default function Onboarding() {
     switch (step) {
       case 0: return !!data.variant;
       case 1: return data.companyName && data.contactName && data.contactEmail && data.contactPhone && data.website && data.teamSize && data.services.length > 0;
-      case 2: return data.mainOffer && data.priceRange && data.usp && data.caseStudies && data.currentClients;
-      case 3: return data.targetAudienceChoice && data.idealIndustry.length > 0 && data.idealBudget && data.clientProblems && (data.targetAudienceChoice === "together" || data.idealClient);
+      case 2: return data.mainOffer && data.priceRange && data.uspChoice && (data.uspChoice === "unknown" || data.usp) && data.caseStudies && data.currentClients;
+      case 3: return data.targetAudienceChoice && data.idealBudget && data.clientProblems && (data.targetAudienceChoice === "together" || data.idealClient);
       case 4: return data.currentMarketing.length > 0 && data.monthlyLeads && data.closingRate && data.biggestChallenge;
-      case 5: return data.monthlyAdBudget && data.adGoal.length > 0 && data.adExperience && data.targetLeadsPerMonth && data.timeline;
+      case 5: return data.monthlyAdBudget && data.adGoal.length > 0 && data.adExperience && data.targetLeadsPerMonth;
       case 6: return data.driveLink.startsWith("https://") && data.existingAds;
       case 7: {
         const baseValid = data.additionalNotes !== undefined;
@@ -376,7 +377,25 @@ export default function Onboarding() {
                 </div>
                 <div className="grid gap-2">
                   <Label>Was macht dich besonders? (USP)</Label>
-                  <Textarea rows={3} placeholder="Warum sollte jemand DICH buchen und nicht die Konkurrenz? (z.B. Branchenfokus, Schnelligkeit, Design-Stil, Garantie...)" value={data.usp} onChange={(e) => update("usp", e.target.value)} />
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: "known" as const, label: "Ich kenne meinen USP" },
+                      { value: "unknown" as const, label: "Ich habe noch keinen USP" },
+                    ].map((opt) => (
+                      <button key={opt.value} onClick={() => { update("uspChoice", opt.value); if (opt.value === "unknown") update("usp", ""); }}
+                        className={`text-left rounded-lg border p-3 transition-all ${data.uspChoice === opt.value ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/30"}`}>
+                        <span className="text-sm">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {data.uspChoice === "known" && (
+                    <Textarea rows={3} placeholder="Warum sollte jemand DICH buchen und nicht die Konkurrenz? (z.B. Branchenfokus, Schnelligkeit, Design-Stil, Garantie...)" value={data.usp} onChange={(e) => update("usp", e.target.value)} className="mt-2" />
+                  )}
+                  {data.uspChoice === "unknown" && (
+                    <div className="mt-2 rounded-lg bg-blue-500/10 border border-blue-500/20 p-3">
+                      <p className="text-sm text-blue-700 dark:text-blue-300">Wir arbeiten deinen USP gemeinsam heraus</p>
+                    </div>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label>Hast du Case Studies / Referenzen?</Label>
@@ -420,17 +439,6 @@ export default function Onboarding() {
                   {data.targetAudienceChoice === "existing" && (
                     <Textarea rows={3} placeholder="Beschreibe deine Zielgruppe (z.B. Handwerker, 25-55 Jahre, Umkreis 50km, Umsatz 500k+)" value={data.idealClient} onChange={(e) => update("idealClient", e.target.value)} className="mt-2" />
                   )}
-                </div>
-                <div className="grid gap-2">
-                  <Label>Welche Branchen willst du ansprechen?</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {industryOptions.map((ind) => (
-                      <button key={ind} onClick={() => toggleArray("idealIndustry", ind)}
-                        className={`text-left rounded-lg border p-2.5 transition-all ${data.idealIndustry.includes(ind) ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/30"}`}>
-                        <div className="flex items-center gap-2"><Checkbox checked={data.idealIndustry.includes(ind)} /><span className="text-sm">{ind}</span></div>
-                      </button>
-                    ))}
-                  </div>
                 </div>
                 <div className="grid gap-2">
                   <Label>Budget deiner Traumkunden</Label>
@@ -549,18 +557,6 @@ export default function Onboarding() {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Wann willst du starten?</Label>
-                  <Select value={data.timeline} onValueChange={(v) => update("timeline", v)}>
-                    <SelectTrigger><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sofort">Sofort / ASAP</SelectItem>
-                      <SelectItem value="1-2wochen">In 1-2 Wochen</SelectItem>
-                      <SelectItem value="1monat">In ca. 1 Monat</SelectItem>
-                      <SelectItem value="offen">Noch offen</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
             )}
