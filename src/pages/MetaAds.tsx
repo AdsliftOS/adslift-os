@@ -393,10 +393,7 @@ export default function MetaAds() {
     () => Math.max(...chartData.map((d) => d.spend), 1),
     [chartData]
   );
-  const maxLeads = useMemo(
-    () => Math.max(...chartData.map((d) => d.leads), 1),
-    [chartData]
-  );
+
 
   const handleSort = useCallback(
     (key: SortKey) => {
@@ -694,57 +691,71 @@ export default function MetaAds() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-6 pb-6">
-                <div className="flex items-end gap-[2px] h-48 relative">
-                  {chartData.map((d, i) => {
-                    const barH = (d.spend / maxSpend) * 100;
-                    const leadH = maxLeads > 0 ? (d.leads / maxLeads) * 100 : 0;
-                    const dateLabel = d.date.slice(5); // MM-DD
-                    return (
-                      <div
-                        key={d.date}
-                        className="flex-1 flex flex-col items-center justify-end h-full relative group"
-                      >
-                        {/* Tooltip */}
-                        <div className="absolute bottom-full mb-2 hidden group-hover:block z-10 bg-popover border rounded-lg shadow-lg p-2 text-xs whitespace-nowrap">
-                          <p className="font-semibold">{d.date}</p>
-                          <p>
-                            Spend: <span className="text-red-400">{fmtEur(d.spend)}</span>
-                          </p>
-                          <p>
-                            Leads: <span className="text-emerald-400">{d.leads}</span>
-                          </p>
-                        </div>
-                        {/* Lead dot */}
-                        {d.leads > 0 && (
-                          <div
-                            className="absolute w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50 z-10 ring-2 ring-background"
-                            style={{ bottom: `${leadH}%` }}
-                          />
-                        )}
-                        {/* Spend bar */}
+                {/* Chart area with Y-axis labels */}
+                <div className="flex gap-2">
+                  {/* Y-axis */}
+                  <div className="flex flex-col justify-between h-56 text-[10px] text-muted-foreground pr-1 py-1">
+                    <span>{fmtEur(maxSpend)}</span>
+                    <span>{fmtEur(maxSpend / 2)}</span>
+                    <span>0 €</span>
+                  </div>
+                  {/* Bars */}
+                  <div className="flex-1 flex items-end gap-1 h-56 relative border-l border-b border-border/30 pl-1 pb-6">
+                    {chartData.map((d, i) => {
+                      const barH = maxSpend > 0 ? (d.spend / maxSpend) * 100 : 0;
+                      const day = new Date(d.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+                      const weekday = new Date(d.date).toLocaleDateString("de-DE", { weekday: "short" });
+                      return (
                         <div
-                          className="w-full rounded-t-sm bg-gradient-to-t from-red-500/80 to-red-400/40 transition-all duration-300 hover:from-red-500 hover:to-red-400/60 min-h-[2px]"
-                          style={{ height: `${Math.max(barH, 1)}%` }}
-                        />
-                        {/* Date label - show every few */}
-                        {(chartData.length <= 14 || i % Math.ceil(chartData.length / 10) === 0) && (
-                          <span className="text-[8px] text-muted-foreground mt-1 rotate-0">
-                            {dateLabel}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+                          key={d.date}
+                          className="flex-1 flex flex-col items-center justify-end relative group cursor-pointer"
+                          style={{ height: "100%" }}
+                        >
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full mb-3 hidden group-hover:block z-20 bg-popover border rounded-lg shadow-xl p-3 text-xs whitespace-nowrap pointer-events-none">
+                            <p className="font-semibold text-sm mb-1">{weekday}, {day}</p>
+                            <div className="flex items-center gap-2">
+                              <span className="inline-block h-2 w-2 rounded-sm bg-red-400" />
+                              <span>Spend: <span className="font-medium text-red-400">{fmtEur(d.spend)}</span></span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                              <span>Leads: <span className="font-medium text-emerald-400">{d.leads}</span></span>
+                            </div>
+                          </div>
+                          {/* Lead count above bar */}
+                          {d.leads > 0 && (
+                            <div className="text-[10px] font-bold text-emerald-400 mb-1">
+                              {d.leads}
+                            </div>
+                          )}
+                          {/* Spend bar */}
+                          <div
+                            className="w-full rounded-t bg-gradient-to-t from-red-500/80 to-red-400/40 transition-all duration-300 hover:from-red-500 hover:to-red-400/70 min-h-[3px]"
+                            style={{ height: `${Math.max(barH, 1.5)}%` }}
+                          />
+                          {/* Date label */}
+                          <div className="absolute -bottom-5 text-center w-full">
+                            {(chartData.length <= 14 || i % Math.ceil(chartData.length / 8) === 0) && (
+                              <span className="text-[9px] text-muted-foreground font-medium">
+                                {day}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
                 {/* Legend */}
-                <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-6 mt-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded-sm bg-gradient-to-t from-red-500/80 to-red-400/40" />
+                    <span className="inline-block h-3 w-3 rounded-sm bg-gradient-to-t from-red-500/80 to-red-400/40" />
                     Spend
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                    Leads
+                    <span className="inline-block h-3 w-3 rounded-full bg-emerald-500" />
+                    Leads (Zahl über Balken)
                   </span>
                 </div>
               </CardContent>
