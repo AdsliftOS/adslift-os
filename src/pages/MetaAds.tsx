@@ -137,6 +137,17 @@ function getLeads(actions?: MetaAction[]): number {
   return getActionValue(actions, "lead");
 }
 
+function getCampaignStatus(ctr: number, cpl: number, leads: number, spend: number): { label: string; color: string; bg: string } {
+  if (spend === 0) return { label: "Inaktiv", color: "text-muted-foreground", bg: "bg-muted/50" };
+  if (leads === 0 && spend > 50) return { label: "Keine Leads", color: "text-red-400", bg: "bg-red-500/10" };
+  if (cpl > 0 && cpl <= 10 && ctr >= 2) return { label: "Top Performer", color: "text-emerald-400", bg: "bg-emerald-500/10" };
+  if (cpl > 0 && cpl <= 15 && ctr >= 1.5) return { label: "Läuft gut", color: "text-emerald-400", bg: "bg-emerald-500/10" };
+  if (cpl > 0 && cpl <= 25 && ctr >= 1) return { label: "Stabil", color: "text-blue-400", bg: "bg-blue-500/10" };
+  if (cpl > 25 || (ctr < 1 && spend > 30)) return { label: "Optimieren", color: "text-amber-400", bg: "bg-amber-500/10" };
+  if (cpl > 40) return { label: "Kritisch", color: "text-red-400", bg: "bg-red-500/10" };
+  return { label: "Läuft", color: "text-blue-400", bg: "bg-blue-500/10" };
+}
+
 function getLandingPageViews(actions?: MetaAction[]): number {
   return getActionValue(actions, "landing_page_view");
 }
@@ -777,6 +788,7 @@ export default function MetaAds() {
                         [
                           { key: "name" as SortKey, label: "Kampagne", align: "left" },
                           { key: "status" as SortKey, label: "Status", align: "center" },
+                          { key: "cpl" as SortKey, label: "Performance", align: "center" },
                           { key: "spend" as SortKey, label: "Spend", align: "right" },
                           { key: "impressions" as SortKey, label: "Impr.", align: "right" },
                           { key: "reach" as SortKey, label: "Reach", align: "right" },
@@ -839,6 +851,16 @@ export default function MetaAds() {
                               ? "Paused"
                               : row.status}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {(() => {
+                            const st = getCampaignStatus(row.ctr, row.cpl, row.leads, row.spend);
+                            return (
+                              <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full", st.color, st.bg)}>
+                                {st.label}
+                              </span>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{fmtEur(row.spend)}</TableCell>
                         <TableCell className="text-right tabular-nums">{fmtNum(row.impressions)}</TableCell>
