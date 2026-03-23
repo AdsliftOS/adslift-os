@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -19,11 +19,27 @@ import {
   Target,
   TrendingUp,
   Loader2,
+  BarChart3,
+  Users,
+  Repeat,
+  Link,
+  Play,
+  Crosshair,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 /* ── Types ── */
 interface MetaAction {
+  action_type: string;
+  value: string;
+}
+
+interface CostPerAction {
   action_type: string;
   value: string;
 }
@@ -33,11 +49,18 @@ interface CampaignInsight {
   campaign_id: string;
   spend: string;
   impressions: string;
+  reach: string;
+  frequency: string;
   clicks: string;
   ctr: string;
   cpm: string;
   cpc: string;
   actions?: MetaAction[];
+  cost_per_action_type?: CostPerAction[];
+  video_p25_watched_actions?: MetaAction[];
+  video_p50_watched_actions?: MetaAction[];
+  video_p75_watched_actions?: MetaAction[];
+  video_p100_watched_actions?: MetaAction[];
 }
 
 interface Campaign {
@@ -50,11 +73,18 @@ interface Campaign {
 interface TotalsData {
   spend: string;
   impressions: string;
+  reach: string;
+  frequency: string;
   clicks: string;
   ctr: string;
   cpm: string;
   cpc: string;
   actions?: MetaAction[];
+  cost_per_action_type?: CostPerAction[];
+  video_p25_watched_actions?: MetaAction[];
+  video_p50_watched_actions?: MetaAction[];
+  video_p75_watched_actions?: MetaAction[];
+  video_p100_watched_actions?: MetaAction[];
 }
 
 interface ApiResponse {
@@ -62,6 +92,18 @@ interface ApiResponse {
   insights: CampaignInsight[];
   totals: TotalsData | null;
   error?: string;
+}
+
+interface DailyData {
+  date_start: string;
+  date_stop: string;
+  spend: string;
+  impressions: string;
+  actions?: MetaAction[];
+}
+
+interface DailyApiResponse {
+  daily: DailyData[];
 }
 
 /* ── Helpers ── */
@@ -79,71 +121,120 @@ const fmtPct = (v: number) =>
     maximumFractionDigits: 2,
   }).format(v) + "%";
 
-function getLeads(actions?: MetaAction[]): number {
+const fmtDec = (v: number) =>
+  new Intl.NumberFormat("de-DE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(v);
+
+function getActionValue(actions: MetaAction[] | undefined, type: string): number {
   if (!actions) return 0;
-  const lead = actions.find((a) => a.action_type === "lead");
-  return lead ? parseInt(lead.value, 10) : 0;
+  const a = actions.find((a) => a.action_type === type);
+  return a ? parseInt(a.value, 10) : 0;
+}
+
+function getLeads(actions?: MetaAction[]): number {
+  return getActionValue(actions, "lead");
+}
+
+function getLandingPageViews(actions?: MetaAction[]): number {
+  return getActionValue(actions, "landing_page_view");
+}
+
+function getLinkClicks(actions?: MetaAction[]): number {
+  return getActionValue(actions, "link_click");
+}
+
+function getVideoViews(actions?: MetaAction[]): number {
+  return getActionValue(actions, "video_view");
+}
+
+function get3sVideoViews(actions?: MetaAction[]): number {
+  return getActionValue(actions, "video_view");
 }
 
 /* ── Presets ── */
 const presets = [
   { label: "Heute", value: "today" },
   { label: "Gestern", value: "yesterday" },
+  { label: "7 Tage", value: "last_7d" },
   { label: "Diese Woche", value: "this_week_sun_today" },
+  { label: "30 Tage", value: "last_30d" },
   { label: "Dieser Monat", value: "this_month" },
+  { label: "90 Tage", value: "last_90d" },
   { label: "Dieses Jahr", value: "this_year" },
 ] as const;
+
+type SortKey =
+  | "name"
+  | "status"
+  | "spend"
+  | "impressions"
+  | "reach"
+  | "frequency"
+  | "clicks"
+  | "ctr"
+  | "cpc"
+  | "landingPageViews"
+  | "leads"
+  | "cpl"
+  | "videoViews"
+  | "hookRate"
+  | "convRate";
 
 /* ── Component ── */
 export default function MetaAds() {
   const [preset, setPreset] = useState("this_month");
   const [data, setData] = useState<ApiResponse | null>(null);
+  const [dailyData, setDailyData] = useState<DailyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [roas, setRoas] = useState<number | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("spend");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
+  // Fetch main data
   useEffect(() => {
     setLoading(true);
     setError("");
-    fetch(`/api/meta-ads?preset=${preset}`)
-      .then((r) => r.json())
-      .then((d: ApiResponse) => {
-        if (d.error) {
-          setError(d.error);
+    Promise.all([
+      fetch(`/api/meta-ads?preset=${preset}`).then((r) => r.json()),
+      fetch(`/api/meta-ads?preset=${preset}&breakdown=daily`).then((r) => r.json()),
+    ])
+      .then(([main, daily]: [ApiResponse, DailyApiResponse]) => {
+        if (main.error) {
+          setError(main.error);
         } else {
-          setData(d);
+          setData(main);
         }
+        setDailyData(daily.daily || []);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [preset]);
 
-  /* Merge campaigns + insights */
-  const rows = useMemo(() => {
-    if (!data) return [];
-    const statusMap = new Map(
-      data.campaigns.map((c) => [c.id, c.status])
-    );
-    return data.insights.map((ins) => ({
-      name: ins.campaign_name,
-      status: statusMap.get(ins.campaign_id) || "UNKNOWN",
-      spend: parseFloat(ins.spend) || 0,
-      impressions: parseInt(ins.impressions) || 0,
-      clicks: parseInt(ins.clicks) || 0,
-      ctr: parseFloat(ins.ctr) || 0,
-      leads: getLeads(ins.actions),
-      cpl: 0, // computed below
-    }));
-  }, [data]);
-
-  // compute cpl
-  const rowsWithCpl = useMemo(
-    () =>
-      rows.map((r) => ({
-        ...r,
-        cpl: r.leads > 0 ? r.spend / r.leads : 0,
-      })),
-    [rows]
-  );
+  // Fetch ROAS from Supabase
+  useEffect(() => {
+    async function fetchRoas() {
+      try {
+        const { data: salesData, error: salesErr } = await supabase
+          .from("sales_weeks")
+          .select("deal_volume, week_start");
+        if (salesErr || !salesData) {
+          setRoas(null);
+          return;
+        }
+        const totalDealVolume = salesData.reduce(
+          (sum: number, r: { deal_volume: number }) => sum + Number(r.deal_volume || 0),
+          0
+        );
+        setRoas(totalDealVolume);
+      } catch {
+        setRoas(null);
+      }
+    }
+    fetchRoas();
+  }, [preset]);
 
   /* Totals from API */
   const totals = useMemo(() => {
@@ -151,105 +242,168 @@ export default function MetaAds() {
       return {
         spend: 0,
         impressions: 0,
+        reach: 0,
+        frequency: 0,
         clicks: 0,
         ctr: 0,
         cpm: 0,
+        cpc: 0,
         leads: 0,
         cpl: 0,
+        landingPageViews: 0,
+        costPerLPV: 0,
+        linkClicks: 0,
+        videoViews: 0,
+        hookRate: 0,
+        convRate: 0,
       };
     const t = data.totals;
     const spend = parseFloat(t.spend) || 0;
+    const impressions = parseInt(t.impressions) || 0;
+    const reach = parseInt(t.reach) || 0;
+    const frequency = parseFloat(t.frequency) || 0;
+    const clicks = parseInt(t.clicks) || 0;
+    const ctr = parseFloat(t.ctr) || 0;
+    const cpm = parseFloat(t.cpm) || 0;
+    const cpc = parseFloat(t.cpc) || 0;
     const leads = getLeads(t.actions);
+    const landingPageViews = getLandingPageViews(t.actions);
+    const linkClicks = getLinkClicks(t.actions);
+    const videoViews = getVideoViews(t.actions);
+    const threeSecViews = get3sVideoViews(t.actions);
+    const hookRate = impressions > 0 ? (threeSecViews / impressions) * 100 : 0;
+    const convRate = linkClicks > 0 ? (leads / linkClicks) * 100 : 0;
     return {
       spend,
-      impressions: parseInt(t.impressions) || 0,
-      clicks: parseInt(t.clicks) || 0,
-      ctr: parseFloat(t.ctr) || 0,
-      cpm: parseFloat(t.cpm) || 0,
+      impressions,
+      reach,
+      frequency,
+      clicks,
+      ctr,
+      cpm,
+      cpc,
       leads,
       cpl: leads > 0 ? spend / leads : 0,
+      landingPageViews,
+      costPerLPV: landingPageViews > 0 ? spend / landingPageViews : 0,
+      linkClicks,
+      videoViews,
+      hookRate,
+      convRate,
     };
   }, [data]);
 
-  /* ── KPI card config ── */
-  const kpis = [
-    {
-      label: "Gesamtausgaben",
-      value: fmtEur(totals.spend),
-      icon: Euro,
-      color: "red",
-      gradient:
-        "from-red-500/10 via-red-500/5 to-transparent ring-red-500/15",
-      textColor: "text-red-600 dark:text-red-400",
-      iconBg: "bg-red-500/15",
-      iconColor: "text-red-500",
-      dotColor: "bg-red-500 shadow-red-500/50",
+  const roasValue = useMemo(() => {
+    if (roas === null || totals.spend === 0) return null;
+    return roas / totals.spend;
+  }, [roas, totals.spend]);
+
+  /* Merge campaigns + insights */
+  const rows = useMemo(() => {
+    if (!data) return [];
+    const statusMap = new Map(data.campaigns.map((c) => [c.id, c.status]));
+    return data.insights.map((ins) => {
+      const spend = parseFloat(ins.spend) || 0;
+      const impressions = parseInt(ins.impressions) || 0;
+      const reach = parseInt(ins.reach) || 0;
+      const frequency = parseFloat(ins.frequency) || 0;
+      const clicks = parseInt(ins.clicks) || 0;
+      const ctr = parseFloat(ins.ctr) || 0;
+      const cpc = parseFloat(ins.cpc) || 0;
+      const leads = getLeads(ins.actions);
+      const landingPageViews = getLandingPageViews(ins.actions);
+      const linkClicks = getLinkClicks(ins.actions);
+      const videoViews = getVideoViews(ins.actions);
+      const threeSecViews = get3sVideoViews(ins.actions);
+      const hookRate = impressions > 0 ? (threeSecViews / impressions) * 100 : 0;
+      const convRate = linkClicks > 0 ? (leads / linkClicks) * 100 : 0;
+      return {
+        name: ins.campaign_name,
+        status: statusMap.get(ins.campaign_id) || "UNKNOWN",
+        spend,
+        impressions,
+        reach,
+        frequency,
+        clicks,
+        ctr,
+        cpc,
+        landingPageViews,
+        leads,
+        cpl: leads > 0 ? spend / leads : 0,
+        videoViews,
+        hookRate,
+        convRate,
+      };
+    });
+  }, [data]);
+
+  // Sorted rows
+  const sortedRows = useMemo(() => {
+    const sorted = [...rows].sort((a, b) => {
+      const aVal = a[sortKey];
+      const bVal = b[sortKey];
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return sortDir === "asc"
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      }
+      return sortDir === "asc"
+        ? (aVal as number) - (bVal as number)
+        : (bVal as number) - (aVal as number);
+    });
+    return sorted;
+  }, [rows, sortKey, sortDir]);
+
+  // Daily chart data
+  const chartData = useMemo(() => {
+    return dailyData
+      .map((d) => ({
+        date: d.date_start,
+        spend: parseFloat(d.spend) || 0,
+        leads: getLeads(d.actions),
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [dailyData]);
+
+  const maxSpend = useMemo(
+    () => Math.max(...chartData.map((d) => d.spend), 1),
+    [chartData]
+  );
+  const maxLeads = useMemo(
+    () => Math.max(...chartData.map((d) => d.leads), 1),
+    [chartData]
+  );
+
+  const handleSort = useCallback(
+    (key: SortKey) => {
+      if (sortKey === key) {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      } else {
+        setSortKey(key);
+        setSortDir("desc");
+      }
     },
-    {
-      label: "Impressions",
-      value: fmtNum(totals.impressions),
-      icon: Eye,
-      color: "blue",
-      gradient:
-        "from-blue-500/10 via-blue-500/5 to-transparent ring-blue-500/15",
-      textColor: "text-blue-600 dark:text-blue-400",
-      iconBg: "bg-blue-500/15",
-      iconColor: "text-blue-500",
-      dotColor: "bg-blue-500 shadow-blue-500/50",
-    },
-    {
-      label: "Clicks",
-      value: fmtNum(totals.clicks),
-      icon: MousePointerClick,
-      color: "amber",
-      gradient:
-        "from-amber-500/10 via-amber-500/5 to-transparent ring-amber-500/15",
-      textColor: "text-amber-600 dark:text-amber-400",
-      iconBg: "bg-amber-500/15",
-      iconColor: "text-amber-500",
-      dotColor: "bg-amber-500 shadow-amber-500/50",
-    },
-    {
-      label: "CTR",
-      value: fmtPct(totals.ctr),
-      icon: Percent,
-      color: "cyan",
-      gradient:
-        "from-cyan-500/10 via-cyan-500/5 to-transparent ring-cyan-500/15",
-      textColor: "text-cyan-600 dark:text-cyan-400",
-      iconBg: "bg-cyan-500/15",
-      iconColor: "text-cyan-500",
-      dotColor: "bg-cyan-500 shadow-cyan-500/50",
-    },
-    {
-      label: "CPM",
-      value: fmtEur(totals.cpm),
-      icon: TrendingUp,
-      color: "purple",
-      gradient:
-        "from-purple-500/10 via-purple-500/5 to-transparent ring-purple-500/15",
-      textColor: "text-purple-600 dark:text-purple-400",
-      iconBg: "bg-purple-500/15",
-      iconColor: "text-purple-500",
-      dotColor: "bg-purple-500 shadow-purple-500/50",
-    },
-    {
-      label: "Leads",
-      value: fmtNum(totals.leads),
-      icon: Target,
-      color: "emerald",
-      gradient:
-        "from-emerald-500/10 via-emerald-500/5 to-transparent ring-emerald-500/15",
-      textColor: "text-emerald-600 dark:text-emerald-400",
-      iconBg: "bg-emerald-500/15",
-      iconColor: "text-emerald-500",
-      dotColor: "bg-emerald-500 shadow-emerald-500/50",
-      sub:
-        totals.leads > 0
-          ? `CPL: ${fmtEur(totals.cpl)}`
-          : undefined,
-    },
-  ];
+    [sortKey]
+  );
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col)
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-30 inline" />;
+    return sortDir === "asc" ? (
+      <ChevronUp className="h-3 w-3 ml-1 inline text-primary" />
+    ) : (
+      <ChevronDown className="h-3 w-3 ml-1 inline text-primary" />
+    );
+  };
+
+  /* KPI color helpers */
+  const ctrColor = (v: number) =>
+    v >= 2 ? "text-emerald-500" : v >= 1 ? "text-amber-500" : "text-red-500";
+  const cplColor = (v: number, spend: number) => {
+    if (v === 0) return "text-muted-foreground";
+    const ratio = v / (spend || 1);
+    return ratio < 0.05 ? "text-emerald-500" : ratio < 0.1 ? "text-amber-500" : "text-red-500";
+  };
 
   return (
     <div className="space-y-6">
@@ -257,10 +411,10 @@ export default function MetaAds() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
           <Megaphone className="h-6 w-6 text-primary" />
-          Meta Ads
+          Ad Command Center
         </h1>
         <p className="text-sm text-muted-foreground">
-          Live-Kampagnendaten aus dem Meta Marketing API.
+          Live-Kampagnendaten &middot; Meta Marketing API
         </p>
       </div>
 
@@ -273,9 +427,10 @@ export default function MetaAds() {
             if (v) setPreset(v);
           }}
           size="sm"
+          className="flex flex-wrap gap-1"
         >
           {presets.map((p) => (
-            <ToggleGroupItem key={p.value} value={p.value}>
+            <ToggleGroupItem key={p.value} value={p.value} className="text-xs">
               {p.label}
             </ToggleGroupItem>
           ))}
@@ -302,182 +457,437 @@ export default function MetaAds() {
         </Card>
       )}
 
-      {/* KPIs + Table */}
+      {/* KPIs + Charts + Table */}
       {!loading && !error && (
         <>
-          {/* KPI Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            {kpis.map((kpi) => (
+          {/* ─── Row 1: Big KPI Cards ─── */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Gesamtausgaben */}
+            <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-red-500/15 via-red-500/5 to-transparent ring-1 ring-red-500/20">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Gesamtausgaben
+                  </span>
+                  <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-red-500/15 shadow-sm">
+                    <Euro className="h-5 w-5 text-red-500" />
+                  </div>
+                </div>
+                <div className="text-3xl font-black tracking-tight text-red-600 dark:text-red-400">
+                  {fmtEur(totals.spend)}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Leads */}
+            <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent ring-1 ring-emerald-500/20">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Leads
+                  </span>
+                  <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-emerald-500/15 shadow-sm">
+                    <Target className="h-5 w-5 text-emerald-500" />
+                  </div>
+                </div>
+                <div className="text-3xl font-black tracking-tight text-emerald-600 dark:text-emerald-400">
+                  {fmtNum(totals.leads)}
+                </div>
+                {totals.leads > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    CPL: {fmtEur(totals.cpl)}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Cost per Lead */}
+            <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-amber-500/15 via-amber-500/5 to-transparent ring-1 ring-amber-500/20">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Cost per Lead
+                  </span>
+                  <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-amber-500/15 shadow-sm">
+                    <Crosshair className="h-5 w-5 text-amber-500" />
+                  </div>
+                </div>
+                <div className="text-3xl font-black tracking-tight text-amber-600 dark:text-amber-400">
+                  {totals.leads > 0 ? fmtEur(totals.cpl) : "\u2014"}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* ROAS */}
+            <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-purple-500/15 via-purple-500/5 to-transparent ring-1 ring-purple-500/20">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    ROAS
+                  </span>
+                  <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-purple-500/15 shadow-sm">
+                    <Zap className="h-5 w-5 text-purple-500" />
+                  </div>
+                </div>
+                <div
+                  className={cn(
+                    "text-3xl font-black tracking-tight",
+                    roasValue !== null && roasValue >= 3
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : roasValue !== null && roasValue >= 1
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-purple-600 dark:text-purple-400"
+                  )}
+                >
+                  {roasValue !== null ? `${fmtDec(roasValue)}x` : "\u2014"}
+                </div>
+                {roasValue !== null && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Deal-Volumen / Ad Spend
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ─── Row 2: Secondary KPIs ─── */}
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
+            {[
+              { label: "Impressions", value: fmtNum(totals.impressions), icon: Eye, color: "blue" },
+              { label: "Reach", value: fmtNum(totals.reach), icon: Users, color: "indigo" },
+              { label: "Frequency", value: fmtDec(totals.frequency), icon: Repeat, color: "violet" },
+              { label: "Clicks", value: fmtNum(totals.clicks), icon: MousePointerClick, color: "amber" },
+              {
+                label: "CTR",
+                value: fmtPct(totals.ctr),
+                icon: Percent,
+                color: "cyan",
+                valueClass: ctrColor(totals.ctr),
+              },
+              { label: "CPM", value: fmtEur(totals.cpm), icon: TrendingUp, color: "pink" },
+              { label: "CPC", value: fmtEur(totals.cpc), icon: MousePointerClick, color: "orange" },
+            ].map((kpi) => (
               <Card
                 key={kpi.label}
-                className={cn(
-                  "overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 bg-gradient-to-br ring-1",
-                  kpi.gradient
-                )}
+                className="overflow-hidden border-0 shadow-md bg-gradient-to-br from-muted/50 to-transparent ring-1 ring-border/50"
               >
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <CardContent className="p-4">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
                     {kpi.label}
-                  </CardTitle>
-                  <div
+                  </p>
+                  <p
                     className={cn(
-                      "h-9 w-9 rounded-xl flex items-center justify-center shadow-sm",
-                      kpi.iconBg
-                    )}
-                  >
-                    <kpi.icon className={cn("h-4 w-4", kpi.iconColor)} />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div
-                    className={cn(
-                      "text-2xl font-black tracking-tight",
-                      kpi.textColor
+                      "text-lg font-bold tracking-tight",
+                      kpi.valueClass || "text-foreground"
                     )}
                   >
                     {kpi.value}
-                  </div>
-                  {kpi.sub && (
-                    <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1.5">
-                      <span
-                        className={cn(
-                          "inline-block h-2 w-2 rounded-full shadow-sm",
-                          kpi.dotColor
-                        )}
-                      />
-                      {kpi.sub}
-                    </p>
-                  )}
+                  </p>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          {/* Campaign Table */}
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            {[
+              { label: "LP Views", value: fmtNum(totals.landingPageViews), icon: Link },
+              {
+                label: "Cost / LP View",
+                value: totals.landingPageViews > 0 ? fmtEur(totals.costPerLPV) : "\u2014",
+                icon: Euro,
+              },
+              { label: "Link Clicks", value: fmtNum(totals.linkClicks), icon: Link },
+              { label: "Video Views", value: fmtNum(totals.videoViews), icon: Play },
+              {
+                label: "Hook Rate",
+                value: fmtPct(totals.hookRate),
+                icon: Eye,
+                valueClass:
+                  totals.hookRate >= 30
+                    ? "text-emerald-500"
+                    : totals.hookRate >= 15
+                    ? "text-amber-500"
+                    : "text-red-500",
+              },
+              {
+                label: "Conv. Rate",
+                value: totals.linkClicks > 0 ? fmtPct(totals.convRate) : "\u2014",
+                icon: Target,
+                valueClass:
+                  totals.convRate >= 10
+                    ? "text-emerald-500"
+                    : totals.convRate >= 5
+                    ? "text-amber-500"
+                    : "text-red-500",
+              },
+            ].map((kpi) => (
+              <Card
+                key={kpi.label}
+                className="overflow-hidden border-0 shadow-md bg-gradient-to-br from-muted/50 to-transparent ring-1 ring-border/50"
+              >
+                <CardContent className="p-4">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                    {kpi.label}
+                  </p>
+                  <p
+                    className={cn(
+                      "text-lg font-bold tracking-tight",
+                      kpi.valueClass || "text-foreground"
+                    )}
+                  >
+                    {kpi.value}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* ─── Daily Trend Chart ─── */}
+          {chartData.length > 0 && (
+            <Card className="overflow-hidden border-0 shadow-lg">
+              <CardHeader className="pb-2 px-6 pt-6">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-primary" />
+                  Tagesverlauf
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-6 pb-6">
+                <div className="flex items-end gap-[2px] h-48 relative">
+                  {chartData.map((d, i) => {
+                    const barH = (d.spend / maxSpend) * 100;
+                    const leadH = maxLeads > 0 ? (d.leads / maxLeads) * 100 : 0;
+                    const dateLabel = d.date.slice(5); // MM-DD
+                    return (
+                      <div
+                        key={d.date}
+                        className="flex-1 flex flex-col items-center justify-end h-full relative group"
+                      >
+                        {/* Tooltip */}
+                        <div className="absolute bottom-full mb-2 hidden group-hover:block z-10 bg-popover border rounded-lg shadow-lg p-2 text-xs whitespace-nowrap">
+                          <p className="font-semibold">{d.date}</p>
+                          <p>
+                            Spend: <span className="text-red-400">{fmtEur(d.spend)}</span>
+                          </p>
+                          <p>
+                            Leads: <span className="text-emerald-400">{d.leads}</span>
+                          </p>
+                        </div>
+                        {/* Lead dot */}
+                        {d.leads > 0 && (
+                          <div
+                            className="absolute w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50 z-10 ring-2 ring-background"
+                            style={{ bottom: `${leadH}%` }}
+                          />
+                        )}
+                        {/* Spend bar */}
+                        <div
+                          className="w-full rounded-t-sm bg-gradient-to-t from-red-500/80 to-red-400/40 transition-all duration-300 hover:from-red-500 hover:to-red-400/60 min-h-[2px]"
+                          style={{ height: `${Math.max(barH, 1)}%` }}
+                        />
+                        {/* Date label - show every few */}
+                        {(chartData.length <= 14 || i % Math.ceil(chartData.length / 10) === 0) && (
+                          <span className="text-[8px] text-muted-foreground mt-1 rotate-0">
+                            {dateLabel}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Legend */}
+                <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded-sm bg-gradient-to-t from-red-500/80 to-red-400/40" />
+                    Spend
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                    Leads
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ─── Campaign Table ─── */}
           <Card className="overflow-hidden border-0 shadow-lg">
             <CardHeader className="pb-0 px-6 pt-6">
-              <CardTitle className="text-base font-semibold">
-                Kampagnen
-              </CardTitle>
+              <CardTitle className="text-base font-semibold">Kampagnen</CardTitle>
             </CardHeader>
             <CardContent className="p-0 mt-4">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold pl-6">
-                      Kampagne
-                    </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-center">
-                      Status
-                    </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">
-                      Ausgaben
-                    </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">
-                      Impressions
-                    </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">
-                      Clicks
-                    </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">
-                      CTR
-                    </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">
-                      Leads
-                    </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right pr-6">
-                      CPL
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rowsWithCpl.map((row, idx) => (
-                    <TableRow
-                      key={row.name + idx}
-                      className={cn(
-                        "transition-colors duration-150 hover:bg-muted/20",
-                        idx % 2 === 1 ? "bg-muted/[0.06]" : ""
-                      )}
-                    >
-                      <TableCell className="pl-6 font-medium max-w-[260px] truncate">
-                        {row.name}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      {(
+                        [
+                          { key: "name" as SortKey, label: "Kampagne", align: "left" },
+                          { key: "status" as SortKey, label: "Status", align: "center" },
+                          { key: "spend" as SortKey, label: "Spend", align: "right" },
+                          { key: "impressions" as SortKey, label: "Impr.", align: "right" },
+                          { key: "reach" as SortKey, label: "Reach", align: "right" },
+                          { key: "frequency" as SortKey, label: "Freq.", align: "right" },
+                          { key: "clicks" as SortKey, label: "Clicks", align: "right" },
+                          { key: "ctr" as SortKey, label: "CTR", align: "right" },
+                          { key: "cpc" as SortKey, label: "CPC", align: "right" },
+                          { key: "landingPageViews" as SortKey, label: "LP Views", align: "right" },
+                          { key: "leads" as SortKey, label: "Leads", align: "right" },
+                          { key: "cpl" as SortKey, label: "CPL", align: "right" },
+                          { key: "videoViews" as SortKey, label: "Video", align: "right" },
+                          { key: "hookRate" as SortKey, label: "Hook %", align: "right" },
+                          { key: "convRate" as SortKey, label: "Conv. %", align: "right" },
+                        ] as const
+                      ).map((col) => (
+                        <TableHead
+                          key={col.key}
                           className={cn(
-                            "text-[10px] font-semibold px-2 py-0.5 shadow-sm",
-                            row.status === "ACTIVE"
-                              ? "bg-emerald-500 shadow-emerald-500/20 text-white"
+                            "text-[10px] uppercase tracking-wider font-semibold cursor-pointer select-none whitespace-nowrap hover:text-primary transition-colors",
+                            col.align === "center"
+                              ? "text-center"
+                              : col.align === "right"
+                              ? "text-right"
+                              : "text-left pl-6"
+                          )}
+                          onClick={() => handleSort(col.key)}
+                        >
+                          {col.label}
+                          <SortIcon col={col.key} />
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedRows.map((row, idx) => (
+                      <TableRow
+                        key={row.name + idx}
+                        className={cn(
+                          "transition-colors duration-150 hover:bg-muted/20",
+                          idx % 2 === 1 ? "bg-muted/[0.06]" : ""
+                        )}
+                      >
+                        <TableCell className="pl-6 font-medium max-w-[220px] truncate text-sm">
+                          {row.name}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            className={cn(
+                              "text-[10px] font-semibold px-2 py-0.5 shadow-sm",
+                              row.status === "ACTIVE"
+                                ? "bg-emerald-500 shadow-emerald-500/20 text-white"
+                                : row.status === "PAUSED"
+                                ? "bg-amber-500 shadow-amber-500/20 text-white"
+                                : "bg-gray-500 shadow-gray-500/20 text-white"
+                            )}
+                          >
+                            {row.status === "ACTIVE"
+                              ? "Active"
                               : row.status === "PAUSED"
-                              ? "bg-amber-500 shadow-amber-500/20 text-white"
-                              : "bg-gray-500 shadow-gray-500/20 text-white"
+                              ? "Paused"
+                              : row.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtEur(row.spend)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtNum(row.impressions)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtNum(row.reach)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtDec(row.frequency)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtNum(row.clicks)}</TableCell>
+                        <TableCell className={cn("text-right tabular-nums", ctrColor(row.ctr))}>
+                          {fmtPct(row.ctr)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtEur(row.cpc)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtNum(row.landingPageViews)}</TableCell>
+                        <TableCell className="text-right tabular-nums font-semibold text-emerald-600 dark:text-emerald-400">
+                          {row.leads}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {row.leads > 0 ? fmtEur(row.cpl) : "\u2013"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtNum(row.videoViews)}</TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right tabular-nums",
+                            row.hookRate >= 30
+                              ? "text-emerald-500"
+                              : row.hookRate >= 15
+                              ? "text-amber-500"
+                              : "text-red-500"
                           )}
                         >
-                          {row.status === "ACTIVE"
-                            ? "Active"
-                            : row.status === "PAUSED"
-                            ? "Paused"
-                            : row.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {fmtEur(row.spend)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {fmtNum(row.impressions)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {fmtNum(row.clicks)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {fmtPct(row.ctr)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums font-semibold text-emerald-600 dark:text-emerald-400">
-                        {row.leads}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums pr-6">
-                        {row.leads > 0 ? fmtEur(row.cpl) : "\u2013"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {rowsWithCpl.length === 0 && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={8}
-                        className="text-center py-10 text-muted-foreground"
-                      >
-                        Keine Kampagnendaten f\u00FCr diesen Zeitraum.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {/* Totals row */}
-                  {rowsWithCpl.length > 0 && (
-                    <TableRow className="bg-muted/50 border-t-2 font-semibold hover:bg-muted/50">
-                      <TableCell className="pl-6" colSpan={2}>
-                        Gesamt
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {fmtEur(totals.spend)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {fmtNum(totals.impressions)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {fmtNum(totals.clicks)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {fmtPct(totals.ctr)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-emerald-600 dark:text-emerald-400">
-                        {totals.leads}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums pr-6">
-                        {totals.leads > 0 ? fmtEur(totals.cpl) : "\u2013"}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                          {fmtPct(row.hookRate)}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right tabular-nums pr-6",
+                            row.convRate >= 10
+                              ? "text-emerald-500"
+                              : row.convRate >= 5
+                              ? "text-amber-500"
+                              : "text-red-500"
+                          )}
+                        >
+                          {row.linkClicks > 0 ? fmtPct(row.convRate) : "\u2013"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {sortedRows.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={15} className="text-center py-10 text-muted-foreground">
+                          Keine Kampagnendaten f&uuml;r diesen Zeitraum.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {/* Totals row */}
+                    {sortedRows.length > 0 && (
+                      <TableRow className="bg-muted/50 border-t-2 font-semibold hover:bg-muted/50">
+                        <TableCell className="pl-6" colSpan={2}>
+                          Gesamt
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtEur(totals.spend)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtNum(totals.impressions)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtNum(totals.reach)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtDec(totals.frequency)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtNum(totals.clicks)}</TableCell>
+                        <TableCell className={cn("text-right tabular-nums", ctrColor(totals.ctr))}>
+                          {fmtPct(totals.ctr)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtEur(totals.cpc)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtNum(totals.landingPageViews)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+                          {totals.leads}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {totals.leads > 0 ? fmtEur(totals.cpl) : "\u2013"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtNum(totals.videoViews)}</TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right tabular-nums",
+                            totals.hookRate >= 30
+                              ? "text-emerald-500"
+                              : totals.hookRate >= 15
+                              ? "text-amber-500"
+                              : "text-red-500"
+                          )}
+                        >
+                          {fmtPct(totals.hookRate)}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right tabular-nums pr-6",
+                            totals.convRate >= 10
+                              ? "text-emerald-500"
+                              : totals.convRate >= 5
+                              ? "text-amber-500"
+                              : "text-red-500"
+                          )}
+                        >
+                          {totals.linkClicks > 0 ? fmtPct(totals.convRate) : "\u2013"}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </>
