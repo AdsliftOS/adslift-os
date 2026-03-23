@@ -35,6 +35,8 @@ const projectTypes: { value: ProjectType; label: string; description: string; co
   { value: "neue-kampagne", label: "Neue Kampagne", description: "Kunde existiert, neue Ads & Creatives.", color: "bg-blue-500" },
   { value: "optimierung", label: "Optimierung / Retargeting", description: "Bestehende Kampagne auffrischen.", color: "bg-amber-500" },
   { value: "custom", label: "Custom Projekt", description: "Phasen selbst zusammenstellen per Drag & Drop.", color: "bg-pink-500" },
+  { value: "done4you", label: "Done 4 You", description: "Full-Service — wir machen alles für den Kunden.", color: "bg-emerald-500" },
+  { value: "donewithyou", label: "Done With You", description: "Zusammenarbeit — Kunde liefert mit zu.", color: "bg-cyan-500" },
 ];
 
 const projectTypeMap = Object.fromEntries(projectTypes.map((t) => [t.value, t]));
