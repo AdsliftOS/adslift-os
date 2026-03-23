@@ -120,8 +120,19 @@ function getMeetingPlatform(link: string): { label: string; icon: typeof Video }
   return { label: "Meeting", icon: Video };
 }
 
+const timezones = [
+  { key: "Europe/Berlin", label: "DE", flag: "🇩🇪", offset: "CET" },
+  { key: "Europe/Nicosia", label: "CY", flag: "🇨🇾", offset: "EET" },
+];
+
+function getTimeInZone(tz: string): Date {
+  const str = new Date().toLocaleString("en-US", { timeZone: tz });
+  return new Date(str);
+}
+
 export default function Calendar() {
-  const today = new Date();
+  const [timezone, setTimezone] = useState("Europe/Nicosia");
+  const today = getTimeInZone(timezone);
   const [events, setEvents] = useCalendar();
   const [clients] = useClients();
   const [projects] = useProjects();
@@ -377,6 +388,18 @@ export default function Calendar() {
           <p className="text-sm text-muted-foreground">Calls, Meetings und Deadlines planen.</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Timezone Toggle */}
+          <div className="flex items-center rounded-lg border bg-card p-0.5 gap-0.5">
+            {timezones.map((tz) => (
+              <button key={tz.key} onClick={() => setTimezone(tz.key)}
+                className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all ${
+                  timezone === tz.key ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                <span>{tz.flag}</span>
+                <span>{tz.label}</span>
+              </button>
+            ))}
+          </div>
           {googleAccounts.length > 0 && (
             <Button variant="ghost" size="sm" onClick={syncGoogleCalendar} disabled={syncing} className="gap-1.5">
               <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
