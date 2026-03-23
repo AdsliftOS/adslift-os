@@ -721,12 +721,12 @@ export default function MetaAds() {
                           </div>
                           {/* Values above bar */}
                           <div className="flex flex-col items-center mb-1 gap-0.5">
-                            <div className="text-[9px] font-medium text-red-400/80">
-                              {d.spend >= 1000 ? `${(d.spend/1000).toFixed(1)}k` : d.spend >= 1 ? `${Math.round(d.spend)}€` : ""}
+                            <div className="text-[8px] font-medium text-red-400/80">
+                              {d.spend >= 1 ? `${fmtEur(d.spend)}` : ""}
                             </div>
                             {d.leads > 0 && (
-                              <div className="text-[9px] font-bold text-emerald-400">
-                                {d.leads}L
+                              <div className="text-[8px] font-bold text-emerald-400">
+                                {d.leads} {d.leads === 1 ? "Lead" : "Leads"}
                               </div>
                             )}
                           </div>
