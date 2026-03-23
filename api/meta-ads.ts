@@ -47,13 +47,17 @@ function buildDateParams(preset: string, since: string, until: string): string {
 
 export default async function handler(req: Request) {
   const TOKEN = process.env.META_ACCESS_TOKEN;
-  const AD_ACCOUNT = process.env.META_AD_ACCOUNT_ID || "act_1263695578446693";
+  const DEFAULT_AD_ACCOUNT = process.env.META_AD_ACCOUNT_ID || "act_1263695578446693";
 
   const url = new URL(req.url);
   const preset = url.searchParams.get("preset") || "this_month";
   const since = url.searchParams.get("since") || "";
   const until = url.searchParams.get("until") || "";
   const breakdown = url.searchParams.get("breakdown") || "";
+  const accountParam = url.searchParams.get("account") || "";
+  const listAccounts = url.searchParams.get("list_accounts") || "";
+
+  const AD_ACCOUNT = accountParam || DEFAULT_AD_ACCOUNT;
 
   const headers = {
     "Access-Control-Allow-Origin": "*",
@@ -67,9 +71,21 @@ export default async function handler(req: Request) {
       headers,
     });
 
-  const dateParams = buildDateParams(preset, since, until);
-
   try {
+    // List all ad accounts
+    if (listAccounts === "true") {
+      const accountsRes = await fetch(
+        `https://graph.facebook.com/v19.0/me/adaccounts?fields=name,account_id,account_status&limit=50&access_token=${TOKEN}`
+      );
+      const accounts = await accountsRes.json();
+      return new Response(
+        JSON.stringify({ accounts: (accounts.data || []).filter((a: any) => a.account_status === 1) }),
+        { headers }
+      );
+    }
+
+    const dateParams = buildDateParams(preset, since, until);
+
     // Daily breakdown endpoint
     if (breakdown === "daily") {
       const dailyUrl = `https://graph.facebook.com/v19.0/${AD_ACCOUNT}/insights?fields=${TOTALS_FIELDS}&time_increment=1${dateParams}&limit=100&access_token=${TOKEN}`;

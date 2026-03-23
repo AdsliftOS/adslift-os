@@ -182,6 +182,14 @@ type SortKey =
   | "hookRate"
   | "convRate";
 
+/* ── Types for accounts ── */
+interface AdAccount {
+  id: string;
+  name: string;
+  account_id: string;
+  account_status: number;
+}
+
 /* ── Component ── */
 export default function MetaAds() {
   const [preset, setPreset] = useState("this_month");
@@ -192,14 +200,30 @@ export default function MetaAds() {
   const [roas, setRoas] = useState<number | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("spend");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [accounts, setAccounts] = useState<AdAccount[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState("act_1263695578446693");
+  const [accountsLoading, setAccountsLoading] = useState(true);
+
+  // Fetch ad accounts
+  useEffect(() => {
+    fetch("/api/meta-ads?list_accounts=true")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.accounts) {
+          setAccounts(res.accounts);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setAccountsLoading(false));
+  }, []);
 
   // Fetch main data
   useEffect(() => {
     setLoading(true);
     setError("");
     Promise.all([
-      fetch(`/api/meta-ads?preset=${preset}`).then((r) => r.json()),
-      fetch(`/api/meta-ads?preset=${preset}&breakdown=daily`).then((r) => r.json()),
+      fetch(`/api/meta-ads?preset=${preset}&account=${selectedAccount}`).then((r) => r.json()),
+      fetch(`/api/meta-ads?preset=${preset}&breakdown=daily&account=${selectedAccount}`).then((r) => r.json()),
     ])
       .then(([main, daily]: [ApiResponse, DailyApiResponse]) => {
         if (main.error) {
@@ -211,7 +235,7 @@ export default function MetaAds() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [preset]);
+  }, [preset, selectedAccount]);
 
   // Fetch ROAS from Supabase
   useEffect(() => {
@@ -417,6 +441,24 @@ export default function MetaAds() {
           Live-Kampagnendaten &middot; Meta Marketing API
         </p>
       </div>
+
+      {/* Account Selector */}
+      {!accountsLoading && accounts.length > 1 && (
+        <div className="flex items-center gap-3 rounded-xl border bg-card/80 backdrop-blur-sm p-3 shadow-sm">
+          <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">Ad Account:</span>
+          <select
+            value={selectedAccount}
+            onChange={(e) => setSelectedAccount(e.target.value)}
+            className="flex-1 bg-background border border-border rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+          >
+            {accounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Time range selector */}
       <div className="flex items-center justify-center rounded-xl border bg-card/80 backdrop-blur-sm p-2 shadow-sm">
