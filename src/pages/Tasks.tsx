@@ -283,8 +283,8 @@ export default function Tasks() {
                 isDragOver ? "bg-primary/5 ring-2 ring-primary/20 ring-dashed" : "bg-muted/20"
               }`}>
                 {colTasks.map((task, taskIdx) => {
-                  const cat = categoryMap[task.category];
-                  const pri = priorities.find((p) => p.value === task.priority)!;
+                  const cat = categoryMap[task.category] || categories[0];
+                  const pri = priorities.find((p) => p.value === task.priority) || priorities[1];
                   const PriIcon = pri.icon;
                   const dueDate = task.dueDate ? new Date(task.dueDate + "T00:00:00") : null;
                   const isOverdue = task.column !== "done" && dueDate && isPast(new Date(task.dueDate + "T23:59:59")) && !isToday(dueDate);
