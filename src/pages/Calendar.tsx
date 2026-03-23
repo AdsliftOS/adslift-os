@@ -132,6 +132,7 @@ export default function Calendar() {
   const [monthDate, setMonthDate] = useState(today);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
 
   // Google Calendar — Multi-Account
   const [googleAccounts, setGoogleAccounts] = useState(getAccounts());
@@ -258,7 +259,11 @@ export default function Calendar() {
   };
 
   const openEdit = (event: CalendarEvent) => {
-    if (event.id.startsWith("proj-deadline-") || event.id.startsWith("gcal-")) return; // read-only events
+    if (event.id.startsWith("proj-deadline-") || event.id.startsWith("gcal-")) {
+      // Read-only events: show detail dialog
+      setDetailEvent(event);
+      return;
+    }
     setForm({ title: event.title, date: event.date, startTime: event.startTime, endTime: event.endTime, type: event.type, client: event.client || "", description: event.description || "", meetingLink: event.meetingLink || "" });
     setEditingEvent(event);
     setDialogOpen(true);
@@ -824,6 +829,78 @@ export default function Calendar() {
             <div className="flex-1" />
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Abbrechen</Button>
             <Button onClick={handleSave}>{editingEvent ? "Speichern" : "Erstellen"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Event Detail Dialog (read-only for Google Calendar & Deadline events) */}
+      <Dialog open={!!detailEvent} onOpenChange={(open) => { if (!open) setDetailEvent(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {detailEvent && (() => {
+                const et = eventTypeMap[detailEvent.type];
+                return et ? <div className={`h-3 w-3 rounded-full ${et.color}`} /> : null;
+              })()}
+              {detailEvent?.title}
+            </DialogTitle>
+          </DialogHeader>
+          {detailEvent && (
+            <div className="space-y-3 py-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Datum</p>
+                  <p className="text-sm font-medium">{detailEvent.date}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Uhrzeit</p>
+                  <p className="text-sm font-medium">{detailEvent.startTime} – {detailEvent.endTime}</p>
+                </div>
+              </div>
+              {detailEvent.type && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Typ</p>
+                  <p className="text-sm font-medium">{eventTypeMap[detailEvent.type]?.label || detailEvent.type}</p>
+                </div>
+              )}
+              {detailEvent.description && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Beschreibung</p>
+                  <p className="text-sm whitespace-pre-wrap">{detailEvent.description}</p>
+                </div>
+              )}
+              {detailEvent.client && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Kunde</p>
+                  <p className="text-sm font-medium">{detailEvent.client}</p>
+                </div>
+              )}
+              {detailEvent.meetingLink && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Meeting Link</p>
+                  <a href={detailEvent.meetingLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-sm font-medium hover:bg-primary/20 transition-colors">
+                    <Video className="h-4 w-4" />
+                    {getMeetingPlatform(detailEvent.meetingLink)?.label || "Meeting beitreten"}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+              {detailEvent.id.startsWith("gcal-") && (
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  Google Calendar Event
+                </p>
+              )}
+              {detailEvent.id.startsWith("proj-deadline-") && (
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500" />
+                  Projekt-Deadline
+                </p>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailEvent(null)}>Schließen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
