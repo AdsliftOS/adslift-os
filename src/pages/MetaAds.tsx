@@ -439,14 +439,13 @@ export default function MetaAds() {
         </p>
       </div>
 
-      {/* Account Selector */}
-      {!accountsLoading && accounts.length > 1 && (
-        <div className="flex items-center gap-3 rounded-xl border bg-card/80 backdrop-blur-sm p-3 shadow-sm">
-          <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">Ad Account:</span>
+      {/* Controls bar: Account + Time range in one row */}
+      <div className="flex items-center gap-3 rounded-xl border bg-card/80 backdrop-blur-sm p-2 shadow-sm">
+        {!accountsLoading && accounts.length > 1 && (
           <select
             value={selectedAccount}
             onChange={(e) => setSelectedAccount(e.target.value)}
-            className="flex-1 bg-background border border-border rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+            className="bg-background border border-border rounded-lg px-3 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer max-w-[200px]"
           >
             {accounts.map((acc) => (
               <option key={acc.id} value={acc.id}>
@@ -454,11 +453,8 @@ export default function MetaAds() {
               </option>
             ))}
           </select>
-        </div>
-      )}
-
-      {/* Time range selector */}
-      <div className="flex items-center justify-center rounded-xl border bg-card/80 backdrop-blur-sm p-2 shadow-sm">
+        )}
+        <div className="h-5 w-px bg-border" />
         <ToggleGroup
           type="single"
           value={preset}
