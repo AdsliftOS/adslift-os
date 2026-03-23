@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import { Sun, Moon, Palette, Users, Building2, Bell, Trash2, Eclipse, Target, Ca
 import { toast } from "sonner";
 import { useSettings } from "@/store/settings";
 import { getAccounts, removeAccount, connectGoogleCalendar } from "@/lib/google-calendar";
+import { supabase } from "@/lib/supabase";
+import type { NotificationType } from "@/store/notifications";
 
 type TeamMember = {
   id: string;
@@ -34,12 +36,62 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const [appSettings, setAppSettings] = useSettings();
   const [team, setTeam] = useState<TeamMember[]>(initialTeam);
-  const [notifications, setNotifications] = useState({
-    projectUpdates: true,
-    deadlineReminders: true,
-    paymentAlerts: true,
-    weeklyReport: false,
+
+  // Notification settings (Supabase-backed)
+  const notifTypes: { key: NotificationType; title: string; desc: string }[] = [
+    { key: "contract_expiry", title: "Vertrag läuft aus", desc: "Benachrichtigung wenn ein Kundenvertrag in 7 Tagen ausläuft." },
+    { key: "onboarding_complete", title: "Neues Onboarding", desc: "Benachrichtigung wenn ein Onboarding abgeschlossen wird." },
+    { key: "campaign_underperform", title: "Kampagne underperformt", desc: "Warnung bei niedrigem CTR und hohem Spend." },
+    { key: "task_due", title: "Aufgabe fällig", desc: "Erinnerung wenn eine Aufgabe heute fällig ist." },
+    { key: "no_show", title: "No-Show Meeting", desc: "Benachrichtigung bei verpassten Meetings." },
+  ];
+  const [notifSettings, setNotifSettings] = useState<Record<NotificationType, boolean>>({
+    contract_expiry: true,
+    onboarding_complete: true,
+    campaign_underperform: true,
+    task_due: true,
+    no_show: true,
   });
+  const [notifLoaded, setNotifLoaded] = useState(false);
+
+  const loadNotifSettings = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.email) return;
+    const { data } = await supabase
+      .from("notification_settings")
+      .select("type, enabled")
+      .eq("user_email", session.user.email);
+    if (data && data.length > 0) {
+      const next = { ...notifSettings };
+      for (const row of data) {
+        if (row.type in next) {
+          (next as any)[row.type] = row.enabled !== false;
+        }
+      }
+      setNotifSettings(next);
+    }
+    setNotifLoaded(true);
+  }, []);
+
+  useEffect(() => { loadNotifSettings(); }, [loadNotifSettings]);
+
+  const toggleNotifSetting = async (type: NotificationType, enabled: boolean) => {
+    setNotifSettings((prev) => ({ ...prev, [type]: enabled }));
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.email) return;
+    const { data: existing } = await supabase
+      .from("notification_settings")
+      .select("id")
+      .eq("user_email", session.user.email)
+      .eq("type", type)
+      .limit(1);
+    if (existing && existing.length > 0) {
+      await supabase.from("notification_settings").update({ enabled }).eq("id", existing[0].id);
+    } else {
+      await supabase.from("notification_settings").insert({ user_email: session.user.email, type, enabled });
+    }
+    toast.success("Einstellung gespeichert");
+  };
 
   const updateSetting = (key: string, value: string | number) => {
     setAppSettings((prev) => ({ ...prev, [key]: value }));
@@ -419,23 +471,19 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Benachrichtigungen</CardTitle>
-              <CardDescription>Bestimme welche Updates du erhalten möchtest.</CardDescription>
+              <CardDescription>Bestimme welche automatischen Benachrichtigungen du erhalten möchtest.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              {[
-                { key: "projectUpdates" as const, title: "Projekt-Updates", desc: "Benachrichtigungen wenn sich der Status eines Projekts ändert." },
-                { key: "deadlineReminders" as const, title: "Deadline-Erinnerungen", desc: "Erinnerung 24h vor einer Deadline." },
-                { key: "paymentAlerts" as const, title: "Zahlungs-Alerts", desc: "Benachrichtigung bei überfälligen Zahlungen." },
-                { key: "weeklyReport" as const, title: "Wöchentlicher Report", desc: "Zusammenfassung jeden Montag per E-Mail." },
-              ].map((item) => (
+              {notifTypes.map((item) => (
                 <div key={item.key} className="flex items-center justify-between">
                   <div>
                     <div className="text-sm font-medium">{item.title}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">{item.desc}</div>
                   </div>
                   <Switch
-                    checked={notifications[item.key]}
-                    onCheckedChange={(checked) => setNotifications((prev) => ({ ...prev, [item.key]: checked }))}
+                    checked={notifSettings[item.key]}
+                    onCheckedChange={(checked) => toggleNotifSetting(item.key, checked)}
+                    disabled={!notifLoaded}
                   />
                 </div>
               ))}

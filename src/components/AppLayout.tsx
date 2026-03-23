@@ -1,14 +1,13 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Bell, Search, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useClients } from "@/store/clients";
 import { useProjects } from "@/store/projects";
+import { NotificationCenter } from "@/components/NotificationCenter";
 
 const navPages = [
   { title: "Dashboard", path: "/" },
@@ -31,24 +30,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Notifications
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { id: "1", text: "Neues Onboarding abgeschlossen", time: "Gerade eben", read: false },
-    { id: "2", text: "Zahlung überfällig bei TerraFin", time: "Vor 2 Stunden", read: false },
-    { id: "3", text: "Projekt 'Lead Gen Funnel' — Review Phase erreicht", time: "Gestern", read: true },
-  ]);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  const dismissNotif = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
-
   // Search results
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return { clients: [], projects: [], pages: [] };
@@ -69,22 +50,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         setSearchOpen(false);
         setSearchQuery("");
       }
-      if (notifOpen) {
-        const notifEl = document.getElementById("notif-panel");
-        if (notifEl && !notifEl.contains(e.target as Node)) {
-          setNotifOpen(false);
-        }
-      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [searchOpen, notifOpen]);
+  }, [searchOpen]);
 
   // Close search on navigate
   useEffect(() => {
     setSearchOpen(false);
     setSearchQuery("");
-    setNotifOpen(false);
   }, [location.pathname]);
 
   // Keyboard shortcut
@@ -98,7 +72,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       if (e.key === "Escape") {
         setSearchOpen(false);
         setSearchQuery("");
-        setNotifOpen(false);
       }
     };
     document.addEventListener("keydown", handler);
@@ -222,59 +195,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Notifications */}
-            <div className="relative" id="notif-panel">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative"
-                onClick={() => setNotifOpen(!notifOpen)}
-              >
-                <Bell className="h-4 w-4" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />
-                )}
-              </Button>
-
-              {notifOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 z-50">
-                  <Card className="shadow-lg">
-                    <CardContent className="p-0">
-                      <div className="flex items-center justify-between px-4 py-3 border-b">
-                        <span className="text-sm font-semibold">Benachrichtigungen</span>
-                        {unreadCount > 0 && (
-                          <button onClick={markAllRead} className="text-xs text-primary hover:underline">
-                            Alle gelesen
-                          </button>
-                        )}
-                      </div>
-                      {notifications.length === 0 ? (
-                        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                          Keine Benachrichtigungen
-                        </div>
-                      ) : (
-                        <div className="max-h-64 overflow-y-auto">
-                          {notifications.map((n) => (
-                            <div
-                              key={n.id}
-                              className={`flex items-start gap-3 px-4 py-3 border-b last:border-0 ${!n.read ? "bg-primary/[0.03]" : ""}`}
-                            >
-                              <div className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${!n.read ? "bg-primary" : "bg-transparent"}`} />
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-sm ${!n.read ? "font-medium" : "text-muted-foreground"}`}>{n.text}</p>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">{n.time}</p>
-                              </div>
-                              <button onClick={() => dismissNotif(n.id)} className="text-muted-foreground hover:text-foreground shrink-0">
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </div>
+            <NotificationCenter />
           </header>
           <main className="flex-1 overflow-auto p-6">
             {children}

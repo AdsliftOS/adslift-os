@@ -8,6 +8,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import { supabase } from "@/lib/supabase";
 import { generateAutoTasks } from "@/lib/autoTasks";
+import { generateNotifications } from "@/lib/notificationGenerator";
+import { loadNotifications } from "@/store/notifications";
 import Dashboard from "./pages/Dashboard";
 import ProjectManager from "./pages/ProjectManager";
 import Clients from "./pages/Clients";
@@ -44,9 +46,12 @@ const App = () => {
       setUserEmail(session?.user?.email || "");
     });
 
-    // Run auto-task generation once on mount (after auth check)
+    // Run auto-task generation and notification generation once on mount (after auth check)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) generateAutoTasks();
+      if (session) {
+        generateAutoTasks();
+        generateNotifications(session.user?.email || "").then(() => loadNotifications());
+      }
     });
 
     return () => subscription.unsubscribe();
