@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, TrendingUp, Trash2, Target, Calendar, ChevronLeft, ChevronRight, ArrowRight, UserPlus, PhoneCall, PhoneForwarded, Handshake, DollarSign } from "lucide-react";
+import { Plus, TrendingUp, Trash2, Target, Calendar, ChevronLeft, ChevronRight, ArrowRight, UserPlus, PhoneCall, PhoneForwarded, Handshake, DollarSign, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { format, startOfWeek, endOfWeek, getISOWeek, getYear, addWeeks, isWithinInterval, startOfMonth, endOfMonth, addMonths, addYears } from "date-fns";
 import { de } from "date-fns/locale";
@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/store/settings";
-import { useSalesWeeks, addSalesWeek, deleteSalesWeek } from "@/store/sales";
+import { useSalesWeeks, addSalesWeek, updateSalesWeek, deleteSalesWeek } from "@/store/sales";
 import type { SalesWeek } from "@/store/sales";
 import { useAllCalendarEvents } from "@/store/calendar";
 import { useNoShows } from "@/store/noshows";
@@ -63,6 +63,11 @@ export default function Sales() {
   const [closeLeads, setCloseLeads] = useState<number>(0);
   const [closeLoading, setCloseLoading] = useState(false);
   const [filterOffset, setFilterOffset] = useState(0);
+
+  // Edit week dialog
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingWeek, setEditingWeek] = useState<SalesWeek | null>(null);
+  const [editForm, setEditForm] = useState({ newLeads: "", closed: "", dealVolume: "" });
 
   const filterRange = useMemo(() => {
     const base = new Date();
@@ -147,6 +152,28 @@ export default function Sales() {
     setSelectedDate(undefined);
     setDialogOpen(false);
     toast.success(`KW ${getISOWeek(ws)} eingetragen`);
+  };
+
+  const openEditWeek = (week: SalesWeek) => {
+    setEditingWeek(week);
+    setEditForm({
+      newLeads: week.newLeads.toString(),
+      closed: week.closed.toString(),
+      dealVolume: week.dealVolume.toString(),
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditWeek = async () => {
+    if (!editingWeek) return;
+    await updateSalesWeek(editingWeek.id, {
+      newLeads: parseInt(editForm.newLeads) || 0,
+      closed: parseInt(editForm.closed) || 0,
+      dealVolume: parseFloat(editForm.dealVolume) || 0,
+    });
+    setEditDialogOpen(false);
+    setEditingWeek(null);
+    toast.success(`KW ${editingWeek.kw} aktualisiert`);
   };
 
   // Funnel values for display
@@ -377,9 +404,14 @@ export default function Sales() {
                     </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums pr-4">{fmt(e.dealVolume)}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors" onClick={() => deleteSalesWeek(e.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex items-center gap-0.5">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary transition-colors" onClick={() => openEditWeek(e)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors" onClick={() => deleteSalesWeek(e.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -406,7 +438,7 @@ export default function Sales() {
         </CardContent>
       </Card>
 
-      {/* Dialog */}
+      {/* Add Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Woche eintragen</DialogTitle></DialogHeader>
@@ -450,6 +482,47 @@ export default function Sales() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Abbrechen</Button>
             <Button onClick={handleAdd}>Eintragen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Week Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingWeek ? `KW ${editingWeek.kw} bearbeiten` : "Woche bearbeiten"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {editingWeek && (
+              <div className="text-sm text-muted-foreground">
+                {getWeekLabel(new Date(editingWeek.weekStart))}
+              </div>
+            )}
+
+            <div className="rounded-lg border-2 border-dashed p-3 space-y-3">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Manuelle Daten</div>
+              <p className="text-[10px] text-muted-foreground -mt-1">Terminiert & Erschienen werden automatisch aus dem Google Calendar berechnet.</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Neue Leads</Label>
+                  <Input type="number" min="0" placeholder="0" value={editForm.newLeads} onChange={(e) => setEditForm({ ...editForm, newLeads: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Deals</Label>
+                  <Input type="number" min="0" placeholder="0" value={editForm.closed} onChange={(e) => setEditForm({ ...editForm, closed: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Volumen (€)</Label>
+                  <Input type="number" min="0" step="100" placeholder="0" value={editForm.dealVolume} onChange={(e) => setEditForm({ ...editForm, dealVolume: e.target.value })} />
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Abbrechen</Button>
+            <Button onClick={handleEditWeek}>Speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

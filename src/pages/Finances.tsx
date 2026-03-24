@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DollarSign, TrendingUp, Plus, Receipt, Filter, Search, ChevronLeft, ChevronRight, CheckCircle2, Clock, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2 } from "lucide-react";
+import { DollarSign, TrendingUp, Plus, Receipt, Filter, Search, ChevronLeft, ChevronRight, CheckCircle2, Clock, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useClients } from "@/store/clients";
 import { useDeals, addDeal, updateDeal, deleteDeal } from "@/store/deals";
@@ -17,40 +17,7 @@ import { useExpenses } from "@/store/expenses";
 import type { Deal } from "@/store/deals";
 import type { Expense, ExpenseStatus, MonthlyExpense } from "@/store/expenses";
 
-type PaymentStatus = "paid" | "planned" | "overdue" | "open" | "potenzial";
-
-type MonthlyPayment = {
-  amount: number;
-  status: PaymentStatus;
-};
-
-type ServiceType = "done4you" | "donewithyou";
-
-type Deal = {
-  id: string;
-  startDate: string;
-  client: string;
-  serviceType: ServiceType;
-  netAmount: number;
-  taxRate: number;
-  paymentMethod: string;
-  monthlyPayments: Record<string, MonthlyPayment>; // key: "2026-01" etc.
-};
-
-type ExpenseStatus = "bezahlt" | "geplant" | "offen";
-
-type MonthlyExpense = {
-  amount: number;
-  status: ExpenseStatus;
-};
-
-type Expense = {
-  id: string;
-  name: string;
-  category: string;
-  description: string;
-  monthlyExpenses: Record<string, MonthlyExpense>;
-};
+import type { PaymentStatus, ServiceType, MonthlyPayment } from "@/store/deals";
 
 const serviceTypes: { value: ServiceType; label: string; description: string }[] = [
   { value: "done4you", label: "Done 4 You", description: "Wir machen alles — Kunde lehnt sich zurück." },
@@ -120,6 +87,18 @@ export default function Finances() {
     taxRate: "19",
     paymentMethod: "Überweisung",
     monthlyDistribution: {} as Record<string, string>, // month key -> amount string
+  });
+
+  // Edit deal dialog
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
+  const [editForm, setEditForm] = useState({
+    client: "",
+    serviceType: "done4you" as ServiceType,
+    netAmount: "",
+    taxRate: "19",
+    paymentMethod: "Überweisung",
+    monthlyDistribution: {} as Record<string, string>,
   });
 
   // Visible months (6 at a time)
@@ -337,6 +316,62 @@ export default function Finances() {
     setForm({ client: "", serviceType: "done4you", netAmount: "", taxRate: "19", paymentMethod: "Überweisung", monthlyDistribution: {} });
     setDialogOpen(false);
     toast.success("Deal hinzugefügt");
+  };
+
+  const openEditDeal = (deal: Deal) => {
+    setEditingDeal(deal);
+    const monthlyDistribution: Record<string, string> = {};
+    Object.entries(deal.monthlyPayments).forEach(([key, val]) => {
+      monthlyDistribution[key] = val.amount.toString();
+    });
+    setEditForm({
+      client: deal.client,
+      serviceType: deal.serviceType,
+      netAmount: deal.netAmount.toString(),
+      taxRate: deal.taxRate.toString(),
+      paymentMethod: deal.paymentMethod,
+      monthlyDistribution,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const editDistributedTotal = useMemo(() => {
+    return Object.values(editForm.monthlyDistribution).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+  }, [editForm.monthlyDistribution]);
+
+  const handleEditDeal = async () => {
+    if (!editingDeal) return;
+    if (!editForm.client || !editForm.netAmount) {
+      toast.error("Bitte Kunde und Betrag ausfüllen");
+      return;
+    }
+    const netAmount = parseFloat(editForm.netAmount);
+    if (editDistributedTotal > netAmount) {
+      toast.error("Verteilte Beträge übersteigen das Dealvolumen");
+      return;
+    }
+
+    // Build new monthly payments: keep existing statuses, update amounts
+    const monthlyPayments: Record<string, MonthlyPayment> = {};
+    Object.entries(editForm.monthlyDistribution).forEach(([key, val]) => {
+      const amount = parseFloat(val);
+      if (amount > 0) {
+        const existingStatus = editingDeal.monthlyPayments[key]?.status || "planned";
+        monthlyPayments[key] = { amount, status: existingStatus };
+      }
+    });
+
+    await updateDeal(editingDeal.id, {
+      client: editForm.client,
+      serviceType: editForm.serviceType,
+      netAmount,
+      taxRate: parseFloat(editForm.taxRate),
+      paymentMethod: editForm.paymentMethod,
+      monthlyPayments,
+    });
+    setEditDialogOpen(false);
+    setEditingDeal(null);
+    toast.success("Deal aktualisiert");
   };
 
   const cycleStatus = (dealId: string, monthKey: string) => {
@@ -736,9 +771,14 @@ export default function Finances() {
                         <TableCell className="text-right text-xs font-semibold tabular-nums p-1.5">{fmt(deal.netAmount)}</TableCell>
                         <TableCell className="text-right text-xs tabular-nums text-muted-foreground p-1.5">{fmt(deal.netAmount * (1 + deal.taxRate / 100))}</TableCell>
                         <TableCell className="p-1">
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => deleteDeal(deal.id)}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <div className="flex items-center gap-0.5">
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary" onClick={() => openEditDeal(deal)}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => deleteDeal(deal.id)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </TableCell>
                         {visibleMonths.map((m) => {
                           const payment = deal.monthlyPayments[m.key];
@@ -1102,6 +1142,133 @@ export default function Finances() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Deal Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Deal bearbeiten</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            {/* Kunde */}
+            <div className="grid gap-2">
+              <Label>Kunde</Label>
+              <Select value={editForm.client} onValueChange={(v) => setEditForm({ ...editForm, client: v })}>
+                <SelectTrigger><SelectValue placeholder="Kunde wählen..." /></SelectTrigger>
+                <SelectContent>
+                  {clientNames.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Service Type */}
+            <div className="grid gap-2">
+              <Label>Service-Typ</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {serviceTypes.map((st) => (
+                  <button
+                    key={st.value}
+                    onClick={() => setEditForm({ ...editForm, serviceType: st.value })}
+                    className={`text-left rounded-lg border p-3 transition-all ${
+                      editForm.serviceType === st.value
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                        : "border-border hover:border-primary/30"
+                    }`}
+                  >
+                    <div className="text-sm font-semibold">{st.label}</div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{st.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Dealvolumen + Steuer */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label>Dealvolumen Netto (€)</Label>
+                <Input type="number" placeholder="5000" value={editForm.netAmount} onChange={(e) => setEditForm({ ...editForm, netAmount: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label>MwSt. (%)</Label>
+                <Input type="number" value={editForm.taxRate} onChange={(e) => setEditForm({ ...editForm, taxRate: e.target.value })} />
+              </div>
+            </div>
+
+            {editForm.netAmount && (
+              <div className="text-sm text-muted-foreground">
+                Brutto: <span className="font-semibold text-foreground">{fmt(parseFloat(editForm.netAmount || "0") * (1 + parseFloat(editForm.taxRate || "0") / 100))}</span>
+              </div>
+            )}
+
+            {/* Zahlart */}
+            <div className="grid gap-2">
+              <Label>Zahlart</Label>
+              <Select value={editForm.paymentMethod} onValueChange={(v) => setEditForm({ ...editForm, paymentMethod: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Überweisung">Überweisung</SelectItem>
+                  <SelectItem value="PayPal">PayPal</SelectItem>
+                  <SelectItem value="Stripe">Stripe</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Monthly Distribution */}
+            {editForm.netAmount && parseFloat(editForm.netAmount) > 0 && (
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <Label>Monatliche Verteilung</Label>
+                  <span className={`text-xs tabular-nums ${
+                    editDistributedTotal > parseFloat(editForm.netAmount) ? "text-red-500 font-bold" :
+                    editDistributedTotal === parseFloat(editForm.netAmount || "0") ? "text-emerald-500 font-semibold" :
+                    "text-muted-foreground"
+                  }`}>
+                    {fmt(editDistributedTotal)} / {fmt(parseFloat(editForm.netAmount))}
+                    {editDistributedTotal === parseFloat(editForm.netAmount || "0") && " \u2713"}
+                  </span>
+                </div>
+
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      editDistributedTotal > parseFloat(editForm.netAmount) ? "bg-red-500" :
+                      editDistributedTotal === parseFloat(editForm.netAmount || "0") ? "bg-emerald-500" :
+                      "bg-primary"
+                    }`}
+                    style={{ width: `${Math.min(100, (editDistributedTotal / parseFloat(editForm.netAmount || "1")) * 100)}%` }}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 mt-1">
+                  {distributionMonths.map((m) => {
+                    const val = editForm.monthlyDistribution[m.key] || "";
+                    const hasValue = parseFloat(val) > 0;
+                    return (
+                      <div key={m.key} className={`rounded-lg border p-2 transition-all ${hasValue ? "border-primary/30 bg-primary/5" : ""}`}>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">{m.label}</div>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          className="h-7 text-xs"
+                          value={val}
+                          onChange={(e) => setEditForm({
+                            ...editForm,
+                            monthlyDistribution: { ...editForm.monthlyDistribution, [m.key]: e.target.value },
+                          })}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Abbrechen</Button>
+            <Button onClick={handleEditDeal}>Speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
