@@ -431,7 +431,7 @@ export default function Calendar() {
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={() => { setCalendlySelectedUrl(""); setCalendlyClient(""); setCalendlyClientEmail(""); setCalendlyClientPhone(""); setCalendlyOpen(true); }}>
-            <img src="https://assets.calendly.com/assets/favicon-bec0ea28f4db6c16.png" alt="Calendly" className="mr-2 h-4 w-4" />Calendly
+            <svg className="mr-2 h-4 w-4" viewBox="0 0 120 120" fill="none"><circle cx="60" cy="60" r="60" fill="#006BFF"/><path d="M82.7 45.5c-2.4-4.2-5.8-7.5-10-9.9-4.2-2.4-9-3.6-14.1-3.6-5.1 0-9.8 1.2-14.1 3.6-4.2 2.4-7.5 5.8-9.9 10s-3.6 9-3.6 14.1c0 5.1 1.2 9.8 3.6 14.1 2.4 4.2 5.8 7.5 10 9.9 4.2 2.4 9 3.6 14.1 3.6 5.1 0 9.8-1.2 14.1-3.6 4.2-2.4 7.5-5.8 9.9-10 2.4-4.2 3.6-9 3.6-14.1 0-5-.1.2-9.8-3.6-14z" fill="#fff"/><path d="M67.9 69.7c-1.4 2.4-3.4 4.3-5.8 5.7-2.4 1.4-5.2 2.1-8.1 2.1-2.9 0-5.7-.7-8.1-2.1-2.4-1.4-4.4-3.3-5.8-5.7-1.4-2.4-2.1-5.2-2.1-8.1s.7-5.7 2.1-8.1c1.4-2.4 3.4-4.3 5.8-5.7 2.4-1.4 5.2-2.1 8.1-2.1h16.2c0-3.7-.9-7.1-2.8-10.2H54c-3.7 0-7.1.9-10.2 2.8-3.1 1.8-5.6 4.3-7.4 7.4-1.8 3.1-2.8 6.6-2.8 10.2v11.4c0 3.7.9 7.1 2.8 10.2 1.8 3.1 4.3 5.6 7.4 7.4 3.1 1.8 6.6 2.8 10.2 2.8 3.7 0 7.1-.9 10.2-2.8 3.1-1.8 5.6-4.3 7.4-7.4l-3.7-6.5z" fill="#006BFF"/></svg>Calendly
           </Button>
           <Button size="sm" onClick={() => openNew()}>
             <Plus className="mr-2 h-4 w-4" />Neues Event
