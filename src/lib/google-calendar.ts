@@ -3,7 +3,7 @@ const SCOPES = "https://www.googleapis.com/auth/calendar https://www.googleapis.
 const REDIRECT_URI = window.location.origin + "/auth/callback";
 
 const ACCOUNT_COLORS = ["bg-blue-500", "bg-orange-500", "bg-emerald-500", "bg-pink-500", "bg-violet-500"];
-const ACCOUNT_COLORS_LIGHT = ["bg-blue-500/10 text-blue-700 dark:text-blue-300", "bg-orange-500/10 text-orange-700 dark:text-orange-300", "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", "bg-pink-500/10 text-pink-700 dark:text-pink-300", "bg-violet-500/10 text-violet-700 dark:text-violet-300"];
+const ACCOUNT_COLORS_LIGHT = ["bg-blue-500/25 text-white", "bg-orange-500/25 text-white", "bg-emerald-500/25 text-white", "bg-pink-500/25 text-white", "bg-violet-500/25 text-white"];
 
 const ACCOUNTS_KEY = "google-calendar-accounts-v4";
 
@@ -25,8 +25,8 @@ export function getAccounts(): GoogleAccount[] {
         accessToken: a.accessToken || a.token || "",
         refreshToken: a.refreshToken || "",
         expiresAt: a.expiresAt || 0,
-        color: a.color || ACCOUNT_COLORS[idx % ACCOUNT_COLORS.length],
-        colorLight: a.colorLight || ACCOUNT_COLORS_LIGHT[idx % ACCOUNT_COLORS_LIGHT.length],
+        color: ACCOUNT_COLORS[idx % ACCOUNT_COLORS.length],
+        colorLight: ACCOUNT_COLORS_LIGHT[idx % ACCOUNT_COLORS_LIGHT.length],
       }));
     }
   } catch {}

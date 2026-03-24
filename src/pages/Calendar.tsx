@@ -338,13 +338,13 @@ export default function Calendar() {
     const et = eventTypeMap[event.type] || eventTypes[4];
     // LinkedIn Setting Calls → hellgelb/gold
     if (isLinkedInSetting(event)) {
-      return { color: "bg-yellow-400", bgLight: "bg-yellow-400/25 text-white border-l-[3px] border-yellow-400" };
+      return { color: "bg-yellow-400", bgLight: "bg-yellow-400/30 text-white border-l-[3px] border-yellow-400" };
     }
     // Client meetings → green
     if (isClientMeeting(event)) {
-      return { color: "bg-emerald-500", bgLight: "bg-emerald-500/25 text-white dark:text-white" };
+      return { color: "bg-emerald-500", bgLight: "bg-emerald-500/30 text-white" };
     }
-    // Sales meetings → keep account color or type color
+    // Google Calendar events with account color
     if (event.accountColor) {
       return { color: event.accountColor, bgLight: event.accountColorLight || et.bgLight };
     }
