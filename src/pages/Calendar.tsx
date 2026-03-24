@@ -338,7 +338,7 @@ export default function Calendar() {
     const et = eventTypeMap[event.type] || eventTypes[4];
     // LinkedIn Setting Calls → hellgelb/gold
     if (isLinkedInSetting(event)) {
-      return { color: "bg-yellow-400", bgLight: "bg-yellow-400/25 text-yellow-900 dark:text-yellow-100 border-l-[3px] border-yellow-400" };
+      return { color: "bg-yellow-400", bgLight: "bg-yellow-400/25 text-white border-l-[3px] border-yellow-400" };
     }
     // Client meetings → green
     if (isClientMeeting(event)) {
