@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronRight, ChevronLeft, Building2, Target, DollarSign, KeyRound, Megaphone, Users, CheckCircle2, Sparkles, FolderOpen, ExternalLink, Handshake } from "lucide-react";
-import { setClients } from "@/store/clients";
+import { addClient as addClientDB } from "@/store/clients";
 import { addProject as addProjectDB } from "@/store/projects";
 import type { Project } from "@/store/projects";
 
@@ -149,20 +149,16 @@ export default function Onboarding() {
 
   const handleSubmit = async () => {
     // 1. Create client
-    setClients((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        name: data.companyName,
-        contact: data.contactName,
-        email: data.contactEmail,
-        phone: data.contactPhone,
-        company: data.companyName,
-        projects: 1,
-        revenue: 0,
-        status: "Active" as const,
-      },
-    ]);
+    await addClientDB({
+      name: data.companyName,
+      contact: data.contactName,
+      email: data.contactEmail,
+      phone: data.contactPhone,
+      company: data.companyName,
+      projects: 1,
+      revenue: 0,
+      status: "Active" as const,
+    });
 
     // 2. Create project with raw onboarding data in separate field
     const projectType = data.variant === "done4you" ? "done4you" : "donewithyou";

@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, Users, CheckCircle2, PauseCircle, Trash2, Link2, Copy, Pencil, MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
-import { useClients, setClients } from "@/store/clients";
+import { useClients, addClient as addClientDB, updateClient as updateClientDB, deleteClient as deleteClientDB } from "@/store/clients";
 import type { Client, ClientStatus } from "@/store/clients";
 import { supabase } from "@/lib/supabase";
 
@@ -65,13 +65,12 @@ export default function Clients() {
   const activeCount = clients.filter((c) => c.status === "Active").length;
   const totalRevenue = clients.reduce((s, c) => s + c.revenue, 0);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!form.name || !form.contact) {
       toast.error("Bitte Name und Ansprechpartner ausfüllen");
       return;
     }
-    const newClient: Client = {
-      id: Date.now().toString(),
+    await addClientDB({
       name: form.name,
       contact: form.contact,
       email: form.email,
@@ -80,8 +79,7 @@ export default function Clients() {
       projects: 0,
       revenue: 0,
       status: "Active",
-    };
-    setClients((prev) => [newClient, ...prev]);
+    });
     setForm({ name: "", contact: "", email: "", phone: "", company: "" });
     setDialogOpen(false);
     toast.success("Kunde hinzugefügt");
@@ -103,31 +101,24 @@ export default function Clients() {
     setEditDialogOpen(true);
   };
 
-  const handleEditSave = () => {
-    setClients((prev) =>
-      prev.map((c) =>
-        c.id === editForm.id
-          ? {
-              ...c,
-              name: editForm.name,
-              contact: editForm.contact,
-              email: editForm.email,
-              phone: editForm.phone,
-              company: editForm.company,
-              revenue: parseFloat(editForm.revenue) || 0,
-              status: editForm.status,
-              contract_start: editForm.contract_start || undefined,
-              contract_end: editForm.contract_end || undefined,
-            }
-          : c
-      )
-    );
+  const handleEditSave = async () => {
+    await updateClientDB(editForm.id, {
+      name: editForm.name,
+      contact: editForm.contact,
+      email: editForm.email,
+      phone: editForm.phone,
+      company: editForm.company,
+      revenue: parseFloat(editForm.revenue) || 0,
+      status: editForm.status,
+      contract_start: editForm.contract_start || undefined,
+      contract_end: editForm.contract_end || undefined,
+    });
     setEditDialogOpen(false);
     toast.success("Kunde aktualisiert");
   };
 
-  const deleteClient = (id: string) => {
-    setClients((prev) => prev.filter((c) => c.id !== id));
+  const handleDeleteClient = async (id: string) => {
+    await deleteClientDB(id);
     toast.success("Kunde gelöscht");
   };
 
@@ -366,7 +357,7 @@ export default function Clients() {
                         <MessageSquare className="h-3.5 w-3.5" />
                       </button>
                       <button
-                        onClick={() => deleteClient(c.id)}
+                        onClick={() => handleDeleteClient(c.id)}
                         className="text-muted-foreground hover:text-destructive"
                         title="Löschen"
                       >
