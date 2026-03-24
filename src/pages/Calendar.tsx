@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Plus, Phone, Users, Flag, Briefcase, Calendar as CalendarIcon, Trash2, LayoutGrid, List, Video, ExternalLink, FolderKanban, RefreshCw, DollarSign } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Phone, Users, Flag, Briefcase, Calendar as CalendarIcon, Trash2, LayoutGrid, List, Video, ExternalLink, FolderKanban, RefreshCw, DollarSign, Link2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useCalendar, setGoogleEvents as setGlobalGoogleEvents } from "@/store/calendar";
 import type { CalendarEvent } from "@/store/calendar";
@@ -150,6 +150,42 @@ export default function Calendar() {
   const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([]);
   const [syncing, setSyncing] = useState(false);
   const noshowList = useNoShows();
+
+  // Calendly integration
+  const [calendlyOpen, setCalendlyOpen] = useState(false);
+  const [calendlyTypes, setCalendlyTypes] = useState<{name: string; slug: string; duration: number; url: string; color: string}[]>([]);
+  const [calendlySelectedType, setCalendlySelectedType] = useState("");
+  const [calendlyClient, setCalendlyClient] = useState("");
+  const [calendlyClientEmail, setCalendlyClientEmail] = useState("");
+  const [calendlyLink, setCalendlyLink] = useState("");
+  const [calendlyCopied, setCalendlyCopied] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/calendly?action=event_types")
+      .then(r => r.json())
+      .then(d => { if (d.types) setCalendlyTypes(d.types); })
+      .catch(() => {});
+  }, []);
+
+  const generateCalendlyLink = async () => {
+    if (!calendlySelectedType) { toast.error("Bitte Event-Typ auswählen"); return; }
+    const params = new URLSearchParams({ action: "create_link", slug: calendlySelectedType });
+    if (calendlyClient) params.set("name", calendlyClient);
+    if (calendlyClientEmail) params.set("email", calendlyClientEmail);
+    const resp = await fetch(`/api/calendly?${params.toString()}`);
+    const data = await resp.json();
+    if (data.link) {
+      setCalendlyLink(data.link);
+      toast.success("Calendly Link generiert");
+    }
+  };
+
+  const copyCalendlyLink = () => {
+    navigator.clipboard.writeText(calendlyLink);
+    setCalendlyCopied(true);
+    toast.success("Link kopiert!");
+    setTimeout(() => setCalendlyCopied(false), 2000);
+  };
 
   const syncGoogleCalendar = useCallback(async () => {
     const accounts = getAccounts();
@@ -406,6 +442,9 @@ export default function Calendar() {
               {syncing ? "Sync..." : "Sync"}
             </Button>
           )}
+          <Button size="sm" variant="outline" onClick={() => { setCalendlyLink(""); setCalendlyCopied(false); setCalendlyOpen(true); }}>
+            <Link2 className="mr-2 h-4 w-4" />Calendly
+          </Button>
           <Button size="sm" onClick={() => openNew()}>
             <Plus className="mr-2 h-4 w-4" />Neues Event
           </Button>
@@ -925,6 +964,67 @@ export default function Calendar() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDetailEvent(null)}>Schließen</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Calendly Dialog */}
+      <Dialog open={calendlyOpen} onOpenChange={setCalendlyOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5 text-primary" />
+              Meeting planen (Calendly)
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs">Event-Typ</Label>
+              <Select value={calendlySelectedType} onValueChange={setCalendlySelectedType}>
+                <SelectTrigger><SelectValue placeholder="Event-Typ wählen" /></SelectTrigger>
+                <SelectContent>
+                  {calendlyTypes.map((t) => (
+                    <SelectItem key={t.slug} value={t.slug}>
+                      {t.name} ({t.duration} min)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Kunde</Label>
+              <Select value={calendlyClient} onValueChange={(v) => {
+                setCalendlyClient(v);
+                const client = clients.find((c) => c.name === v);
+                if (client?.email) setCalendlyClientEmail(client.email);
+              }}>
+                <SelectTrigger><SelectValue placeholder="Kunde auswählen (optional)" /></SelectTrigger>
+                <SelectContent>
+                  {clientNames.map((name) => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">E-Mail (optional)</Label>
+              <Input value={calendlyClientEmail} onChange={(e) => setCalendlyClientEmail(e.target.value)} placeholder="kunde@example.com" />
+            </div>
+            <Button onClick={generateCalendlyLink} className="w-full">Link generieren</Button>
+            {calendlyLink && (
+              <div className="rounded-lg border bg-muted/50 p-3 space-y-2">
+                <p className="text-xs text-muted-foreground">Booking-Link:</p>
+                <div className="flex gap-2">
+                  <Input value={calendlyLink} readOnly className="text-xs" />
+                  <Button size="sm" variant="outline" onClick={copyCalendlyLink}>
+                    {calendlyCopied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <a href={calendlyLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                  Im Browser öffnen <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
