@@ -58,55 +58,72 @@ function layoutOverlappingEvents(events: CalendarEvent[]): Map<string, LayoutInf
   const layout = new Map<string, LayoutInfo>();
   if (events.length === 0) return layout;
 
-  // Convert events to time ranges in minutes from DAY_START
+  // Convert events to time ranges in minutes
   const ranges = events.map((e) => {
-    const [sh, sm] = e.startTime.split(":").map(Number);
-    const [eh, em] = e.endTime.split(":").map(Number);
-    const startMin = hourToSlotIndex(sh) * 60 + sm;
-    const endMin = hourToSlotIndex(eh) * 60 + em + (hourToSlotIndex(eh) < hourToSlotIndex(sh) ? 24 * 60 : 0);
-    return { id: e.id, start: startMin, end: Math.max(endMin, startMin + 15) };
-  }).sort((a, b) => a.start - b.start || a.end - b.end);
+    const [sh, sm] = (e.startTime || "00:00").split(":").map(Number);
+    const [eh, em] = (e.endTime || e.startTime || "00:00").split(":").map(Number);
+    const startMin = (hourToSlotIndex(sh) * 60 + (sm || 0));
+    let endMin = (hourToSlotIndex(eh) * 60 + (em || 0));
+    if (endMin <= startMin) endMin = startMin + 15; // minimum 15 min
+    return { id: e.id, start: startMin, end: endMin };
+  }).sort((a, b) => a.start - b.start || b.end - a.end);
 
-  // Group overlapping events into clusters
-  const clusters: typeof ranges[] = [];
-  let current: typeof ranges = [ranges[0]];
-  let clusterEnd = ranges[0].end;
+  // For each pair, check if they overlap
+  function overlaps(a: { start: number; end: number }, b: { start: number; end: number }) {
+    return a.start < b.end && b.start < a.end;
+  }
 
-  for (let i = 1; i < ranges.length; i++) {
-    if (ranges[i].start < clusterEnd) {
-      current.push(ranges[i]);
-      clusterEnd = Math.max(clusterEnd, ranges[i].end);
-    } else {
-      clusters.push(current);
-      current = [ranges[i]];
-      clusterEnd = ranges[i].end;
+  // Build adjacency: which events overlap with which
+  const adj = new Map<string, Set<string>>();
+  for (const r of ranges) adj.set(r.id, new Set());
+  for (let i = 0; i < ranges.length; i++) {
+    for (let j = i + 1; j < ranges.length; j++) {
+      if (overlaps(ranges[i], ranges[j])) {
+        adj.get(ranges[i].id)!.add(ranges[j].id);
+        adj.get(ranges[j].id)!.add(ranges[i].id);
+      }
     }
   }
-  clusters.push(current);
 
-  // Assign columns within each cluster
-  for (const cluster of clusters) {
-    const columns: number[][] = []; // columns[col] = list of end times
-    for (const ev of cluster) {
-      let placed = false;
-      for (let col = 0; col < columns.length; col++) {
-        const lastEnd = columns[col][columns[col].length - 1];
-        if (ev.start >= lastEnd) {
-          columns[col].push(ev.end);
-          layout.set(ev.id, { column: col, totalColumns: 0 });
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) {
-        columns.push([ev.end]);
-        layout.set(ev.id, { column: columns.length - 1, totalColumns: 0 });
+  // Find connected components (clusters of overlapping events)
+  const visited = new Set<string>();
+  const clusters: string[][] = [];
+  for (const r of ranges) {
+    if (visited.has(r.id)) continue;
+    const cluster: string[] = [];
+    const stack = [r.id];
+    while (stack.length > 0) {
+      const id = stack.pop()!;
+      if (visited.has(id)) continue;
+      visited.add(id);
+      cluster.push(id);
+      for (const neighbor of adj.get(id)!) {
+        if (!visited.has(neighbor)) stack.push(neighbor);
       }
     }
-    // Set totalColumns for all events in this cluster
-    for (const ev of cluster) {
-      const info = layout.get(ev.id)!;
-      info.totalColumns = columns.length;
+    clusters.push(cluster);
+  }
+
+  // Assign columns using greedy graph coloring within each cluster
+  const rangeMap = new Map(ranges.map((r) => [r.id, r]));
+  for (const cluster of clusters) {
+    // Sort by start time
+    cluster.sort((a, b) => rangeMap.get(a)!.start - rangeMap.get(b)!.start);
+    const colAssignment = new Map<string, number>();
+    for (const id of cluster) {
+      const neighbors = adj.get(id)!;
+      const usedCols = new Set<number>();
+      for (const n of neighbors) {
+        if (colAssignment.has(n)) usedCols.add(colAssignment.get(n)!);
+      }
+      // Find smallest available column
+      let col = 0;
+      while (usedCols.has(col)) col++;
+      colAssignment.set(id, col);
+    }
+    const totalCols = Math.max(...Array.from(colAssignment.values())) + 1;
+    for (const id of cluster) {
+      layout.set(id, { column: colAssignment.get(id)!, totalColumns: totalCols });
     }
   }
 
