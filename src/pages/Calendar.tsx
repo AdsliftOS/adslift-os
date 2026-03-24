@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { PopupModal } from "react-calendly";
 import { format, startOfWeek, addDays, isSameDay, addWeeks, subWeeks, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from "date-fns";
 import { de } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -153,12 +154,12 @@ export default function Calendar() {
 
   // Calendly integration
   const [calendlyOpen, setCalendlyOpen] = useState(false);
+  const [calendlyStep, setCalendlyStep] = useState<"select" | "book">("select");
   const [calendlyTypes, setCalendlyTypes] = useState<{name: string; slug: string; duration: number; url: string; color: string}[]>([]);
-  const [calendlySelectedType, setCalendlySelectedType] = useState("");
+  const [calendlySelectedUrl, setCalendlySelectedUrl] = useState("");
   const [calendlyClient, setCalendlyClient] = useState("");
   const [calendlyClientEmail, setCalendlyClientEmail] = useState("");
-  const [calendlyLink, setCalendlyLink] = useState("");
-  const [calendlyCopied, setCalendlyCopied] = useState(false);
+  const [calendlyBookOpen, setCalendlyBookOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/calendly?action=event_types")
@@ -167,24 +168,10 @@ export default function Calendar() {
       .catch(() => {});
   }, []);
 
-  const generateCalendlyLink = async () => {
-    if (!calendlySelectedType) { toast.error("Bitte Event-Typ auswählen"); return; }
-    const params = new URLSearchParams({ action: "create_link", slug: calendlySelectedType });
-    if (calendlyClient) params.set("name", calendlyClient);
-    if (calendlyClientEmail) params.set("email", calendlyClientEmail);
-    const resp = await fetch(`/api/calendly?${params.toString()}`);
-    const data = await resp.json();
-    if (data.link) {
-      setCalendlyLink(data.link);
-      toast.success("Calendly Link generiert");
-    }
-  };
-
-  const copyCalendlyLink = () => {
-    navigator.clipboard.writeText(calendlyLink);
-    setCalendlyCopied(true);
-    toast.success("Link kopiert!");
-    setTimeout(() => setCalendlyCopied(false), 2000);
+  const openCalendlyBooking = () => {
+    if (!calendlySelectedUrl) { toast.error("Bitte Event-Typ auswählen"); return; }
+    setCalendlyOpen(false);
+    setCalendlyBookOpen(true);
   };
 
   const syncGoogleCalendar = useCallback(async () => {
@@ -967,7 +954,7 @@ export default function Calendar() {
         </DialogContent>
       </Dialog>
 
-      {/* Calendly Dialog */}
+      {/* Calendly Selection Dialog */}
       <Dialog open={calendlyOpen} onOpenChange={setCalendlyOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -979,11 +966,11 @@ export default function Calendar() {
           <div className="space-y-4">
             <div>
               <Label className="text-xs">Event-Typ</Label>
-              <Select value={calendlySelectedType} onValueChange={setCalendlySelectedType}>
+              <Select value={calendlySelectedUrl} onValueChange={setCalendlySelectedUrl}>
                 <SelectTrigger><SelectValue placeholder="Event-Typ wählen" /></SelectTrigger>
                 <SelectContent>
                   {calendlyTypes.map((t) => (
-                    <SelectItem key={t.slug} value={t.slug}>
+                    <SelectItem key={t.slug} value={t.url}>
                       {t.name} ({t.duration} min)
                     </SelectItem>
                   ))}
@@ -1009,24 +996,32 @@ export default function Calendar() {
               <Label className="text-xs">E-Mail (optional)</Label>
               <Input value={calendlyClientEmail} onChange={(e) => setCalendlyClientEmail(e.target.value)} placeholder="kunde@example.com" />
             </div>
-            <Button onClick={generateCalendlyLink} className="w-full">Link generieren</Button>
-            {calendlyLink && (
-              <div className="rounded-lg border bg-muted/50 p-3 space-y-2">
-                <p className="text-xs text-muted-foreground">Booking-Link:</p>
-                <div className="flex gap-2">
-                  <Input value={calendlyLink} readOnly className="text-xs" />
-                  <Button size="sm" variant="outline" onClick={copyCalendlyLink}>
-                    {calendlyCopied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <a href={calendlyLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
-                  Im Browser öffnen <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-            )}
+            <Button onClick={openCalendlyBooking} className="w-full">Buchungsfenster öffnen</Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Calendly Popup Embed */}
+      {calendlyBookOpen && calendlySelectedUrl && (
+        <PopupModal
+          url={calendlySelectedUrl}
+          rootElement={document.getElementById("root")!}
+          onModalClose={() => setCalendlyBookOpen(false)}
+          open={calendlyBookOpen}
+          prefill={{
+            name: calendlyClient,
+            email: calendlyClientEmail,
+          }}
+          pageSettings={{
+            backgroundColor: "1a1a2e",
+            primaryColor: "3b82f6",
+            textColor: "ffffff",
+            hideLandingPageDetails: false,
+            hideEventTypeDetails: false,
+            hideGdprBanner: true,
+          }}
+        />
+      )}
     </div>
   );
 }
