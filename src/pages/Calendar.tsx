@@ -431,7 +431,7 @@ export default function Calendar() {
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={() => { setCalendlySelectedUrl(""); setCalendlyClient(""); setCalendlyClientEmail(""); setCalendlyClientPhone(""); setCalendlyOpen(true); }}>
-            <img src="/calendly-logo.ico" alt="" className="mr-2 h-4 w-4 rounded-sm" />Calendly
+            <img src="/calendly-logo.ico" alt="" className="mr-1 h-4 w-4 rounded-sm" />Calendly
           </Button>
           <Button size="sm" onClick={() => openNew()}>
             <Plus className="mr-2 h-4 w-4" />Neues Event
