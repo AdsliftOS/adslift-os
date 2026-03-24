@@ -159,6 +159,7 @@ export default function Calendar() {
   const [calendlySelectedUrl, setCalendlySelectedUrl] = useState("");
   const [calendlyClient, setCalendlyClient] = useState("");
   const [calendlyClientEmail, setCalendlyClientEmail] = useState("");
+  const [calendlyClientPhone, setCalendlyClientPhone] = useState("");
   const [calendlyBookOpen, setCalendlyBookOpen] = useState(false);
 
   useEffect(() => {
@@ -429,7 +430,7 @@ export default function Calendar() {
               {syncing ? "Sync..." : "Sync"}
             </Button>
           )}
-          <Button size="sm" variant="outline" onClick={() => { setCalendlySelectedUrl(""); setCalendlyClient(""); setCalendlyClientEmail(""); setCalendlyOpen(true); }}>
+          <Button size="sm" variant="outline" onClick={() => { setCalendlySelectedUrl(""); setCalendlyClient(""); setCalendlyClientEmail(""); setCalendlyClientPhone(""); setCalendlyOpen(true); }}>
             <Link2 className="mr-2 h-4 w-4" />Calendly
           </Button>
           <Button size="sm" onClick={() => openNew()}>
@@ -983,6 +984,7 @@ export default function Calendar() {
                 setCalendlyClient(v);
                 const client = clients.find((c) => c.name === v);
                 if (client?.email) setCalendlyClientEmail(client.email);
+                if (client?.phone) setCalendlyClientPhone(client.phone);
               }}>
                 <SelectTrigger><SelectValue placeholder="Kunde auswählen (optional)" /></SelectTrigger>
                 <SelectContent>
@@ -1011,6 +1013,7 @@ export default function Calendar() {
           prefill={{
             name: calendlyClient,
             email: calendlyClientEmail,
+            customAnswers: calendlyClientPhone ? { a1: calendlyClientPhone } : undefined,
           }}
           pageSettings={{
             backgroundColor: "1a1a2e",
