@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Plus, Phone, Users, Flag, Briefcase, Calendar as CalendarIcon, Trash2, LayoutGrid, List, Video, ExternalLink, FolderKanban, RefreshCw, DollarSign, Link2, Copy, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Phone, Users, Flag, Briefcase, Calendar as CalendarIcon, Trash2, LayoutGrid, List, Video, ExternalLink, FolderKanban, RefreshCw, DollarSign, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCalendar, setGoogleEvents as setGlobalGoogleEvents } from "@/store/calendar";
 import type { CalendarEvent } from "@/store/calendar";
@@ -429,7 +429,7 @@ export default function Calendar() {
               {syncing ? "Sync..." : "Sync"}
             </Button>
           )}
-          <Button size="sm" variant="outline" onClick={() => { setCalendlyLink(""); setCalendlyCopied(false); setCalendlyOpen(true); }}>
+          <Button size="sm" variant="outline" onClick={() => { setCalendlySelectedUrl(""); setCalendlyClient(""); setCalendlyClientEmail(""); setCalendlyOpen(true); }}>
             <Link2 className="mr-2 h-4 w-4" />Calendly
           </Button>
           <Button size="sm" onClick={() => openNew()}>
