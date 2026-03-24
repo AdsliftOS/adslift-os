@@ -58,22 +58,24 @@ function layoutOverlappingEvents(events: CalendarEvent[]): Map<string, LayoutInf
   const layout = new Map<string, LayoutInfo>();
   if (events.length === 0) return layout;
 
-  // Convert events to time ranges in minutes
+  // Convert events to time ranges in minutes — minimum 20 min visual height for overlap detection
   const ranges = events.map((e) => {
     const [sh, sm] = (e.startTime || "00:00").split(":").map(Number);
     const [eh, em] = (e.endTime || e.startTime || "00:00").split(":").map(Number);
-    const startMin = (hourToSlotIndex(sh) * 60 + (sm || 0));
-    let endMin = (hourToSlotIndex(eh) * 60 + (em || 0));
-    if (endMin <= startMin) endMin = startMin + 15; // minimum 15 min
+    const startMin = hourToSlotIndex(sh) * 60 + (sm || 0);
+    let endMin = hourToSlotIndex(eh) * 60 + (em || 0);
+    if (endMin <= startMin) endMin = startMin + 20;
+    // Minimum visual height of 20 min for overlap detection
+    if (endMin - startMin < 20) endMin = startMin + 20;
     return { id: e.id, start: startMin, end: endMin };
   }).sort((a, b) => a.start - b.start || b.end - a.end);
 
-  // For each pair, check if they overlap
+  // Check visual overlap — events that share any visual space
   function overlaps(a: { start: number; end: number }, b: { start: number; end: number }) {
     return a.start < b.end && b.start < a.end;
   }
 
-  // Build adjacency: which events overlap with which
+  // Build full adjacency graph
   const adj = new Map<string, Set<string>>();
   for (const r of ranges) adj.set(r.id, new Set());
   for (let i = 0; i < ranges.length; i++) {
@@ -85,38 +87,35 @@ function layoutOverlappingEvents(events: CalendarEvent[]): Map<string, LayoutInf
     }
   }
 
-  // Find connected components (clusters of overlapping events)
+  // Find connected components via BFS
   const visited = new Set<string>();
   const clusters: string[][] = [];
   for (const r of ranges) {
     if (visited.has(r.id)) continue;
     const cluster: string[] = [];
-    const stack = [r.id];
-    while (stack.length > 0) {
-      const id = stack.pop()!;
+    const queue = [r.id];
+    while (queue.length > 0) {
+      const id = queue.shift()!;
       if (visited.has(id)) continue;
       visited.add(id);
       cluster.push(id);
       for (const neighbor of adj.get(id)!) {
-        if (!visited.has(neighbor)) stack.push(neighbor);
+        if (!visited.has(neighbor)) queue.push(neighbor);
       }
     }
     clusters.push(cluster);
   }
 
-  // Assign columns using greedy graph coloring within each cluster
+  // Greedy column assignment within each cluster
   const rangeMap = new Map(ranges.map((r) => [r.id, r]));
   for (const cluster of clusters) {
-    // Sort by start time
     cluster.sort((a, b) => rangeMap.get(a)!.start - rangeMap.get(b)!.start);
     const colAssignment = new Map<string, number>();
     for (const id of cluster) {
-      const neighbors = adj.get(id)!;
       const usedCols = new Set<number>();
-      for (const n of neighbors) {
+      for (const n of adj.get(id)!) {
         if (colAssignment.has(n)) usedCols.add(colAssignment.get(n)!);
       }
-      // Find smallest available column
       let col = 0;
       while (usedCols.has(col)) col++;
       colAssignment.set(id, col);
