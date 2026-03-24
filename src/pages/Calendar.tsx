@@ -336,9 +336,9 @@ export default function Calendar() {
   // Get event colors — account color overrides type color for Google events
   const getEventColors = (event: CalendarEvent) => {
     const et = eventTypeMap[event.type] || eventTypes[4];
-    // LinkedIn Setting Calls → orange/amber
+    // LinkedIn Setting Calls → hellgelb/gold
     if (isLinkedInSetting(event)) {
-      return { color: "bg-orange-500", bgLight: "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-l-[3px] border-orange-500" };
+      return { color: "bg-yellow-400", bgLight: "bg-yellow-300/20 text-yellow-800 dark:text-yellow-200 border-l-[3px] border-yellow-400", isLinkedIn: true };
     }
     // Client meetings → green
     if (isClientMeeting(event)) {
@@ -376,11 +376,14 @@ export default function Calendar() {
       );
     }
 
+    const linkedIn = isLinkedInSetting(event);
+
     return (
       <div className="h-full flex flex-col">
         <div className="flex items-center gap-1">
           {isProjectDeadline && <FolderKanban className="h-2.5 w-2.5 shrink-0 opacity-60" />}
           {isSales && <DollarSign className="h-2.5 w-2.5 shrink-0 text-emerald-500" />}
+          {linkedIn && <svg className="h-3 w-3 shrink-0" viewBox="0 0 24 24" fill="currentColor" style={{color: '#0A66C2'}}><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>}
           <span className="text-[11px] font-semibold truncate">{event.title}</span>
         </div>
         {height > 32 && (
@@ -586,8 +589,9 @@ export default function Calendar() {
                           )}
 
                           {(() => {
-                            const eventLayout = layoutOverlappingEvents(dayEvents);
-                            return dayEvents.map((event) => {
+                            const validDayEvents = dayEvents.filter((e) => e.startTime && e.endTime && e.startTime.includes(":") && e.endTime.includes(":"));
+                            const eventLayout = layoutOverlappingEvents(validDayEvents);
+                            return validDayEvents.map((event) => {
                             const [sh, sm] = event.startTime.split(":").map(Number);
                             const [eh, em] = event.endTime.split(":").map(Number);
                             const startIdx = hourToSlotIndex(sh);
