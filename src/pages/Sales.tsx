@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/store/settings";
-import { useSalesWeeks } from "@/store/sales";
+import { useSalesWeeks, addSalesWeek, deleteSalesWeek } from "@/store/sales";
 import type { SalesWeek } from "@/store/sales";
 import { useAllCalendarEvents } from "@/store/calendar";
 import { useNoShows } from "@/store/noshows";
@@ -53,7 +53,7 @@ const funnelSteps = [
 
 export default function Sales() {
   const [appSettings] = useSettings();
-  const [weeks, setWeeks] = useSalesWeeks();
+  const [weeks] = useSalesWeeks();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [form, setForm] = useState({ closed: "", dealVolume: "" });
@@ -135,14 +135,14 @@ export default function Sales() {
   }, [filterMode, monthlyGoal]);
   const goalPct = goalConfig.goal > 0 ? Math.min(Math.round((t.dealVolume / goalConfig.goal) * 100), 100) : 0;
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!selectedDate) { toast.error("Bitte Woche auswählen"); return; }
     const ws = startOfWeek(selectedDate, { weekStartsOn: 1 });
-    setWeeks((prev) => [...prev, {
-      id: Date.now().toString(), weekStart: ws.toISOString(), kw: getISOWeek(ws), year: getYear(ws),
+    await addSalesWeek({
+      weekStart: ws.toISOString(), kw: getISOWeek(ws), year: getYear(ws),
       newLeads: 0,
       closed: parseInt(form.closed) || 0, dealVolume: parseFloat(form.dealVolume) || 0,
-    }]);
+    });
     setForm({ closed: "", dealVolume: "" });
     setSelectedDate(undefined);
     setDialogOpen(false);
@@ -377,7 +377,7 @@ export default function Sales() {
                     </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums pr-4">{fmt(e.dealVolume)}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors" onClick={() => setWeeks((prev) => prev.filter((x) => x.id !== e.id))}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors" onClick={() => deleteSalesWeek(e.id)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </TableCell>

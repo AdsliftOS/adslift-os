@@ -32,22 +32,53 @@ async function load() {
 }
 load();
 
-export function setSalesWeeks(updater: SalesWeek[] | ((prev: SalesWeek[]) => SalesWeek[])) {
-  const prev = weeks;
-  const next = typeof updater === "function" ? updater(prev) : updater;
-  const added = next.filter((n) => !prev.find((p) => p.id === n.id));
-  const removed = prev.filter((p) => !next.find((n) => n.id === p.id));
+function weekToRow(w: Partial<SalesWeek>) {
+  const row: any = {};
+  if (w.weekStart !== undefined) row.week_start = w.weekStart;
+  if (w.kw !== undefined) row.kw = w.kw;
+  if (w.year !== undefined) row.year = w.year;
+  if (w.newLeads !== undefined) row.new_leads = w.newLeads;
+  if (w.closed !== undefined) row.closed = w.closed;
+  if (w.dealVolume !== undefined) row.deal_volume = w.dealVolume;
+  return row;
+}
 
+// --- Direct CRUD ---
+export async function addSalesWeek(week: Omit<SalesWeek, "id">): Promise<string | null> {
+  const { data, error } = await supabase.from("sales_weeks").insert(weekToRow(week)).select().single();
+  if (!error && data) {
+    await load();
+    return data.id;
+  }
+  console.error("Failed to add sales week:", error);
+  return null;
+}
+
+export async function updateSalesWeek(id: string, updates: Partial<SalesWeek>) {
+  const { error } = await supabase.from("sales_weeks").update(weekToRow(updates)).eq("id", id);
+  if (!error) {
+    weeks = weeks.map((w) => w.id === id ? { ...w, ...updates } : w);
+    emit();
+  } else {
+    console.error("Failed to update sales week:", error);
+  }
+}
+
+export async function deleteSalesWeek(id: string) {
+  const { error } = await supabase.from("sales_weeks").delete().eq("id", id);
+  if (!error) {
+    weeks = weeks.filter((w) => w.id !== id);
+    emit();
+  } else {
+    console.error("Failed to delete sales week:", error);
+  }
+}
+
+// Legacy setSalesWeeks — for local-only state changes
+export function setSalesWeeks(updater: SalesWeek[] | ((prev: SalesWeek[]) => SalesWeek[])) {
+  const next = typeof updater === "function" ? updater(weeks) : updater;
   weeks = next;
   emit();
-
-  added.forEach((w) => {
-    supabase.from("sales_weeks").insert({
-      week_start: w.weekStart, kw: w.kw, year: w.year,
-      new_leads: w.newLeads, closed: w.closed, deal_volume: w.dealVolume,
-    }).then(() => load());
-  });
-  removed.forEach((w) => { supabase.from("sales_weeks").delete().eq("id", w.id).then(() => load()); });
 }
 
 export function useSalesWeeks(): [SalesWeek[], typeof setSalesWeeks] {

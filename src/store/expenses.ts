@@ -32,21 +32,51 @@ async function load() {
 }
 load();
 
-export function setExpenses(updater: Expense[] | ((prev: Expense[]) => Expense[])) {
-  const prev = expenses;
-  const next = typeof updater === "function" ? updater(prev) : updater;
-  const added = next.filter((n) => !prev.find((p) => p.id === n.id));
-  const removed = prev.filter((p) => !next.find((n) => n.id === p.id));
+function expenseToRow(e: Partial<Expense>) {
+  const row: any = {};
+  if (e.name !== undefined) row.name = e.name;
+  if (e.category !== undefined) row.category = e.category;
+  if (e.description !== undefined) row.description = e.description || "";
+  if (e.monthlyExpenses !== undefined) row.monthly_expenses = e.monthlyExpenses;
+  return row;
+}
 
+// --- Direct CRUD ---
+export async function addExpense(expense: Omit<Expense, "id">): Promise<string | null> {
+  const { data, error } = await supabase.from("expenses").insert(expenseToRow(expense)).select().single();
+  if (!error && data) {
+    await load();
+    return data.id;
+  }
+  console.error("Failed to add expense:", error);
+  return null;
+}
+
+export async function updateExpense(id: string, updates: Partial<Expense>) {
+  const { error } = await supabase.from("expenses").update(expenseToRow(updates)).eq("id", id);
+  if (!error) {
+    expenses = expenses.map((e) => e.id === id ? { ...e, ...updates } : e);
+    emit();
+  } else {
+    console.error("Failed to update expense:", error);
+  }
+}
+
+export async function deleteExpense(id: string) {
+  const { error } = await supabase.from("expenses").delete().eq("id", id);
+  if (!error) {
+    expenses = expenses.filter((e) => e.id !== id);
+    emit();
+  } else {
+    console.error("Failed to delete expense:", error);
+  }
+}
+
+// Legacy setExpenses — for local-only state changes
+export function setExpenses(updater: Expense[] | ((prev: Expense[]) => Expense[])) {
+  const next = typeof updater === "function" ? updater(expenses) : updater;
   expenses = next;
   emit();
-
-  added.forEach((e) => {
-    supabase.from("expenses").insert({
-      name: e.name, category: e.category, description: e.description, monthly_expenses: e.monthlyExpenses,
-    }).then(() => load());
-  });
-  removed.forEach((e) => { supabase.from("expenses").delete().eq("id", e.id).then(() => load()); });
 }
 
 export function useExpenses(): [Expense[], typeof setExpenses] {

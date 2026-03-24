@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DollarSign, TrendingUp, Plus, Receipt, Filter, Search, ChevronLeft, ChevronRight, CheckCircle2, Clock, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useClients } from "@/store/clients";
-import { useDeals } from "@/store/deals";
+import { useDeals, addDeal, updateDeal, deleteDeal } from "@/store/deals";
 import { useExpenses } from "@/store/expenses";
 import type { Deal } from "@/store/deals";
 import type { Expense, ExpenseStatus, MonthlyExpense } from "@/store/expenses";
@@ -103,7 +103,7 @@ const expenseStatusConfig: Record<ExpenseStatus, { label: string; color: string 
 export default function Finances() {
   const [clientsList] = useClients();
   const clientNames = useMemo(() => clientsList.map((c) => c.name), [clientsList]);
-  const [deals, setDeals] = useDeals();
+  const [deals] = useDeals();
   const [expenses] = useExpenses();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filterClient, setFilterClient] = useState("");
@@ -306,7 +306,7 @@ export default function Finances() {
     return Object.values(form.monthlyDistribution).reduce((s, v) => s + (parseFloat(v) || 0), 0);
   }, [form.monthlyDistribution]);
 
-  const handleAddDeal = () => {
+  const handleAddDeal = async () => {
     if (!form.client || !form.netAmount) {
       toast.error("Bitte Kunde und Betrag ausfüllen");
       return;
@@ -325,8 +325,7 @@ export default function Finances() {
       }
     });
 
-    const newDeal: Deal = {
-      id: Date.now().toString(),
+    await addDeal({
       startDate: new Date().toLocaleDateString("de-DE"),
       client: form.client,
       serviceType: form.serviceType,
@@ -334,8 +333,7 @@ export default function Finances() {
       taxRate: parseFloat(form.taxRate),
       paymentMethod: form.paymentMethod,
       monthlyPayments,
-    };
-    setDeals((prev) => [...prev, newDeal]);
+    });
     setForm({ client: "", serviceType: "done4you", netAmount: "", taxRate: "19", paymentMethod: "Überweisung", monthlyDistribution: {} });
     setDialogOpen(false);
     toast.success("Deal hinzugefügt");
@@ -343,19 +341,15 @@ export default function Finances() {
 
   const cycleStatus = (dealId: string, monthKey: string) => {
     const order: PaymentStatus[] = ["planned", "paid", "overdue", "open", "potenzial"];
-    setDeals((prev) =>
-      prev.map((d) => {
-        if (d.id !== dealId) return d;
-        const current = d.monthlyPayments[monthKey];
-        if (!current) return d;
-        const idx = order.indexOf(current.status);
-        const next = order[(idx + 1) % order.length];
-        return {
-          ...d,
-          monthlyPayments: { ...d.monthlyPayments, [monthKey]: { ...current, status: next } },
-        };
-      })
-    );
+    const deal = deals.find((d) => d.id === dealId);
+    if (!deal) return;
+    const current = deal.monthlyPayments[monthKey];
+    if (!current) return;
+    const idx = order.indexOf(current.status);
+    const next = order[(idx + 1) % order.length];
+    updateDeal(dealId, {
+      monthlyPayments: { ...deal.monthlyPayments, [monthKey]: { ...current, status: next } },
+    });
   };
 
   // Cashflow bar chart data
@@ -742,7 +736,7 @@ export default function Finances() {
                         <TableCell className="text-right text-xs font-semibold tabular-nums p-1.5">{fmt(deal.netAmount)}</TableCell>
                         <TableCell className="text-right text-xs tabular-nums text-muted-foreground p-1.5">{fmt(deal.netAmount * (1 + deal.taxRate / 100))}</TableCell>
                         <TableCell className="p-1">
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => setDeals((prev) => prev.filter((d) => d.id !== deal.id))}>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => deleteDeal(deal.id)}>
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </TableCell>

@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, Plus, Phone, Users, Flag, Briefcase, Calendar as CalendarIcon, Trash2, LayoutGrid, List, Video, ExternalLink, FolderKanban, RefreshCw, DollarSign, Link2 } from "lucide-react";
 import { toast } from "sonner";
-import { useCalendar, setGoogleEvents as setGlobalGoogleEvents } from "@/store/calendar";
+import { useCalendar, setGoogleEvents as setGlobalGoogleEvents, addCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/store/calendar";
 import type { CalendarEvent } from "@/store/calendar";
 import { useClients } from "@/store/clients";
 import { useProjects } from "@/store/projects";
@@ -134,7 +134,7 @@ function getTimeInZone(tz: string): Date {
 export default function Calendar() {
   const [timezone, setTimezone] = useState("Europe/Berlin");
   const today = getTimeInZone(timezone);
-  const [events, setEvents] = useCalendar();
+  const [events] = useCalendar();
   const [clients] = useClients();
   const [projects] = useProjects();
   const clientNames = useMemo(() => clients.map((c) => c.name), [clients]);
@@ -304,26 +304,25 @@ export default function Calendar() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title) { toast.error("Bitte Titel eingeben"); return; }
-    const event: CalendarEvent = {
-      id: editingEvent?.id ?? Date.now().toString(),
+    const eventData = {
       title: form.title, date: form.date, startTime: form.startTime, endTime: form.endTime,
       type: form.type, client: form.client || undefined, description: form.description || undefined,
       meetingLink: form.meetingLink || undefined,
     };
     if (editingEvent) {
-      setEvents((prev) => prev.map((e) => e.id === editingEvent.id ? event : e));
+      await updateCalendarEvent(editingEvent.id, eventData);
       toast.success("Event aktualisiert");
     } else {
-      setEvents((prev) => [...prev, event]);
+      await addCalendarEvent(eventData as Omit<CalendarEvent, "id">);
       toast.success("Event erstellt");
     }
     setDialogOpen(false);
   };
 
-  const deleteEvent = (id: string) => {
-    setEvents((prev) => prev.filter((e) => e.id !== id));
+  const deleteEvent = async (id: string) => {
+    await deleteCalendarEvent(id);
     toast.success("Event gelöscht");
   };
 

@@ -38,31 +38,54 @@ async function load() {
 }
 load();
 
-export function setDeals(updater: Deal[] | ((prev: Deal[]) => Deal[])) {
-  const prev = deals;
-  const next = typeof updater === "function" ? updater(prev) : updater;
-  const added = next.filter((n) => !prev.find((p) => p.id === n.id));
-  const removed = prev.filter((p) => !next.find((n) => n.id === p.id));
-  const updated = next.filter((n) => { const o = prev.find((p) => p.id === n.id); return o && JSON.stringify(o) !== JSON.stringify(n); });
+function dealToRow(d: Partial<Deal>) {
+  const row: any = {};
+  if (d.startDate !== undefined) row.start_date = d.startDate;
+  if (d.client !== undefined) row.client = d.client;
+  if (d.serviceType !== undefined) row.service_type = d.serviceType;
+  if (d.netAmount !== undefined) row.net_amount = d.netAmount;
+  if (d.taxRate !== undefined) row.tax_rate = d.taxRate;
+  if (d.paymentMethod !== undefined) row.payment_method = d.paymentMethod;
+  if (d.monthlyPayments !== undefined) row.monthly_payments = d.monthlyPayments;
+  return row;
+}
 
+// --- Direct CRUD ---
+export async function addDeal(deal: Omit<Deal, "id">): Promise<string | null> {
+  const { data, error } = await supabase.from("deals").insert(dealToRow(deal)).select().single();
+  if (!error && data) {
+    await load();
+    return data.id;
+  }
+  console.error("Failed to add deal:", error);
+  return null;
+}
+
+export async function updateDeal(id: string, updates: Partial<Deal>) {
+  const { error } = await supabase.from("deals").update(dealToRow(updates)).eq("id", id);
+  if (!error) {
+    deals = deals.map((d) => d.id === id ? { ...d, ...updates } : d);
+    emit();
+  } else {
+    console.error("Failed to update deal:", error);
+  }
+}
+
+export async function deleteDeal(id: string) {
+  const { error } = await supabase.from("deals").delete().eq("id", id);
+  if (!error) {
+    deals = deals.filter((d) => d.id !== id);
+    emit();
+  } else {
+    console.error("Failed to delete deal:", error);
+  }
+}
+
+// Legacy setDeals — for local-only state changes
+export function setDeals(updater: Deal[] | ((prev: Deal[]) => Deal[])) {
+  const next = typeof updater === "function" ? updater(deals) : updater;
   deals = next;
   emit();
-
-  added.forEach((d) => {
-    supabase.from("deals").insert({
-      start_date: d.startDate, client: d.client, service_type: d.serviceType,
-      net_amount: d.netAmount, tax_rate: d.taxRate, payment_method: d.paymentMethod,
-      monthly_payments: d.monthlyPayments,
-    }).then(() => load());
-  });
-  removed.forEach((d) => { supabase.from("deals").delete().eq("id", d.id).then(() => load()); });
-  updated.forEach((d) => {
-    supabase.from("deals").update({
-      monthly_payments: d.monthlyPayments,
-    }).eq("id", d.id).then(({ error }) => {
-      if (error) console.error("Failed to update deal:", error);
-    });
-  });
 }
 
 export function useDeals(): [Deal[], typeof setDeals] {
