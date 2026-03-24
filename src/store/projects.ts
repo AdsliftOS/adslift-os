@@ -110,7 +110,9 @@ export async function updateProject(id: string, updates: Partial<Project>) {
 
   const { error } = await supabase.from("projects").update(dbUpdates).eq("id", id);
   if (!error) {
-    await loadProjects();
+    // Optimistic: update local state without full reload (prevents overwriting while typing)
+    projects = projects.map((p) => p.id === id ? { ...p, ...updates } : p);
+    emit();
   } else {
     console.error("Failed to update project:", error);
   }

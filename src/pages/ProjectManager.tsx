@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -441,10 +441,21 @@ export default function ProjectManager() {
     updateProjectDB(projectId, { comments: newComments });
   };
 
-  const updateProjectField = (projectId: string, field: keyof Project, value: string) => {
+  // Debounced save to Supabase — update local immediately, save after 500ms pause
+  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const updateProjectField = useCallback((projectId: string, field: keyof Project, value: string) => {
+    // Immediately update local state (no lag while typing)
     setProjectsLocal((prev) => prev.map((p) => p.id === projectId ? { ...p, [field]: value } : p));
-    updateProjectDB(projectId, { [field]: value } as Partial<Project>);
-  };
+
+    // Debounce the Supabase save
+    const key = `${projectId}-${field}`;
+    if (debounceTimers.current[key]) clearTimeout(debounceTimers.current[key]);
+    debounceTimers.current[key] = setTimeout(() => {
+      updateProjectDB(projectId, { [field]: value } as Partial<Project>);
+      delete debounceTimers.current[key];
+    }, 500);
+  }, []);
 
   const toggleAssignee = (name: string) => {
     setForm((prev) => ({
