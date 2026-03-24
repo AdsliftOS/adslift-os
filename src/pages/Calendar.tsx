@@ -132,7 +132,7 @@ function getTimeInZone(tz: string): Date {
 }
 
 export default function Calendar() {
-  const [timezone, setTimezone] = useState("Europe/Nicosia");
+  const [timezone, setTimezone] = useState("Europe/Berlin");
   const today = getTimeInZone(timezone);
   const [events, setEvents] = useCalendar();
   const [clients] = useClients();
