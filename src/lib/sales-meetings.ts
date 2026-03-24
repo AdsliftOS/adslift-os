@@ -16,12 +16,23 @@ const CLIENT_PATTERNS = [
   /call mit adslift$/i,
 ];
 
+// LinkedIn Setting Calls: "📞 Call Name — LinkedIn Outreach"
+const LINKEDIN_SETTING_PATTERNS = [
+  /📞.*call.*linkedin/i,
+  /call.*linkedin\s*outreach/i,
+  /📞.*linkedin/i,
+];
+
 export function isSalesMeeting(event: CalendarEvent): boolean {
   return SALES_PATTERNS.some((p) => p.test(event.title));
 }
 
 export function isClientMeeting(event: CalendarEvent): boolean {
   return CLIENT_PATTERNS.some((p) => p.test(event.title));
+}
+
+export function isLinkedInSetting(event: CalendarEvent): boolean {
+  return LINKEDIN_SETTING_PATTERNS.some((p) => p.test(event.title));
 }
 
 export function getSalesPersonFromTitle(title: string): string | null {

@@ -17,7 +17,7 @@ import type { CalendarEvent } from "@/store/calendar";
 import { useClients } from "@/store/clients";
 import { useProjects } from "@/store/projects";
 import { useNoShows, markNoShow, unmarkNoShow, isNoShow } from "@/store/noshows";
-import { isSalesMeeting, isClientMeeting } from "@/lib/sales-meetings";
+import { isSalesMeeting, isClientMeeting, isLinkedInSetting } from "@/lib/sales-meetings";
 import { isGoogleConnected, getAccounts, listAllEvents, type GoogleCalendarEvent } from "@/lib/google-calendar";
 
 const eventTypes: { value: CalendarEvent["type"]; label: string; color: string; bgLight: string; icon: typeof Phone }[] = [
@@ -336,6 +336,10 @@ export default function Calendar() {
   // Get event colors — account color overrides type color for Google events
   const getEventColors = (event: CalendarEvent) => {
     const et = eventTypeMap[event.type] || eventTypes[4];
+    // LinkedIn Setting Calls → orange/amber
+    if (isLinkedInSetting(event)) {
+      return { color: "bg-orange-500", bgLight: "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-l-[3px] border-orange-500" };
+    }
     // Client meetings → green
     if (isClientMeeting(event)) {
       return { color: "bg-emerald-500", bgLight: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" };
@@ -474,9 +478,16 @@ export default function Calendar() {
               const todayMeetings = allEvents.filter((e) => e.date === todayStr && !e.id.startsWith("proj-deadline-"));
               const clientCount = todayMeetings.filter((e) => isClientMeeting(e)).length;
               const salesCount = todayMeetings.filter((e) => isSalesMeeting(e)).length;
-              if (clientCount === 0 && salesCount === 0) return null;
+              const linkedInCount = todayMeetings.filter((e) => isLinkedInSetting(e)).length;
+              if (clientCount === 0 && salesCount === 0 && linkedInCount === 0) return null;
               return (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  {linkedInCount > 0 && (
+                    <div className="flex items-center gap-1.5 rounded-full bg-orange-500/10 px-2.5 py-1">
+                      <Phone className="h-3 w-3 text-orange-500" />
+                      <span className="text-xs font-semibold text-orange-600 dark:text-orange-400">{linkedInCount} Setting</span>
+                    </div>
+                  )}
                   {salesCount > 0 && (
                     <div className="flex items-center gap-1.5 rounded-full bg-blue-500/10 px-2.5 py-1">
                       <DollarSign className="h-3 w-3 text-blue-500" />
