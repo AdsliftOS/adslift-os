@@ -21,11 +21,11 @@ import { isSalesMeeting, isClientMeeting, isLinkedInSetting } from "@/lib/sales-
 import { isGoogleConnected, getAccounts, listAllEvents, type GoogleCalendarEvent } from "@/lib/google-calendar";
 
 const eventTypes: { value: CalendarEvent["type"]; label: string; color: string; bgLight: string; icon: typeof Phone }[] = [
-  { value: "call", label: "Call", color: "bg-blue-500", bgLight: "bg-blue-500/10 text-blue-700 dark:text-blue-300", icon: Phone },
-  { value: "meeting", label: "Meeting", color: "bg-violet-500", bgLight: "bg-violet-500/10 text-violet-700 dark:text-violet-300", icon: Users },
-  { value: "deadline", label: "Deadline", color: "bg-red-500", bgLight: "bg-red-500/10 text-red-700 dark:text-red-300", icon: Flag },
-  { value: "internal", label: "Intern", color: "bg-emerald-500", bgLight: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", icon: Briefcase },
-  { value: "other", label: "Sonstiges", color: "bg-gray-500", bgLight: "bg-gray-500/10 text-gray-700 dark:text-gray-300", icon: CalendarIcon },
+  { value: "call", label: "Call", color: "bg-blue-500", bgLight: "bg-blue-500/20 text-white dark:text-white", icon: Phone },
+  { value: "meeting", label: "Meeting", color: "bg-violet-500", bgLight: "bg-violet-500/20 text-white dark:text-white", icon: Users },
+  { value: "deadline", label: "Deadline", color: "bg-red-500", bgLight: "bg-red-500/20 text-white dark:text-white", icon: Flag },
+  { value: "internal", label: "Intern", color: "bg-emerald-500", bgLight: "bg-emerald-500/20 text-white dark:text-white", icon: Briefcase },
+  { value: "other", label: "Sonstiges", color: "bg-gray-500", bgLight: "bg-gray-500/20 text-white dark:text-white", icon: CalendarIcon },
 ];
 
 const eventTypeMap = Object.fromEntries(eventTypes.map((t) => [t.value, t]));
@@ -342,7 +342,7 @@ export default function Calendar() {
     }
     // Client meetings → green
     if (isClientMeeting(event)) {
-      return { color: "bg-emerald-500", bgLight: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" };
+      return { color: "bg-emerald-500", bgLight: "bg-emerald-500/25 text-white dark:text-white" };
     }
     // Sales meetings → keep account color or type color
     if (event.accountColor) {
@@ -609,10 +609,13 @@ export default function Calendar() {
                             const salesMeeting = isSalesMeeting(event);
                             const eventNoShow = isNoShow(event.id);
 
+                            const noShowStyle = eventNoShow ? "bg-red-500/30 text-white border-l-[3px] border-red-600" : ec.bgLight;
+                            const noShowBar = eventNoShow ? "bg-red-600" : ec.color;
+
                             return (
                               <div
                                 key={event.id}
-                                className={`absolute rounded-lg cursor-pointer hover:shadow-md transition-all overflow-hidden group ${ec.bgLight}`}
+                                className={`absolute rounded-lg cursor-pointer hover:shadow-md transition-all overflow-hidden group ${noShowStyle}`}
                                 style={{ top: top + 1, height: height - 2, zIndex: 1, left: `calc(${leftPercent}% + 2px)`, width: `calc(${colWidth}% - 4px)` }}
                                 onClick={(e) => {
                                   if (salesMeeting) {
@@ -624,7 +627,7 @@ export default function Calendar() {
                                   }
                                 }}
                               >
-                                <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg ${ec.color}`} />
+                                <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg ${noShowBar}`} />
                                 <div className="pl-2.5 pr-1.5 py-1 h-full">
                                   {renderEventBlock(event, height)}
                                 </div>
