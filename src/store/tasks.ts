@@ -69,23 +69,27 @@ export async function addTask(task: Omit<Task, "id">) {
 }
 
 export async function updateTask(id: string, updates: Partial<Task>) {
-  const dbUpdates: any = {};
+  const dbUpdates: any = { updated_at: new Date().toISOString() };
   if (updates.title !== undefined) dbUpdates.title = updates.title;
   if (updates.category !== undefined) dbUpdates.category = updates.category;
   if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
-  if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate || null;
+  if ("dueDate" in updates) dbUpdates.due_date = updates.dueDate || null;
   if (updates.column !== undefined) dbUpdates.col = updates.column;
   if (updates.recurrence !== undefined) dbUpdates.recurrence = updates.recurrence;
   if (updates.assignee !== undefined) dbUpdates.assignee = updates.assignee;
-  dbUpdates.updated_at = new Date().toISOString();
+
+  // Optimistic update first
+  const newTasks = tasks.map((t) => {
+    if (t.id !== id) return t;
+    return { ...t, ...updates };
+  });
+  tasks = newTasks;
+  emit();
 
   const { error } = await supabase.from("tasks").update(dbUpdates).eq("id", id);
-  if (!error) {
-    // Optimistic update — don't reload to avoid overwriting local state
-    tasks = tasks.map((t) => t.id === id ? { ...t, ...updates } : t);
-    emit();
-  } else {
+  if (error) {
     console.error("Failed to update task:", error);
+    await loadTasks();
   }
 }
 
