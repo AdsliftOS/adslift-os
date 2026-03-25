@@ -449,20 +449,13 @@ export default function ProjectManager() {
     updateProjectDB(projectId, { comments: newComments });
   };
 
-  // Debounced save to Supabase — update local immediately, save after 500ms pause
-  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
-  const updateProjectField = useCallback((projectId: string, field: keyof Project, value: string) => {
-    // Immediately update local state (no lag while typing)
+  // Update local state immediately while typing — save to Supabase only on blur
+  const updateProjectFieldLocal = useCallback((projectId: string, field: keyof Project, value: string) => {
     setProjectsLocal((prev) => prev.map((p) => p.id === projectId ? { ...p, [field]: value } : p));
+  }, []);
 
-    // Debounce the Supabase save
-    const key = `${projectId}-${field}`;
-    if (debounceTimers.current[key]) clearTimeout(debounceTimers.current[key]);
-    debounceTimers.current[key] = setTimeout(() => {
-      updateProjectDB(projectId, { [field]: value } as Partial<Project>);
-      delete debounceTimers.current[key];
-    }, 500);
+  const saveProjectField = useCallback((projectId: string, field: keyof Project, value: string) => {
+    updateProjectDB(projectId, { [field]: value } as Partial<Project>);
   }, []);
 
   const toggleAssignee = (name: string) => {
@@ -870,7 +863,8 @@ export default function ProjectManager() {
                     placeholder="Was will der Kunde? Ziele, Budget, Zeitrahmen, besondere Wünsche..."
                     rows={6}
                     value={selectedProject.briefing}
-                    onChange={(e) => updateProjectField(selectedProject.id, "briefing", e.target.value)}
+                    onChange={(e) => updateProjectFieldLocal(selectedProject.id, "briefing", e.target.value)}
+                    onBlur={(e) => saveProjectField(selectedProject.id, "briefing", e.target.value)}
                     className="resize-none"
                   />
                 </CardContent>
@@ -887,7 +881,8 @@ export default function ProjectManager() {
                     placeholder="Notizen aus Kick-off, Calls, Meetings..."
                     rows={6}
                     value={selectedProject.meetingNotes}
-                    onChange={(e) => updateProjectField(selectedProject.id, "meetingNotes", e.target.value)}
+                    onChange={(e) => updateProjectFieldLocal(selectedProject.id, "meetingNotes", e.target.value)}
+                    onBlur={(e) => saveProjectField(selectedProject.id, "meetingNotes", e.target.value)}
                     className="resize-none"
                   />
                 </CardContent>
@@ -904,7 +899,8 @@ export default function ProjectManager() {
                     placeholder="Wer soll angesprochen werden? Alter, Interessen, Verhalten..."
                     rows={4}
                     value={selectedProject.targetAudience}
-                    onChange={(e) => updateProjectField(selectedProject.id, "targetAudience", e.target.value)}
+                    onChange={(e) => updateProjectFieldLocal(selectedProject.id, "targetAudience", e.target.value)}
+                    onBlur={(e) => saveProjectField(selectedProject.id, "targetAudience", e.target.value)}
                     className="resize-none"
                   />
                 </CardContent>
@@ -919,7 +915,8 @@ export default function ProjectManager() {
                     placeholder="Was ist das Angebot? Rabatt, Freebie, Trial..."
                     rows={4}
                     value={selectedProject.offer}
-                    onChange={(e) => updateProjectField(selectedProject.id, "offer", e.target.value)}
+                    onChange={(e) => updateProjectFieldLocal(selectedProject.id, "offer", e.target.value)}
+                    onBlur={(e) => saveProjectField(selectedProject.id, "offer", e.target.value)}
                     className="resize-none"
                   />
                 </CardContent>
@@ -951,7 +948,8 @@ export default function ProjectManager() {
                       type="date"
                       className="h-8 mt-0.5 text-sm"
                       value={selectedProject.deadline || ""}
-                      onChange={(e) => updateProjectField(selectedProject.id, "deadline", e.target.value)}
+                      onChange={(e) => updateProjectFieldLocal(selectedProject.id, "deadline", e.target.value)}
+                      onBlur={(e) => saveProjectField(selectedProject.id, "deadline", e.target.value)}
                     />
                   </div>
                   <div>
