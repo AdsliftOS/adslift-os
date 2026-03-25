@@ -35,7 +35,8 @@ const projectTypes: { value: ProjectType; label: string; description: string; co
   { value: "neukunde-meta-linkedin", label: "Neukunde Meta & LinkedIn", description: "Neukunden-Kampagne über Meta Ads + LinkedIn Outreach.", color: "bg-indigo-500", badge: "D4Y" },
   { value: "kunde-meta", label: "Kunde Meta", description: "Neue Kampagne für bestehenden Meta-Kunden — kein Onboarding nötig.", color: "bg-sky-500", badge: "D4Y" },
   { value: "optimierung", label: "Optimierung / Retargeting", description: "Bestehende Kampagne optimieren — neue Creatives, Angles, A/B Tests.", color: "bg-amber-500", badge: "D4Y" },
-  { value: "donewithyou", label: "Done With You", description: "Zusammenarbeit — Kunde liefert mit zu.", color: "bg-cyan-500" },
+  { value: "donewithyou", label: "Done With You (Full)", description: "Zusammenarbeit inkl. Coldcall, LinkedIn, Sales & Email/Instantly.", color: "bg-cyan-500", badge: "DWY" },
+  { value: "donewithyou-no-email", label: "Done With You (ohne Email)", description: "Zusammenarbeit inkl. Coldcall, LinkedIn & Sales — ohne Email/Instantly.", color: "bg-teal-500", badge: "DWY" },
   { value: "custom", label: "Custom Projekt", description: "Phasen selbst zusammenstellen per Drag & Drop.", color: "bg-pink-500", badge: "D4Y" },
 ];
 
@@ -137,6 +138,28 @@ const phaseTemplates: Record<ProjectType, { title: string; tasks: string[] }[]> 
     {
       title: "Email / Instantly",
       tasks: ["Instantly Tutorial senden", "Instantly eingerichtet", "Email warmgelaufen", "Email Outreach Skripte senden", "Email Outreach Nachrichten eingereicht", "Email Nachrichten ready", "Email Kampagne läuft"],
+    },
+  ],
+  "donewithyou-no-email": [
+    {
+      title: "Onboarding",
+      tasks: ["Kick-off Call", "WhatsApp Gruppe erstellen", "Material zugesendet", "Fragebogen / Briefing-Dokument senden", "Briefing ausgefüllt"],
+    },
+    {
+      title: "Zielgruppe & Offer",
+      tasks: ["Zielgruppen Material zugesendet", "Zielgruppe gefunden", "Offer Building Material zugesendet", "Offer gefunden"],
+    },
+    {
+      title: "Coldcall",
+      tasks: ["Coldcall Skripte gesendet", "Leadgen Tutorial gesendet", "Tracking Exceltabelle gesendet"],
+    },
+    {
+      title: "Sales",
+      tasks: ["Skripte gesendet", "Setting geübt", "Closing geübt", "Sales-Sparring gehabt"],
+    },
+    {
+      title: "LinkedIn",
+      tasks: ["LinkedIn Outreach Skripte gesendet", "LinkedIn Branding gesendet", "LinkedIn Profil ready", "Prosp AI Tutorial gesendet", "Prosp AI eingerichtet", "Kampagne läuft"],
     },
   ],
   done4you: [
