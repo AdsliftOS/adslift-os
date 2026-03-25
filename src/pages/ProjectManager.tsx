@@ -33,9 +33,9 @@ const creativeFormats: { value: CreativeFormat; label: string; icon: string }[] 
 const projectTypes: { value: ProjectType; label: string; description: string; color: string; badge?: string }[] = [
   { value: "neukunde-meta", label: "Neukunde Meta", description: "Neukunden-Kampagne nur über Meta Ads.", color: "bg-blue-600", badge: "D4Y" },
   { value: "neukunde-meta-linkedin", label: "Neukunde Meta & LinkedIn", description: "Neukunden-Kampagne über Meta Ads + LinkedIn Outreach.", color: "bg-indigo-500", badge: "D4Y" },
-  { value: "optimierung", label: "Optimierung / Retargeting", description: "Bestehende Kampagne optimieren — neue Creatives, Angles, A/B Tests.", color: "bg-amber-500" },
+  { value: "optimierung", label: "Optimierung / Retargeting", description: "Bestehende Kampagne optimieren — neue Creatives, Angles, A/B Tests.", color: "bg-amber-500", badge: "D4Y" },
   { value: "donewithyou", label: "Done With You", description: "Zusammenarbeit — Kunde liefert mit zu.", color: "bg-cyan-500" },
-  { value: "custom", label: "Custom Projekt", description: "Phasen selbst zusammenstellen per Drag & Drop.", color: "bg-pink-500" },
+  { value: "custom", label: "Custom Projekt", description: "Phasen selbst zusammenstellen per Drag & Drop.", color: "bg-pink-500", badge: "D4Y" },
 ];
 
 const legacyTypes: typeof projectTypes = [
