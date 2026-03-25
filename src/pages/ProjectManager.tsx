@@ -751,7 +751,7 @@ export default function ProjectManager() {
                         <div className="flex items-center gap-2 mb-1">
                           <span className={`h-2.5 w-2.5 rounded-full ${pt.color}`} />
                           <span className="text-sm font-semibold group-hover:text-primary transition-colors">{pt.label}</span>
-                          {(pt as any).badge && <span className="text-[9px] font-bold bg-emerald-500/15 text-emerald-500 rounded px-1.5 py-0.5">{(pt as any).badge}</span>}
+                          {(pt as any).badge && <span className={`text-[9px] font-bold rounded px-1.5 py-0.5 ${(pt as any).badge === "DWY" ? "bg-red-500/15 text-red-500" : "bg-emerald-500/15 text-emerald-500"}`}>{(pt as any).badge}</span>}
                         </div>
                         <p className="text-xs text-muted-foreground">{pt.description}</p>
                         <p className="text-[10px] text-muted-foreground/60 mt-2">{phaseTemplates[pt.value]?.length || 0} Phasen</p>
@@ -1240,7 +1240,7 @@ export default function ProjectManager() {
                       <div className="flex items-center gap-2">
                         <span className={`h-2 w-2 rounded-full ${pt.color}`} />
                         <span className="text-sm font-semibold">{pt.label}</span>
-                        {(pt as any).badge && <span className="text-[9px] font-bold bg-emerald-500/15 text-emerald-500 rounded px-1.5 py-0.5">{(pt as any).badge}</span>}
+                        {(pt as any).badge && <span className={`text-[9px] font-bold rounded px-1.5 py-0.5 ${(pt as any).badge === "DWY" ? "bg-red-500/15 text-red-500" : "bg-emerald-500/15 text-emerald-500"}`}>{(pt as any).badge}</span>}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5 ml-4">{pt.description}</p>
                     </button>
