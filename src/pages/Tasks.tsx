@@ -106,8 +106,6 @@ export default function Tasks() {
         recurrence: form.recurrence as Recurrence,
         dueDate: form.dueDate || "",
       });
-      // Wait a moment for Supabase to commit, then reload
-      setTimeout(() => loadTasks(), 500);
       toast.success("Aufgabe aktualisiert");
     } else {
       await addTaskDB({ title: form.title.trim(), category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, column: "todo" as Column, recurrence: form.recurrence, assignee: viewUser });
@@ -131,7 +129,8 @@ export default function Tasks() {
   const overdueCount = tasks.filter((t) => t.column !== "done" && t.dueDate && isPast(new Date(t.dueDate + "T23:59:59")) && !isToday(new Date(t.dueDate + "T00:00:00"))).length;
 
   // Drag handlers
-  const handleDragStart = (taskId: string) => setDragTaskId(taskId);
+  const wasDragged = useRef(false);
+  const handleDragStart = (taskId: string) => { setDragTaskId(taskId); wasDragged.current = true; };
   const handleDragOver = (e: React.DragEvent, col: Column) => { e.preventDefault(); setDragOverCol(col); };
   const handleDragLeave = () => setDragOverCol(null);
   const handleDrop = (col: Column) => {
@@ -312,8 +311,8 @@ export default function Tasks() {
                       key={task.id}
                       draggable
                       onDragStart={() => handleDragStart(task.id)}
-                      onDragEnd={() => { setDragTaskId(null); setDragOverCol(null); }}
-                      onClick={() => openEdit(task)}
+                      onDragEnd={() => { setDragTaskId(null); setDragOverCol(null); setTimeout(() => { wasDragged.current = false; }, 100); }}
+                      onClick={() => { if (!wasDragged.current) openEdit(task); }}
                       className={`relative rounded-xl bg-card border cursor-grab active:cursor-grabbing transition-all group overflow-hidden ${
                         isDragging ? "opacity-30 scale-95 ring-2 ring-primary" : "hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/20"
                       } ${col.key === "done" ? "opacity-60 hover:opacity-80" : ""}`}

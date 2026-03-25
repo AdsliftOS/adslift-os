@@ -19,27 +19,29 @@ export type Task = {
 
 let tasks: Task[] = [];
 let listeners = new Set<() => void>();
-let loaded = false;
 
 function emit() { listeners.forEach((l) => l()); }
 function subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); }
 function getSnapshot() { return tasks; }
 
+function rowToTask(r: any): Task {
+  return {
+    id: r.id,
+    title: r.title || "",
+    category: r.category || "admin",
+    priority: r.priority || "medium",
+    dueDate: r.due_date || undefined,
+    column: (r.status || r.col || "todo") as Column,
+    recurrence: r.recurring || r.recurrence || "none",
+    assignee: r.assignee || "alex",
+  };
+}
+
 export async function loadTasks() {
   try {
     const { data, error } = await supabase.from("tasks").select("*").order("created_at", { ascending: false });
     if (!error && data) {
-      tasks = data.map((r: any) => ({
-        id: r.id,
-        title: r.title || "",
-        category: r.category || "admin",
-        priority: r.priority || "medium",
-        dueDate: r.due_date || undefined,
-        column: (r.status || r.col || "todo") as Column,
-        recurrence: r.recurring || "none",
-        assignee: r.assignee || "alex",
-      }));
-      loaded = true;
+      tasks = data.map(rowToTask);
       emit();
     }
   } catch (e) {
@@ -60,7 +62,9 @@ export async function addTask(task: Omit<Task, "id">) {
   }).select().single();
 
   if (!error && data) {
-    await loadTasks();
+    // Add to local state directly — no full reload
+    tasks = [rowToTask(data), ...tasks];
+    emit();
     return data.id;
   } else {
     console.error("Failed to add task:", error);
@@ -78,45 +82,49 @@ export async function updateTask(id: string, updates: Partial<Task>) {
   if (updates.recurrence !== undefined) dbUpdates.recurrence = updates.recurrence;
   if (updates.assignee !== undefined) dbUpdates.assignee = updates.assignee;
 
-  // Optimistic update first
-  const newTasks = tasks.map((t) => {
-    if (t.id !== id) return t;
-    return { ...t, ...updates };
-  });
-  tasks = newTasks;
+  // Optimistic update — immediate UI change
+  tasks = tasks.map((t) => t.id === id ? { ...t, ...updates } : t);
   emit();
 
+  // Persist to Supabase (no reload after — trust the optimistic update)
   const { error } = await supabase.from("tasks").update(dbUpdates).eq("id", id);
   if (error) {
     console.error("Failed to update task:", error);
-    await loadTasks();
   }
 }
 
 export async function deleteTask(id: string) {
+  // Optimistic delete
+  tasks = tasks.filter((t) => t.id !== id);
+  emit();
+
   const { error } = await supabase.from("tasks").delete().eq("id", id);
-  if (!error) {
-    await loadTasks();
-  } else {
+  if (error) {
     console.error("Failed to delete task:", error);
+    await loadTasks(); // revert on error
   }
 }
 
 export async function moveTask(id: string, column: Column) {
-  // Optimistic update — move immediately in UI, then persist
+  // Optimistic move
   tasks = tasks.map((t) => t.id === id ? { ...t, column } : t);
   emit();
-  await updateTask(id, { column });
+
+  const dbUpdates = { col: column, updated_at: new Date().toISOString() };
+  const { error } = await supabase.from("tasks").update(dbUpdates).eq("id", id);
+  if (error) {
+    console.error("Failed to move task:", error);
+  }
 }
 
-// Legacy setter for compatibility
+// Legacy setter
 export function setTasks(updater: Task[] | ((prev: Task[]) => Task[])) {
-  // This is kept for compatibility but shouldn't be used for persistence
   const next = typeof updater === "function" ? updater(tasks) : updater;
   tasks = next;
   emit();
 }
 
 export function useTasks(): [Task[], typeof setTasks] {
-  return [useSyncExternalStore(subscribe, getSnapshot), setTasks];
+  const data = useSyncExternalStore(subscribe, getSnapshot);
+  return [data, setTasks];
 }
