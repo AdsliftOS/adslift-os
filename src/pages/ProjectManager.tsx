@@ -33,6 +33,7 @@ const creativeFormats: { value: CreativeFormat; label: string; icon: string }[] 
 const projectTypes: { value: ProjectType; label: string; description: string; color: string; badge?: string }[] = [
   { value: "neukunde-meta", label: "Neukunde Meta", description: "Neukunden-Kampagne nur über Meta Ads.", color: "bg-blue-600", badge: "D4Y" },
   { value: "neukunde-meta-linkedin", label: "Neukunde Meta & LinkedIn", description: "Neukunden-Kampagne über Meta Ads + LinkedIn Outreach.", color: "bg-indigo-500", badge: "D4Y" },
+  { value: "kunde-meta", label: "Kunde Meta", description: "Neue Kampagne für bestehenden Meta-Kunden — kein Onboarding nötig.", color: "bg-sky-500", badge: "D4Y" },
   { value: "optimierung", label: "Optimierung / Retargeting", description: "Bestehende Kampagne optimieren — neue Creatives, Angles, A/B Tests.", color: "bg-amber-500", badge: "D4Y" },
   { value: "donewithyou", label: "Done With You", description: "Zusammenarbeit — Kunde liefert mit zu.", color: "bg-cyan-500" },
   { value: "custom", label: "Custom Projekt", description: "Phasen selbst zusammenstellen per Drag & Drop.", color: "bg-pink-500", badge: "D4Y" },
@@ -260,6 +261,32 @@ const phaseTemplates: Record<ProjectType, { title: string; tasks: string[] }[]> 
     {
       title: "LinkedIn Kampagnen-Setup",
       tasks: ["Prosp AI Account aufsetzen lassen und mit LinkedIn verbinden", "Account-Daten von Prosp.ai anfordern", "LinkedIn Outreach-Message und Follow-Up-Nachrichten skripten", "LinkedIn-Profil ready machen", "Durch Sales Navigator Lead-Liste aufbauen (Loom Video)"],
+    },
+    {
+      title: "Review & Freigabe",
+      tasks: ["Interne Review", "Kundenfreigabe einholen", "Überarbeitungsschleifen schließen", "Finale Freigabe"],
+    },
+    {
+      title: "Launch",
+      tasks: ["Kampagnen live schalten", "Initiales Monitoring (24h)", "Budgetcheck nach 48h"],
+    },
+  ],
+  "kunde-meta": [
+    {
+      title: "Briefing & Strategie",
+      tasks: ["Zielgruppe definieren", "Offer definieren", "Wettbewerbsanalyse", "Funnel-Strategie festlegen"],
+    },
+    {
+      title: "Creative Production",
+      tasks: ["Creative Projekt-Ordner in Cloud anlegen", "Bilder vorbereiten für Creatives", "Creatives produzieren", "Creatives feedbacken lassen"],
+    },
+    {
+      title: "Ad Copy",
+      tasks: ["Ad Copy schreiben (Primärer Text)", "Ad Copy Überschriften festlegen", "Ad Copy Description festlegen", "Ad Copy feedbacken lassen"],
+    },
+    {
+      title: "Meta Kampagnen-Setup",
+      tasks: ["Kampagne aufsetzen", "Falls nötig Pixel und Conversion API einrichten"],
     },
     {
       title: "Review & Freigabe",
