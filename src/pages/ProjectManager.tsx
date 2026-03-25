@@ -317,6 +317,7 @@ export default function ProjectManager() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewFilter, setViewFilter] = useState<"alle" | "alex" | "daniel">("alle");
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
 
   const [form, setForm] = useState({
@@ -333,17 +334,24 @@ export default function ProjectManager() {
   const [commentText, setCommentText] = useState("");
 
   const filteredProjects = useMemo(() => {
-    if (!searchQuery) return projects;
-    const q = searchQuery.toLowerCase();
-    return projects.filter((p) => p.client.toLowerCase().includes(q) || p.name.toLowerCase().includes(q));
-  }, [projects, searchQuery]);
+    let filtered = projects;
+    // Filter by assignee
+    if (viewFilter === "alex") filtered = filtered.filter((p) => p.assignees.some((a) => a.toLowerCase().includes("alex")));
+    if (viewFilter === "daniel") filtered = filtered.filter((p) => p.assignees.some((a) => a.toLowerCase().includes("daniel")));
+    // Filter by search
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter((p) => p.client.toLowerCase().includes(q) || p.name.toLowerCase().includes(q));
+    }
+    return filtered;
+  }, [projects, searchQuery, viewFilter]);
 
   const selectedProject = selectedProjectId ? projects.find((p) => p.id === selectedProjectId) ?? null : null;
 
-  // Stats
-  const activeCount = projects.filter((p) => { const prog = getProjectProgress(p); return prog > 0 && prog < 100; }).length;
-  const completedCount = projects.filter((p) => getProjectProgress(p) === 100).length;
-  const newCount = projects.filter((p) => getProjectProgress(p) === 0).length;
+  // Stats (based on filtered)
+  const activeCount = filteredProjects.filter((p) => { const prog = getProjectProgress(p); return prog > 0 && prog < 100; }).length;
+  const completedCount = filteredProjects.filter((p) => getProjectProgress(p) === 100).length;
+  const newCount = filteredProjects.filter((p) => getProjectProgress(p) === 0).length;
 
   const togglePhase = (phaseId: string) => {
     setExpandedPhases((prev) => {
@@ -1021,6 +1029,26 @@ export default function ProjectManager() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Projekte</h1>
           <p className="text-sm text-muted-foreground">Alle Kundenprojekte und ihr Fortschritt.</p>
+          {/* Team Filter */}
+          <div className="flex items-center gap-1 mt-3">
+            {([
+              { key: "alle", label: "Alle" },
+              { key: "alex", label: "Alexander" },
+              { key: "daniel", label: "Daniel" },
+            ] as const).map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setViewFilter(f.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  viewFilter === f.key
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <Button onClick={() => setDialogOpen(true)} size="sm">
