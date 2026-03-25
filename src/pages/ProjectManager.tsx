@@ -267,7 +267,7 @@ function createPhases(type: ProjectType, customPhaseKeys?: string[], creativeFor
 
 const initialProjects: Project[] = [];
 
-const teamMembers = ["Alex", "Lena", "Tim"];
+const teamMembers = ["Alexander", "Daniel"];
 
 const products = ["Done for you", "Done with you"];
 
