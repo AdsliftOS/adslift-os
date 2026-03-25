@@ -99,7 +99,10 @@ export default function Tasks() {
   const handleSave = async () => {
     if (!form.title.trim()) { toast.error("Bitte Titel eingeben"); return; }
     if (editingTask) {
-      await updateTaskDB(editingTask.id, { title: form.title, category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, recurrence: form.recurrence });
+      const updates: any = { title: form.title, category: form.category, priority: form.priority, recurrence: form.recurrence };
+      // Always send dueDate
+      updates.dueDate = form.dueDate || "";
+      await updateTaskDB(editingTask.id, updates);
       toast.success("Aufgabe aktualisiert");
     } else {
       await addTaskDB({ title: form.title.trim(), category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, column: "todo" as Column, recurrence: form.recurrence, assignee: viewUser });
