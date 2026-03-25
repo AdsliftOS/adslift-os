@@ -31,8 +31,6 @@ const creativeFormats: { value: CreativeFormat; label: string; icon: string }[] 
 // --- Project Type Config ---
 
 const projectTypes: { value: ProjectType; label: string; description: string; color: string }[] = [
-  { value: "neukunde", label: "Neukunde (Full Setup)", description: "Komplett von Null — Onboarding, Pixel, alles.", color: "bg-violet-500" },
-  { value: "neue-kampagne", label: "Neue Kampagne", description: "Kunde existiert, neue Ads & Creatives.", color: "bg-blue-500" },
   { value: "optimierung", label: "Optimierung / Retargeting", description: "Bestehende Kampagne auffrischen.", color: "bg-amber-500" },
   { value: "custom", label: "Custom Projekt", description: "Phasen selbst zusammenstellen per Drag & Drop.", color: "bg-pink-500" },
   { value: "done4you", label: "Done 4 You", description: "Full-Service — wir machen alles für den Kunden.", color: "bg-emerald-500" },
