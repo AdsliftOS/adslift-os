@@ -106,8 +106,8 @@ export default function Tasks() {
         recurrence: form.recurrence as Recurrence,
         dueDate: form.dueDate || "",
       });
-      // Force reload from Supabase to make sure UI is in sync
-      await loadTasks();
+      // Wait a moment for Supabase to commit, then reload
+      setTimeout(() => loadTasks(), 500);
       toast.success("Aufgabe aktualisiert");
     } else {
       await addTaskDB({ title: form.title.trim(), category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, column: "todo" as Column, recurrence: form.recurrence, assignee: viewUser });
