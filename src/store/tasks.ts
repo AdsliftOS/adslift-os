@@ -31,8 +31,8 @@ function rowToTask(r: any): Task {
     category: r.category || "admin",
     priority: r.priority || "medium",
     dueDate: r.due_date || undefined,
-    column: (r.status || r.col || "todo") as Column,
-    recurrence: r.recurring || r.recurrence || "none",
+    column: (r.col || "todo") as Column,
+    recurrence: r.recurrence || r.recurring || "none",
     assignee: r.assignee || "alex",
   };
 }
@@ -62,7 +62,6 @@ export async function addTask(task: Omit<Task, "id">) {
   }).select().single();
 
   if (!error && data) {
-    // Add to local state directly — no full reload
     tasks = [rowToTask(data), ...tasks];
     emit();
     return data.id;
@@ -73,7 +72,7 @@ export async function addTask(task: Omit<Task, "id">) {
 }
 
 export async function updateTask(id: string, updates: Partial<Task>) {
-  const dbUpdates: any = { updated_at: new Date().toISOString() };
+  const dbUpdates: any = {};
   if (updates.title !== undefined) dbUpdates.title = updates.title;
   if (updates.category !== undefined) dbUpdates.category = updates.category;
   if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
@@ -82,26 +81,32 @@ export async function updateTask(id: string, updates: Partial<Task>) {
   if (updates.recurrence !== undefined) dbUpdates.recurrence = updates.recurrence;
   if (updates.assignee !== undefined) dbUpdates.assignee = updates.assignee;
 
-  // Optimistic update — immediate UI change
+  // Optimistic update
   tasks = tasks.map((t) => t.id === id ? { ...t, ...updates } : t);
   emit();
 
-  // Persist to Supabase (no reload after — trust the optimistic update)
-  const { error } = await supabase.from("tasks").update(dbUpdates).eq("id", id);
+  // Persist — use .select() to get response and verify
+  const { data, error } = await supabase.from("tasks").update(dbUpdates).eq("id", id).select().single();
   if (error) {
-    console.error("Failed to update task:", error);
+    console.error("TASK UPDATE FAILED:", error, "updates:", dbUpdates, "id:", id);
+    // Revert by reloading
+    await loadTasks();
+  } else if (data) {
+    // Verify the update was applied — update local with DB response
+    const updated = rowToTask(data);
+    tasks = tasks.map((t) => t.id === id ? updated : t);
+    emit();
   }
 }
 
 export async function deleteTask(id: string) {
-  // Optimistic delete
   tasks = tasks.filter((t) => t.id !== id);
   emit();
 
   const { error } = await supabase.from("tasks").delete().eq("id", id);
   if (error) {
-    console.error("Failed to delete task:", error);
-    await loadTasks(); // revert on error
+    console.error("TASK DELETE FAILED:", error);
+    await loadTasks();
   }
 }
 
@@ -110,10 +115,15 @@ export async function moveTask(id: string, column: Column) {
   tasks = tasks.map((t) => t.id === id ? { ...t, column } : t);
   emit();
 
-  const dbUpdates = { col: column, updated_at: new Date().toISOString() };
-  const { error } = await supabase.from("tasks").update(dbUpdates).eq("id", id);
+  // Persist with .select() to verify
+  const { data, error } = await supabase.from("tasks").update({ col: column }).eq("id", id).select().single();
   if (error) {
-    console.error("Failed to move task:", error);
+    console.error("TASK MOVE FAILED:", error, "column:", column, "id:", id);
+    await loadTasks();
+  } else if (data) {
+    const updated = rowToTask(data);
+    tasks = tasks.map((t) => t.id === id ? updated : t);
+    emit();
   }
 }
 
