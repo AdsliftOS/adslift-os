@@ -39,7 +39,11 @@ const projectTypes: { value: ProjectType; label: string; description: string; co
   { value: "neukunde-meta-linkedin", label: "Neukunde Meta & LinkedIn", description: "Neukunden-Kampagne über Meta Ads + LinkedIn Outreach.", color: "bg-indigo-500" },
 ];
 
-const projectTypeMap = Object.fromEntries(projectTypes.map((t) => [t.value, t]));
+const legacyTypes: typeof projectTypes = [
+  { value: "neukunde", label: "Neukunde (Legacy)", description: "", color: "bg-violet-500" },
+  { value: "neue-kampagne", label: "Neue Kampagne (Legacy)", description: "", color: "bg-blue-500" },
+];
+const projectTypeMap = Object.fromEntries([...projectTypes, ...legacyTypes].map((t) => [t.value, t]));
 
 // --- Phase templates per project type ---
 
