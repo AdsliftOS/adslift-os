@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Repeat, Flame, ArrowUp, Minus, GripVertical, CheckCircle2, Clock, AlertTriangle, Sparkles, Users } from "lucide-react";
+import { Plus, Trash2, Repeat, Flame, ArrowUp, Minus, GripVertical, CheckCircle2, Clock, AlertTriangle, Sparkles, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { format, isToday, isPast, addDays } from "date-fns";
 import { de } from "date-fns/locale";
@@ -356,6 +356,28 @@ export default function Tasks() {
                               {isToday(dueDate) ? "Heute" : format(dueDate, "d. MMM", { locale: de })}
                             </span>
                           )}
+
+                          {/* Move + Delete buttons */}
+                          <div className="flex items-center gap-1 ml-auto">
+                            {col.key !== "todo" && (
+                              <button onClick={(e) => { e.stopPropagation(); handleMoveTask(task.id, "todo"); }} className="rounded p-0.5 hover:bg-muted" title="Zurück zu To-Do">
+                                <ChevronLeft className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            )}
+                            {col.key === "todo" && (
+                              <button onClick={(e) => { e.stopPropagation(); handleMoveTask(task.id, "in-progress"); }} className="rounded p-0.5 hover:bg-muted" title="In Arbeit">
+                                <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            )}
+                            {col.key === "in-progress" && (
+                              <button onClick={(e) => { e.stopPropagation(); handleMoveTask(task.id, "done"); }} className="rounded p-0.5 hover:bg-muted" title="Erledigt">
+                                <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            )}
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }} className="rounded p-0.5 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity" title="Löschen">
+                                <Trash2 className="h-3 w-3 text-red-400" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
