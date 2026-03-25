@@ -81,7 +81,9 @@ export async function updateTask(id: string, updates: Partial<Task>) {
 
   const { error } = await supabase.from("tasks").update(dbUpdates).eq("id", id);
   if (!error) {
-    await loadTasks();
+    // Optimistic update — don't reload to avoid overwriting local state
+    tasks = tasks.map((t) => t.id === id ? { ...t, ...updates } : t);
+    emit();
   } else {
     console.error("Failed to update task:", error);
   }
