@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { format, isToday, isPast, addDays } from "date-fns";
 import { de } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
-import { useTasks, addTask as addTaskDB, updateTask as updateTaskDB, deleteTask as deleteTaskDB, moveTask as moveTaskDB } from "@/store/tasks";
+import { useTasks, addTask as addTaskDB, updateTask as updateTaskDB, deleteTask as deleteTaskDB, moveTask as moveTaskDB, loadTasks } from "@/store/tasks";
 import type { Task, Category, Priority, Recurrence, Column } from "@/store/tasks";
 
 const teamMembers = [
@@ -104,8 +104,10 @@ export default function Tasks() {
         category: form.category as Category,
         priority: form.priority as Priority,
         recurrence: form.recurrence as Recurrence,
-        dueDate: form.dueDate || undefined,
+        dueDate: form.dueDate || "",
       });
+      // Force reload from Supabase to make sure UI is in sync
+      await loadTasks();
       toast.success("Aufgabe aktualisiert");
     } else {
       await addTaskDB({ title: form.title.trim(), category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, column: "todo" as Column, recurrence: form.recurrence, assignee: viewUser });
