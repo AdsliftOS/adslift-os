@@ -132,11 +132,25 @@ export default function Tasks() {
   const wasDragged = useRef(false);
   const handleDragStart = (taskId: string) => { setDragTaskId(taskId); wasDragged.current = true; };
   const handleDragOver = (e: React.DragEvent, col: Column) => { e.preventDefault(); setDragOverCol(col); };
-  const handleDragLeave = () => setDragOverCol(null);
+  const handleDragLeave = () => { setDragOverCol(null); setDragOverUser(null); };
   const handleDrop = (col: Column) => {
     if (dragTaskId) { handleMoveTask(dragTaskId, col); }
     setDragTaskId(null);
     setDragOverCol(null);
+    setDragOverUser(null);
+  };
+
+  // Drag to reassign user
+  const [dragOverUser, setDragOverUser] = useState<string | null>(null);
+  const handleUserDragOver = (e: React.DragEvent, userKey: string) => { e.preventDefault(); setDragOverUser(userKey); };
+  const handleUserDrop = async (userKey: string) => {
+    if (dragTaskId) {
+      await updateTaskDB(dragTaskId, { assignee: userKey });
+      toast.success(`Aufgabe an ${teamMembers.find((m) => m.key === userKey)?.label} übergeben`);
+    }
+    setDragTaskId(null);
+    setDragOverCol(null);
+    setDragOverUser(null);
   };
 
   // Sort: by category group, then deadline (overdue first), then priority
@@ -182,9 +196,15 @@ export default function Tasks() {
             <button
               key={m.key}
               onClick={() => setViewUser(m.key)}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${viewUser === m.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              onDragOver={(e) => handleUserDragOver(e, m.key)}
+              onDragLeave={() => setDragOverUser(null)}
+              onDrop={() => handleUserDrop(m.key)}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                dragOverUser === m.key ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 scale-110" :
+                viewUser === m.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              {m.label}
+              {dragOverUser === m.key ? `→ ${m.label}` : m.label}
             </button>
           ))}
         </div>
