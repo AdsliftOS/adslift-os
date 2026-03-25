@@ -521,12 +521,30 @@ export default function ProjectManager() {
             <div className="flex items-center gap-4 mb-4">
               <Badge className={`${status.color} text-white text-xs`}>{status.label}</Badge>
               <span className="text-xs text-muted-foreground">Start: {selectedProject.startDate}</span>
-              <div className="flex items-center gap-1 ml-auto">
-                {selectedProject.assignees.map((a) => (
-                  <span key={a} className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary ring-2 ring-card">
-                    {a[0]}
-                  </span>
-                ))}
+              <div className="flex items-center gap-1.5 ml-auto">
+                {teamMembers.map((m) => {
+                  const isAssigned = selectedProject.assignees.includes(m);
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => {
+                        const newAssignees = isAssigned
+                          ? selectedProject.assignees.filter((a) => a !== m)
+                          : [...selectedProject.assignees, m];
+                        setProjectsLocal((prev) => prev.map((p) => p.id === selectedProject.id ? { ...p, assignees: newAssignees } : p));
+                        updateProjectDB(selectedProject.id, { assignees: newAssignees });
+                      }}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-all ${
+                        isAssigned
+                          ? "bg-primary text-primary-foreground ring-1 ring-primary/30"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80 ring-1 ring-border"
+                      }`}
+                    >
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-white/20 text-[9px] font-bold">{m[0]}</span>
+                      {m}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             {/* Phase progress pipeline */}
