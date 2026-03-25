@@ -30,18 +30,18 @@ const creativeFormats: { value: CreativeFormat; label: string; icon: string }[] 
 
 // --- Project Type Config ---
 
-const projectTypes: { value: ProjectType; label: string; description: string; color: string }[] = [
-  { value: "optimierung", label: "Optimierung / Retargeting", description: "Bestehende Kampagne auffrischen.", color: "bg-amber-500" },
-  { value: "custom", label: "Custom Projekt", description: "Phasen selbst zusammenstellen per Drag & Drop.", color: "bg-pink-500" },
-  { value: "done4you", label: "Done 4 You", description: "Full-Service — wir machen alles für den Kunden.", color: "bg-emerald-500" },
+const projectTypes: { value: ProjectType; label: string; description: string; color: string; badge?: string }[] = [
+  { value: "neukunde-meta", label: "Neukunde Meta", description: "Neukunden-Kampagne nur über Meta Ads.", color: "bg-blue-600", badge: "D4Y" },
+  { value: "neukunde-meta-linkedin", label: "Neukunde Meta & LinkedIn", description: "Neukunden-Kampagne über Meta Ads + LinkedIn Outreach.", color: "bg-indigo-500", badge: "D4Y" },
+  { value: "optimierung", label: "Optimierung / Retargeting", description: "Bestehende Kampagne optimieren — neue Creatives, Angles, A/B Tests.", color: "bg-amber-500" },
   { value: "donewithyou", label: "Done With You", description: "Zusammenarbeit — Kunde liefert mit zu.", color: "bg-cyan-500" },
-  { value: "neukunde-meta", label: "Neukunde Meta", description: "Neukunden-Kampagne nur über Meta Ads.", color: "bg-blue-600" },
-  { value: "neukunde-meta-linkedin", label: "Neukunde Meta & LinkedIn", description: "Neukunden-Kampagne über Meta Ads + LinkedIn Outreach.", color: "bg-indigo-500" },
+  { value: "custom", label: "Custom Projekt", description: "Phasen selbst zusammenstellen per Drag & Drop.", color: "bg-pink-500" },
 ];
 
 const legacyTypes: typeof projectTypes = [
   { value: "neukunde", label: "Neukunde (Legacy)", description: "", color: "bg-violet-500" },
   { value: "neue-kampagne", label: "Neue Kampagne (Legacy)", description: "", color: "bg-blue-500" },
+  { value: "done4you", label: "Done 4 You (Legacy)", description: "", color: "bg-emerald-500" },
 ];
 const projectTypeMap = Object.fromEntries([...projectTypes, ...legacyTypes].map((t) => [t.value, t]));
 
@@ -175,7 +175,7 @@ const phaseTemplates: Record<ProjectType, { title: string; tasks: string[] }[]> 
   optimierung: [
     {
       title: "Analyse",
-      tasks: ["Aktuelle Performance auswerten", "Top & Flop Ads identifizieren", "Zielgruppen-Performance checken", "Schwachstellen dokumentieren"],
+      tasks: ["Aktuelle Performance auswerten (CTR, CPL, ROAS)", "Top & Flop Ads identifizieren", "Zielgruppen-Performance checken", "Ad Fatigue prüfen (Frequency)", "Schwachstellen dokumentieren"],
     },
     {
       title: "Neue Angles & Hooks",
@@ -183,15 +183,23 @@ const phaseTemplates: Record<ProjectType, { title: string; tasks: string[] }[]> 
     },
     {
       title: "Creative Refresh",
-      tasks: ["Neue Creatives auf Basis der Analyse", "Variationen von Top-Performern", "Neue Formate testen (Reel, Story, Carousel)", "Creatives finalisieren"],
+      tasks: ["Creative Projekt-Ordner updaten", "Neue Bilder vorbereiten", "Neue Creatives produzieren", "Creatives feedbacken lassen"],
     },
     {
-      title: "A/B Tests & Setup",
-      tasks: ["Test-Struktur aufsetzen", "Audiences splitten", "Budget-Allokation für Tests", "Anzeigen einpflegen"],
+      title: "Ad Copy Refresh",
+      tasks: ["Neue Ad Copy Varianten schreiben", "Überschriften testen", "Description anpassen", "Ad Copy feedbacken lassen"],
+    },
+    {
+      title: "Kampagnen-Umbau",
+      tasks: ["Neue Kampagnenstruktur aufsetzen", "Audiences aktualisieren / neue Lookalikes", "Budget neu verteilen", "A/B Test-Struktur aufsetzen"],
+    },
+    {
+      title: "Review & Freigabe",
+      tasks: ["Interne Review", "Kundenfreigabe einholen", "Überarbeitungsschleifen schließen", "Finale Freigabe"],
     },
     {
       title: "Launch",
-      tasks: ["Tests live schalten", "Monitoring erste 48h", "Erste Auswertung", "Gewinner skalieren"],
+      tasks: ["Optimierte Kampagnen live schalten", "Initiales Monitoring (24h)", "Budgetcheck nach 48h", "Gewinner skalieren"],
     },
     {
       title: "Reporting",
@@ -693,6 +701,7 @@ export default function ProjectManager() {
                         <div className="flex items-center gap-2 mb-1">
                           <span className={`h-2.5 w-2.5 rounded-full ${pt.color}`} />
                           <span className="text-sm font-semibold group-hover:text-primary transition-colors">{pt.label}</span>
+                          {(pt as any).badge && <span className="text-[9px] font-bold bg-emerald-500/15 text-emerald-500 rounded px-1.5 py-0.5">{(pt as any).badge}</span>}
                         </div>
                         <p className="text-xs text-muted-foreground">{pt.description}</p>
                         <p className="text-[10px] text-muted-foreground/60 mt-2">{phaseTemplates[pt.value]?.length || 0} Phasen</p>
@@ -1181,6 +1190,7 @@ export default function ProjectManager() {
                       <div className="flex items-center gap-2">
                         <span className={`h-2 w-2 rounded-full ${pt.color}`} />
                         <span className="text-sm font-semibold">{pt.label}</span>
+                        {(pt as any).badge && <span className="text-[9px] font-bold bg-emerald-500/15 text-emerald-500 rounded px-1.5 py-0.5">{(pt as any).badge}</span>}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5 ml-4">{pt.description}</p>
                     </button>
