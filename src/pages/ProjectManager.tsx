@@ -267,16 +267,21 @@ const phaseTemplates: Record<ProjectType, { title: string; tasks: string[] }[]> 
 
 // All available phase blocks (superset for custom builder)
 const allPhaseBlocks: { key: string; title: string; tasks: string[] }[] = [
-  { key: "onboarding", title: "Onboarding", tasks: ["Kick-off Call", "Zugänge einrichten (Ad Manager, Pixel, etc.)", "Fragebogen / Briefing-Dokument senden", "Assets vom Kunden einsammeln"] },
-  { key: "briefing", title: "Briefing & Strategie", tasks: ["Zielgruppe definieren", "Wettbewerbsanalyse", "Funnel-Strategie festlegen", "Angebots-Positionierung klären", "Budget & Laufzeit planen"] },
+  { key: "onboarding", title: "Onboarding", tasks: ["Kick-off Call", "Meta Ad Manager aufsetzen und als Partner connecten", "Rechnung raussenden", "Rechnung bestätigen", "Onboarding-Formular prüfen", "Startzeitpunkt auswählen"] },
+  { key: "briefing", title: "Briefing & Strategie", tasks: ["Zielgruppe definieren", "Offer definieren", "Wettbewerbsanalyse", "Funnel-Strategie festlegen"] },
+  { key: "creative", title: "Creative Production", tasks: ["Creative Projekt-Ordner in Cloud anlegen", "Bilder vorbereiten für Creatives", "Creatives produzieren", "Creatives feedbacken lassen"] },
+  { key: "adcopy", title: "Ad Copy", tasks: ["Ad Copy schreiben (Primärer Text)", "Ad Copy Überschriften festlegen", "Ad Copy Description festlegen", "Ad Copy feedbacken lassen"] },
+  { key: "meta-setup", title: "Meta Kampagnen-Setup", tasks: ["Kampagne aufsetzen", "Falls nötig Pixel und Conversion API einrichten"] },
+  { key: "linkedin-setup", title: "LinkedIn Kampagnen-Setup", tasks: ["Prosp AI Account aufsetzen lassen und mit LinkedIn verbinden", "Account-Daten von Prosp.ai anfordern", "LinkedIn Outreach-Message und Follow-Up-Nachrichten skripten", "LinkedIn-Profil ready machen", "Durch Sales Navigator Lead-Liste aufbauen (Loom Video)"] },
+  { key: "coldcall", title: "Coldcall", tasks: ["Coldcall Skripte gesendet", "Leadgen Tutorial gesendet", "Tracking Exceltabelle gesendet"] },
+  { key: "sales", title: "Sales", tasks: ["Skripte gesendet", "Setting geübt", "Closing geübt", "Sales-Sparring gehabt"] },
+  { key: "linkedin-outreach", title: "LinkedIn Outreach", tasks: ["LinkedIn Outreach Skripte gesendet", "LinkedIn Branding gesendet", "LinkedIn Profil ready", "Prosp AI Tutorial gesendet", "Prosp AI eingerichtet", "Kampagne läuft"] },
+  { key: "email-instantly", title: "Email / Instantly", tasks: ["Instantly Tutorial senden", "Instantly eingerichtet", "Email warmgelaufen", "Email Outreach Skripte senden", "Email Outreach Nachrichten eingereicht", "Email Nachrichten ready", "Email Kampagne läuft"] },
   { key: "analyse", title: "Analyse", tasks: ["Aktuelle Performance auswerten", "Top & Flop Ads identifizieren", "Zielgruppen-Performance checken", "Schwachstellen dokumentieren"] },
   { key: "angles", title: "Neue Angles & Hooks", tasks: ["Neue Hooks brainstormen", "Winning Ads als Vorlage nutzen", "Konkurrenz-Analyse (Ad Library)", "Angle-Strategie festlegen"] },
-  { key: "creative", title: "Creative Production", tasks: ["Hooks & Angles brainstormen", "Ad Creatives designen", "Video-Skripte schreiben", "Creator/UGC beauftragen (falls nötig)", "Creatives finalisieren"] },
-  { key: "adcopy", title: "Ad Copy", tasks: ["Primary Text schreiben (3+ Varianten)", "Headlines schreiben", "Descriptions schreiben", "CTA festlegen"] },
-  { key: "setup", title: "Kampagnen-Setup", tasks: ["Ad Manager verbinden", "Pixel / Conversion API einrichten", "Custom Audiences erstellen", "Lookalike Audiences erstellen", "Kampagnenstruktur aufsetzen", "Anzeigen einpflegen"] },
   { key: "abtests", title: "A/B Tests & Setup", tasks: ["Test-Struktur aufsetzen", "Audiences splitten", "Budget-Allokation für Tests", "Anzeigen einpflegen"] },
-  { key: "review", title: "Review & Freigabe", tasks: ["Interne Review", "Kundenfreigabe einholen", "Feedback einarbeiten", "Finale Freigabe"] },
-  { key: "launch", title: "Launch", tasks: ["Kampagnen live schalten", "Initiales Monitoring (24h)", "Budget-Check nach 48h", "Erste Optimierungen"] },
+  { key: "review", title: "Review & Freigabe", tasks: ["Interne Review", "Kundenfreigabe einholen", "Überarbeitungsschleifen schließen", "Finale Freigabe"] },
+  { key: "launch", title: "Launch", tasks: ["Kampagnen live schalten", "Initiales Monitoring (24h)", "Budgetcheck nach 48h"] },
   { key: "reporting", title: "Reporting", tasks: ["KPIs tracken", "Wöchentliches Reporting erstellen", "Kunden-Call / Update", "Optimierungsvorschläge dokumentieren"] },
 ];
 
