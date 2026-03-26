@@ -17,6 +17,7 @@ import {
   ChevronDown, CheckCircle2, XCircle, Play, ArrowUp, ArrowDown, Shield, Ban,
   RotateCcw, CalendarPlus, Search, Filter, LayoutDashboard, ListChecks,
   Timer, Target, Brain, Flame, MessageSquare, Layers, GripVertical, ExternalLink,
+  FileSpreadsheet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -69,7 +70,17 @@ type AcademyCustomer = {
   status: "active" | "expired" | "suspended";
   subscription_end: string | null;
   last_login: string | null;
+  last_active_date: string | null;
   streak: number;
+  created_at: string;
+};
+
+type LessonComment = {
+  id: string;
+  lesson_id: string;
+  customer_id: string;
+  customer_name: string;
+  content: string;
   created_at: string;
 };
 
@@ -126,6 +137,7 @@ export default function Academy() {
   const [downloadLogs, setDownloadLogs] = useState<DownloadLog[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
+  const [lessonComments, setLessonComments] = useState<LessonComment[]>([]);
 
   // Course form
   const [courseDialog, setCourseDialog] = useState(false);
@@ -205,9 +217,36 @@ export default function Academy() {
     if (data) setLessons(data);
   }, []);
 
+  const resetStaleStreaks = useCallback(async (customerList: AcademyCustomer[]) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    for (const customer of customerList) {
+      if (customer.streak > 0 && customer.last_active_date) {
+        const lastActive = new Date(customer.last_active_date);
+        lastActive.setHours(0, 0, 0, 0);
+        // If last_active_date is today or yesterday, streak is valid
+        if (lastActive.getTime() >= yesterday.getTime()) continue;
+        // Otherwise, reset streak to 0
+        await supabase.from("academy_customers").update({ streak: 0 }).eq("id", customer.id);
+        customer.streak = 0;
+      }
+    }
+  }, []);
+
   const loadCustomers = useCallback(async () => {
     const { data } = await supabase.from("academy_customers").select("*").order("created_at", { ascending: false });
-    if (data) setCustomers(data);
+    if (data) {
+      await resetStaleStreaks(data);
+      setCustomers(data);
+    }
+  }, [resetStaleStreaks]);
+
+  const loadComments = useCallback(async () => {
+    const { data } = await supabase.from("lesson_comments").select("*").order("created_at", { ascending: false }).limit(50);
+    if (data) setLessonComments(data);
   }, []);
 
   const loadAnalytics = useCallback(async () => {
@@ -227,7 +266,8 @@ export default function Academy() {
     loadLessons();
     loadCustomers();
     loadAnalytics();
-  }, [loadCourses, loadChapters, loadLessons, loadCustomers, loadAnalytics]);
+    loadComments();
+  }, [loadCourses, loadChapters, loadLessons, loadCustomers, loadAnalytics, loadComments]);
 
   // Vimeo thumbnail auto-fetch
   const fetchVimeoThumbnail = useCallback(async (url: string) => {
@@ -314,7 +354,7 @@ export default function Academy() {
 
   // Activity feed
   const activityFeed = useMemo(() => {
-    const entries: { type: string; text: string; date: string }[] = [];
+    const entries: { type: string; text: string; date: string; commentId?: string; lessonId?: string }[] = [];
     progressData.forEach((p) => {
       if (p.completed) {
         const c = customers.find((cu) => cu.id === p.customer_id);
@@ -340,8 +380,19 @@ export default function Academy() {
         entries.push({ type: "login", text: `${cu.name} hat sich eingeloggt`, date: cu.last_login });
       }
     });
-    return entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 15);
-  }, [progressData, quizResults, customers, lessons, quizzes]);
+    lessonComments.forEach((comment) => {
+      const l = lessons.find((le) => le.id === comment.lesson_id);
+      const preview = comment.content.length > 60 ? comment.content.substring(0, 60) + "..." : comment.content;
+      entries.push({
+        type: "comment",
+        text: `${comment.customer_name} hat kommentiert: "${preview}"`,
+        date: comment.created_at,
+        commentId: comment.id,
+        lessonId: comment.lesson_id,
+      });
+    });
+    return entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 20);
+  }, [progressData, quizResults, customers, lessons, quizzes, lessonComments]);
 
   // Weekly activity data (last 8 weeks)
   const weeklyActivity = useMemo(() => {
@@ -852,16 +903,37 @@ export default function Academy() {
                           <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                             entry.type === "completion" ? "bg-emerald-500/10" :
                             entry.type === "quiz_pass" ? "bg-blue-500/10" :
-                            entry.type === "quiz_fail" ? "bg-red-500/10" : "bg-slate-500/10"
+                            entry.type === "quiz_fail" ? "bg-red-500/10" :
+                            entry.type === "comment" ? "bg-violet-500/10" : "bg-slate-500/10"
                           }`}>
                             {entry.type === "completion" ? <CheckCircle2 className="h-3 w-3 text-emerald-500" /> :
                              entry.type === "quiz_pass" ? <Award className="h-3 w-3 text-blue-500" /> :
                              entry.type === "quiz_fail" ? <XCircle className="h-3 w-3 text-red-500" /> :
+                             entry.type === "comment" ? <MessageSquare className="h-3 w-3 text-violet-500" /> :
                              <Eye className="h-3 w-3 text-slate-500" />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm truncate">{entry.text}</p>
-                            <p className="text-xs text-muted-foreground">{new Date(entry.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-muted-foreground">{new Date(entry.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</p>
+                              {entry.type === "comment" && entry.lessonId && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-1.5 text-xs text-violet-500 hover:text-violet-600"
+                                  onClick={() => {
+                                    const lesson = lessons.find((l) => l.id === entry.lessonId);
+                                    if (lesson) {
+                                      setSelectedCourseId(lesson.course_id);
+                                      setCourseDetailMode(true);
+                                      setActiveTab("courses");
+                                    }
+                                  }}
+                                >
+                                  <Eye className="h-3 w-3 mr-0.5" />Anzeigen
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -1001,7 +1073,25 @@ export default function Academy() {
                       </div>
                       <CardContent className="p-4 space-y-3">
                         <h3 className="font-semibold text-sm leading-tight">{course.title}</h3>
-                        {course.description && <p className="text-xs text-muted-foreground line-clamp-2">{course.description}</p>}
+                        {course.description && (() => {
+                          const lines = course.description.split("\n").filter((line) => line.trim());
+                          const hasBullets = lines.some((line) => line.trim().startsWith("\u2022"));
+                          if (hasBullets) {
+                            return (
+                              <div className="text-xs text-muted-foreground space-y-0.5">
+                                {lines.slice(0, 4).map((line, li) => {
+                                  const trimmed = line.trim();
+                                  if (trimmed.startsWith("\u2022")) {
+                                    return <div key={li} className="flex items-start gap-1"><span className="shrink-0">{"\u2022"}</span><span>{trimmed.slice(1).trim()}</span></div>;
+                                  }
+                                  return <p key={li}>{trimmed}</p>;
+                                })}
+                                {lines.length > 4 && <p className="text-muted-foreground/60">...</p>}
+                              </div>
+                            );
+                          }
+                          return <p className="text-xs text-muted-foreground line-clamp-2">{course.description}</p>;
+                        })()}
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1"><Layers className="h-3 w-3" />{courseChapterCount} Kapitel</span>
                           <span className="flex items-center gap-1"><Video className="h-3 w-3" />{courseLessonCount} Lektionen</span>
@@ -1310,7 +1400,37 @@ export default function Academy() {
             <>
               <div className="flex justify-between items-center">
                 <h2 className="text-lg font-semibold">Academy-Kunden ({customers.length})</h2>
-                <Button onClick={() => openCustomerDialog()} size="sm"><Plus className="h-4 w-4 mr-1" />Neuer Kunde</Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const headers = ["Name", "Email", "Company", "Status", "Subscription End", "Last Login", "Watch Minutes", "Streak"];
+                      const rows = customers.map((c) => {
+                        const watchMin = Math.round(progressData.filter((p) => p.customer_id === c.id).reduce((s, p) => s + (p.watched_seconds || 0), 0) / 60);
+                        return [
+                          `"${c.name.replace(/"/g, '""')}"`,
+                          `"${c.email.replace(/"/g, '""')}"`,
+                          `"${(c.company || "").replace(/"/g, '""')}"`,
+                          c.status,
+                          c.subscription_end ? new Date(c.subscription_end).toLocaleDateString("de-DE") : "Unbegrenzt",
+                          c.last_login ? new Date(c.last_login).toLocaleDateString("de-DE") : "Nie",
+                          String(watchMin),
+                          String(c.streak),
+                        ];
+                      });
+                      const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+                      const blob = new Blob([csv], { type: "text/csv" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a"); a.href = url; a.download = "academy-kunden-export.csv"; a.click();
+                      URL.revokeObjectURL(url);
+                      toast.success("CSV Export heruntergeladen");
+                    }}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-1" />Export CSV
+                  </Button>
+                  <Button onClick={() => openCustomerDialog()} size="sm"><Plus className="h-4 w-4 mr-1" />Neuer Kunde</Button>
+                </div>
               </div>
               <Table>
                 <TableHeader>
@@ -1652,16 +1772,47 @@ export default function Academy() {
         <TabsContent value="analytics" className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Analytics</h2>
-            <Select value={analyticsRange} onValueChange={(v: "week" | "month" | "all") => setAnalyticsRange(v)}>
-              <SelectTrigger className="w-[140px] h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="week">Letzte Woche</SelectItem>
-                <SelectItem value="month">Letzter Monat</SelectItem>
-                <SelectItem value="all">Gesamt</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const headers = ["Course Name", "Lessons", "Completion Rate", "Avg Watch Minutes"];
+                  const rows = courses.map((course) => {
+                    const cls = lessons.filter((l) => l.course_id === course.id);
+                    const totalPossible = cls.length * Math.max(customers.length, 1);
+                    const completed = cls.reduce((s, l) => s + progressData.filter((p) => p.lesson_id === l.id && p.completed).length, 0);
+                    const rate = totalPossible > 0 ? Math.round((completed / totalPossible) * 100) : 0;
+                    const watchSec = cls.reduce((s, l) => s + progressData.filter((p) => p.lesson_id === l.id).reduce((ss, p) => ss + (p.watched_seconds || 0), 0), 0);
+                    const avgWatch = customers.length > 0 ? Math.round(watchSec / 60 / customers.length) : 0;
+                    return [
+                      `"${course.title.replace(/"/g, '""')}"`,
+                      String(cls.length),
+                      `${rate}%`,
+                      String(avgWatch),
+                    ];
+                  });
+                  const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+                  const blob = new Blob([csv], { type: "text/csv" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a"); a.href = url; a.download = "academy-analytics-export.csv"; a.click();
+                  URL.revokeObjectURL(url);
+                  toast.success("Analytics CSV Export heruntergeladen");
+                }}
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-1" />Export CSV
+              </Button>
+              <Select value={analyticsRange} onValueChange={(v: "week" | "month" | "all") => setAnalyticsRange(v)}>
+                <SelectTrigger className="w-[140px] h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="week">Letzte Woche</SelectItem>
+                  <SelectItem value="month">Letzter Monat</SelectItem>
+                  <SelectItem value="all">Gesamt</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -1842,7 +1993,11 @@ export default function Academy() {
           </DialogHeader>
           <div className="space-y-4">
             <div><Label>Titel</Label><Input value={courseForm.title} onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })} /></div>
-            <div><Label>Beschreibung</Label><Textarea value={courseForm.description} onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })} rows={3} /></div>
+            <div>
+              <Label>Beschreibung</Label>
+              <Textarea value={courseForm.description} onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })} rows={4} />
+              <p className="text-xs text-muted-foreground mt-1">{"Tipp: Nutze \u2022 am Anfang einer Zeile für Aufzählungen"}</p>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Kategorie</Label>

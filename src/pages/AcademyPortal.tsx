@@ -51,7 +51,7 @@ import {
   Star, Award, Eye, Timer, Play, SkipForward, X, Printer,
   StickyNote, TrendingUp, Flame, Bell, MessageSquare, Send,
   FileText, Trophy, Target, Zap, Bookmark, Heart, Sparkles,
-  User, Settings, ChevronLeft, Sun, Moon,
+  User, Settings, ChevronLeft, Sun, Moon, Mail, KeyRound, HelpCircle, Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -186,6 +186,12 @@ function formatMinutes(m: number): string {
   return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
 }
 
+function formatWatchedTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 // ─── Circular Progress Ring ──────────────────────────────────────────────────
 function ProgressRing({ percent, size = 64, strokeWidth = 5, className = "", textClass = "", isDark = true }: { percent: number; size?: number; strokeWidth?: number; className?: string; textClass?: string; isDark?: boolean }) {
   const radius = (size - strokeWidth) / 2;
@@ -292,6 +298,25 @@ export default function AcademyPortal() {
   const [showCertificate, setShowCertificate] = useState(false);
   const [certificateCourseId, setCertificateCourseId] = useState("");
 
+  // Password change
+  const [pwCurrent, setPwCurrent] = useState("");
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [pwLoading, setPwLoading] = useState(false);
+
+  // Category filter for "Alle Kurse"
+  const [courseCategory, setCourseCategory] = useState("Alle");
+
+  // Streak
+  const [streakDays, setStreakDays] = useState(0);
+
+  // Video position save ref
+  const videoSaveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentVideoSecondsRef = useRef(0);
+
+  // Lesson description collapsed state in player
+  const [lessonDescOpen, setLessonDescOpen] = useState(false);
+
   // ─── Session restore + Preview mode detection ────────────────────────────
   useEffect(() => {
     // Check for preview mode
@@ -357,6 +382,44 @@ export default function AcademyPortal() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // ─── Streak loader ────────────────────────────────────────────────────────
+  const updateStreak = useCallback(async () => {
+    if (!session || previewMode) return;
+    const { data } = await supabase
+      .from("academy_customers")
+      .select("last_active_date, streak_days")
+      .eq("id", session.customer_id)
+      .single();
+    if (!data) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const lastActive = data.last_active_date as string | null;
+    let newStreak = data.streak_days ?? 0;
+    if (lastActive === today) {
+      // Same day - keep
+      setStreakDays(newStreak || 1);
+      return;
+    }
+    if (lastActive) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().slice(0, 10);
+      if (lastActive === yesterdayStr) {
+        newStreak = (newStreak || 0) + 1;
+      } else {
+        newStreak = 1;
+      }
+    } else {
+      newStreak = 1;
+    }
+    await supabase.from("academy_customers").update({
+      last_active_date: today,
+      streak_days: newStreak,
+    }).eq("id", session.customer_id);
+    setStreakDays(newStreak);
+  }, [session, previewMode]);
+
+  useEffect(() => { updateStreak(); }, [updateStreak]);
+
   // Load note when lesson changes
   useEffect(() => {
     if (selectedLessonId && session) {
@@ -374,6 +437,52 @@ export default function AcademyPortal() {
       if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current);
     };
   }, []);
+
+  // ─── Video position tracking (Vimeo postMessage) ──────────────────────────
+  useEffect(() => {
+    if (view !== "player" || !selectedLessonId || !session || previewMode) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      if (typeof event.data === "string") {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.event === "playProgress" && typeof msg.data?.seconds === "number") {
+            currentVideoSecondsRef.current = Math.floor(msg.data.seconds);
+          }
+        } catch {
+          // ignore non-JSON
+        }
+      }
+    };
+    window.addEventListener("message", handleMessage);
+
+    // Save position every 30 seconds
+    videoSaveIntervalRef.current = setInterval(async () => {
+      const sec = currentVideoSecondsRef.current;
+      if (sec <= 0 || !session) return;
+      const existing = progress.find((p) => p.lesson_id === selectedLessonId);
+      if (existing) {
+        await supabase.from("lesson_progress").update({ watched_seconds: sec }).eq("id", existing.id);
+        setProgress((prev) => prev.map((p) => p.id === existing.id ? { ...p, watched_seconds: sec } : p));
+      }
+    }, 30000);
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      if (videoSaveIntervalRef.current) {
+        clearInterval(videoSaveIntervalRef.current);
+        videoSaveIntervalRef.current = null;
+      }
+    };
+  }, [view, selectedLessonId, session, previewMode, progress]);
+
+  // Reset lesson desc state on lesson change
+  useEffect(() => {
+    if (selectedLessonId) {
+      const lesson = lessons.find((l) => l.id === selectedLessonId);
+      setLessonDescOpen(!lesson?.description || lesson.description.length <= 100);
+    }
+  }, [selectedLessonId, lessons]);
 
   // ─── Login ─────────────────────────────────────────────────────────────────
   const handleLogin = async () => {
@@ -411,8 +520,31 @@ export default function AcademyPortal() {
         }
       }
 
-      // Update last_login
-      await supabase.from("academy_customers").update({ last_login: new Date().toISOString() }).eq("id", data.id);
+      // Update last_login & streak
+      const today = new Date().toISOString().slice(0, 10);
+      const lastActive = data.last_active_date as string | null;
+      let newStreak = data.streak_days ?? 0;
+      if (lastActive !== today) {
+        if (lastActive) {
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          if (lastActive === yesterday.toISOString().slice(0, 10)) {
+            newStreak = (newStreak || 0) + 1;
+          } else {
+            newStreak = 1;
+          }
+        } else {
+          newStreak = 1;
+        }
+      } else {
+        newStreak = newStreak || 1;
+      }
+      await supabase.from("academy_customers").update({
+        last_login: new Date().toISOString(),
+        last_active_date: today,
+        streak_days: newStreak,
+      }).eq("id", data.id);
+      setStreakDays(newStreak);
 
       const customerSession: CustomerSession = { customer_id: data.id, email: data.email, name: data.name };
       localStorage.setItem("academy_session", JSON.stringify(customerSession));
@@ -457,6 +589,54 @@ export default function AcademyPortal() {
       setForgotMessage("Es wurde kein Konto mit dieser E-Mail-Adresse gefunden.");
     }
     setForgotLoading(false);
+  };
+
+  // ─── Password change ───────────────────────────────────────────────────────
+  const handlePasswordChange = async () => {
+    if (!session) return;
+    if (!pwCurrent || !pwNew || !pwConfirm) {
+      toast.error("Bitte alle Felder ausfüllen");
+      return;
+    }
+    if (pwNew !== pwConfirm) {
+      toast.error("Neue Passwörter stimmen nicht überein");
+      return;
+    }
+    if (pwNew.length < 4) {
+      toast.error("Neues Passwort muss mindestens 4 Zeichen lang sein");
+      return;
+    }
+    setPwLoading(true);
+    try {
+      // Check current password
+      const { data } = await supabase
+        .from("academy_customers")
+        .select("id")
+        .eq("id", session.customer_id)
+        .eq("password_hash", pwCurrent)
+        .single();
+      if (!data) {
+        toast.error("Aktuelles Passwort ist falsch");
+        setPwLoading(false);
+        return;
+      }
+      // Update password
+      const { error } = await supabase
+        .from("academy_customers")
+        .update({ password_hash: pwNew })
+        .eq("id", session.customer_id);
+      if (error) {
+        toast.error("Fehler beim Ändern des Passworts");
+      } else {
+        toast.success("Passwort erfolgreich geändert");
+        setPwCurrent("");
+        setPwNew("");
+        setPwConfirm("");
+      }
+    } catch {
+      toast.error("Ein Fehler ist aufgetreten");
+    }
+    setPwLoading(false);
   };
 
   // ─── Achievement checker ───────────────────────────────────────────────────
@@ -563,6 +743,9 @@ export default function AcademyPortal() {
   };
 
   const checkCompletionAchievements = async (lessonId: string) => {
+    // Update streak on lesson completion
+    updateStreak();
+
     // First lesson
     const completedCount = progress.filter((p) => p.completed).length + 1;
     if (completedCount === 1) await checkAndAwardAchievement("first_lesson");
@@ -696,10 +879,8 @@ export default function AcademyPortal() {
       return sum + (lesson?.duration_minutes || 0);
     }, 0);
     const hoursLearned = Math.round((totalMinutes / 60) * 10) / 10;
-    // Simple streak: count from customer data or from recent daily activity
-    const streak = 0; // Will be loaded from customer data
-    return { coursesStarted, videosWatched, hoursLearned, streak };
-  }, [courses, lessons, progress]);
+    return { coursesStarted, videosWatched, hoursLearned, streak: streakDays };
+  }, [courses, lessons, progress, streakDays]);
 
   // Last watched
   const lastWatched = useMemo(() => {
@@ -1307,8 +1488,29 @@ export default function AcademyPortal() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Alle Kurse</h1>
             <p className={`mt-2 ${isDark ? "text-white/30" : "text-gray-400"}`}>Wahle einen Kurs aus, um zu starten</p>
           </div>
+
+          {/* Category Filter */}
+          <div className="flex flex-wrap gap-2">
+            {["Alle", "Meta Ads", "Sales", "LinkedIn", "Mindset", "Allgemein"].map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCourseCategory(cat)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border ${
+                  courseCategory === cat
+                    ? "bg-violet-600 text-white border-violet-500 shadow-lg shadow-violet-500/20"
+                    : isDark
+                      ? "bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.06] hover:text-white"
+                      : "bg-white border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                }`}
+              >
+                {cat === "Alle" && <Filter className="h-3.5 w-3.5 inline mr-1.5" />}
+                {cat}
+              </button>
+            ))}
+          </div>
+
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {courses.map((course) => {
+            {courses.filter((c) => courseCategory === "Alle" || (c.category || "").toLowerCase() === courseCategory.toLowerCase()).map((course) => {
               const pct = getCourseProgress(course.id);
               const lessonCount = lessons.filter((l) => l.course_id === course.id).length;
               const totalMin = lessons.filter((l) => l.course_id === course.id).reduce((s, l) => s + (l.duration_minutes || 0), 0);
@@ -1499,6 +1701,14 @@ export default function AcademyPortal() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                              {(() => {
+                                const prog = progress.find((p) => p.lesson_id === lesson.id);
+                                return prog && prog.watched_seconds > 0 && !isLessonCompleted(lesson.id) ? (
+                                  <Badge className="text-[10px] bg-blue-500/10 text-blue-300 border-blue-500/20 px-1.5 py-0.5">
+                                    <Play className="h-2.5 w-2.5 mr-0.5" />Fortsetzen ab {formatWatchedTime(prog.watched_seconds)}
+                                  </Badge>
+                                ) : null;
+                              })()}
                               {bookmarked && <Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />}
                               {lesson.has_quiz && <Badge className="text-[10px] bg-pink-500/10 text-pink-300 border-pink-500/20 px-1.5 py-0.5">Quiz</Badge>}
                               {lesson.download_url && (
@@ -1523,6 +1733,26 @@ export default function AcademyPortal() {
                 <p className="text-lg">Noch keine Lektionen verfugbar</p>
               </div>
             )}
+          </div>
+
+          {/* Hast du Fragen? Card */}
+          <div className={`rounded-2xl border p-6 flex flex-col sm:flex-row items-center gap-4 ${isDark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-200 bg-gray-50"}`}>
+            <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 flex items-center justify-center shrink-0`}>
+              <HelpCircle className="h-6 w-6 text-violet-400" />
+            </div>
+            <div className="flex-1 text-center sm:text-left">
+              <h3 className={`font-bold text-lg ${isDark ? "text-white" : "text-gray-900"}`}>Hast du Fragen?</h3>
+              <p className={`text-sm mt-1 ${isDark ? "text-white/40" : "text-gray-500"}`}>
+                Wir helfen dir gerne weiter. Schreib uns jederzeit eine E-Mail.
+              </p>
+            </div>
+            <a
+              href="mailto:info@consulting-og.de"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-medium shadow-lg shadow-violet-500/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shrink-0"
+            >
+              <Mail className="h-4 w-4" />
+              info@consulting-og.de
+            </a>
           </div>
         </main>
       )}
@@ -1549,7 +1779,13 @@ export default function AcademyPortal() {
                 {getEmbedUrl(selectedLesson.vimeo_id) ? (
                   <div className={`relative w-full rounded-2xl overflow-hidden bg-black shadow-2xl shadow-black/50 ring-1 ${isDark ? "ring-white/[0.06]" : "ring-gray-200"}`} style={{ paddingTop: "56.25%" }}>
                     <iframe
-                      src={getEmbedUrl(selectedLesson.vimeo_id)!}
+                      src={(() => {
+                        const base = getEmbedUrl(selectedLesson.vimeo_id)!;
+                        const prog = progress.find((p) => p.lesson_id === selectedLesson.id);
+                        const sec = prog?.watched_seconds || 0;
+                        const timeHash = sec > 0 ? `#t=${sec}s` : "";
+                        return base + timeHash;
+                      })()}
                       frameBorder="0"
                       allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
                       allowFullScreen
@@ -1638,19 +1874,28 @@ export default function AcademyPortal() {
                   </Button>
                 </div>
 
-                {/* Description */}
+                {/* Description (Collapsible) */}
                 {selectedLesson.description && (
-                  <div className={`p-5 rounded-2xl border ${isDark ? "bg-white/[0.02] border-white/[0.04]" : "bg-gray-50 border-gray-100"}`}>
-                    <h3 className={`text-sm font-semibold mb-2 ${isDark ? "text-white/60" : "text-gray-600"}`}>Beschreibung</h3>
-                    <p className={`text-sm leading-relaxed whitespace-pre-wrap ${isDark ? "text-white/40" : "text-gray-400"} ${!descExpanded && selectedLesson.description.length > 300 ? "line-clamp-4" : ""}`}>
-                      {selectedLesson.description}
-                    </p>
-                    {selectedLesson.description.length > 300 && (
-                      <button onClick={() => setDescExpanded(!descExpanded)} className="text-xs text-violet-400 hover:text-violet-300 mt-2 transition-colors">
-                        {descExpanded ? "Weniger anzeigen" : "Mehr anzeigen"}
-                      </button>
-                    )}
-                  </div>
+                  <Collapsible open={lessonDescOpen} onOpenChange={setLessonDescOpen}>
+                    <div className={`rounded-2xl border ${isDark ? "bg-white/[0.02] border-white/[0.04]" : "bg-gray-50 border-gray-100"}`}>
+                      <CollapsibleTrigger asChild>
+                        <button className={`w-full flex items-center justify-between p-5 text-left transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-100"} rounded-2xl`}>
+                          <h3 className={`text-sm font-semibold flex items-center gap-2 ${isDark ? "text-white/60" : "text-gray-600"}`}>
+                            <FileText className="h-4 w-4 text-violet-400" />
+                            Beschreibung
+                          </h3>
+                          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isDark ? "text-white/30" : "text-gray-400"} ${lessonDescOpen ? "" : "-rotate-90"}`} />
+                        </button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="px-5 pb-5">
+                          <p className={`text-sm leading-relaxed whitespace-pre-wrap ${isDark ? "text-white/40" : "text-gray-400"}`}>
+                            {selectedLesson.description}
+                          </p>
+                        </div>
+                      </CollapsibleContent>
+                    </div>
+                  </Collapsible>
                 )}
 
                 {/* Quiz section */}
@@ -2099,6 +2344,59 @@ export default function AcademyPortal() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Password Change */}
+          <div className={`rounded-2xl border p-6 space-y-4 ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+            <div className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-violet-400" />
+              <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Passwort ändern</h3>
+            </div>
+            <div className="space-y-3 max-w-md">
+              <div className="space-y-1.5">
+                <Label className={`text-sm ${isDark ? "text-white/50" : "text-gray-500"}`}>Aktuelles Passwort</Label>
+                <Input
+                  type="password"
+                  placeholder="Aktuelles Passwort"
+                  value={pwCurrent}
+                  onChange={(e) => setPwCurrent(e.target.value)}
+                  className={`h-10 rounded-xl ${isDark ? "bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20" : "bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-300"}`}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className={`text-sm ${isDark ? "text-white/50" : "text-gray-500"}`}>Neues Passwort</Label>
+                <Input
+                  type="password"
+                  placeholder="Neues Passwort"
+                  value={pwNew}
+                  onChange={(e) => setPwNew(e.target.value)}
+                  className={`h-10 rounded-xl ${isDark ? "bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20" : "bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-300"}`}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className={`text-sm ${isDark ? "text-white/50" : "text-gray-500"}`}>Neues Passwort bestätigen</Label>
+                <Input
+                  type="password"
+                  placeholder="Passwort wiederholen"
+                  value={pwConfirm}
+                  onChange={(e) => setPwConfirm(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handlePasswordChange()}
+                  className={`h-10 rounded-xl ${isDark ? "bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20" : "bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-300"}`}
+                />
+              </div>
+              <Button
+                onClick={handlePasswordChange}
+                disabled={pwLoading}
+                className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl shadow-lg shadow-violet-500/20 h-10 px-6 transition-all duration-300"
+              >
+                {pwLoading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Wird gespeichert...
+                  </span>
+                ) : "Passwort ändern"}
+              </Button>
             </div>
           </div>
 
