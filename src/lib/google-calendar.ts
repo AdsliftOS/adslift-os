@@ -158,36 +158,45 @@ export type GoogleCalendarEvent = {
   location?: string;
 };
 
+async function fetchAllPages(token: string, timeMin: string, timeMax: string): Promise<GoogleCalendarEvent[]> {
+  let allEvents: GoogleCalendarEvent[] = [];
+  let pageToken: string | undefined;
+  do {
+    const params = new URLSearchParams({
+      timeMin, timeMax, singleEvents: "true", orderBy: "startTime", maxResults: "2500",
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+    const res = await fetch(`${API_BASE}/calendars/primary/events?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(`Calendar API error: ${res.status}`);
+    const data = await res.json();
+    allEvents = allEvents.concat((data.items || []) as GoogleCalendarEvent[]);
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+  return allEvents;
+}
+
 export async function listAllEvents(timeMin: string, timeMax: string): Promise<{ email: string; events: GoogleCalendarEvent[] }[]> {
   const accounts = getAccounts();
   const results = await Promise.allSettled(
     accounts.map(async (account) => {
-      const token = await getValidToken(account);
-      const params = new URLSearchParams({
-        timeMin, timeMax, singleEvents: "true", orderBy: "startTime", maxResults: "250",
-      });
-      const res = await fetch(`${API_BASE}/calendars/primary/events?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.status === 401) {
-        // Try refresh once more
+      let token = await getValidToken(account);
+      try {
+        const events = await fetchAllPages(token, timeMin, timeMax);
+        return { email: account.email, events };
+      } catch (e) {
+        // Try refresh once
         if (account.refreshToken) {
           const newToken = await refreshAccessToken(account);
           if (newToken) {
-            const retryRes = await fetch(`${API_BASE}/calendars/primary/events?${params.toString()}`, {
-              headers: { Authorization: `Bearer ${newToken}` },
-            });
-            if (retryRes.ok) {
-              const retryData = await retryRes.json();
-              return { email: account.email, events: (retryData.items || []) as GoogleCalendarEvent[] };
-            }
+            const events = await fetchAllPages(newToken, timeMin, timeMax);
+            return { email: account.email, events };
           }
         }
-        throw new Error("Token expired");
+        console.error(`Failed to load calendar for ${account.email}:`, e);
+        throw e;
       }
-      if (!res.ok) throw new Error("Calendar API error");
-      const data = await res.json();
-      return { email: account.email, events: (data.items || []) as GoogleCalendarEvent[] };
     })
   );
 
