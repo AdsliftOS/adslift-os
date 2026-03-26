@@ -1071,7 +1071,7 @@ export default function AcademyPortal() {
                   >
                     <div className="relative h-44 overflow-hidden">
                       {course.thumbnail_url ? (
-                        <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                        <img src={course.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-violet-600/20 to-indigo-600/20 flex items-center justify-center">
                           <BookOpen className="h-14 w-14 text-violet-400/20" />
@@ -1137,7 +1137,7 @@ export default function AcademyPortal() {
                 >
                   <div className="relative h-44 overflow-hidden">
                     {course.thumbnail_url ? (
-                      <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                      <img src={course.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-violet-600/20 to-indigo-600/20 flex items-center justify-center">
                         <BookOpen className="h-14 w-14 text-violet-400/20" />
