@@ -1094,7 +1094,7 @@ export default function AcademyPortal() {
                       </div>
                       <div className="flex items-center justify-between pt-2">
                         <div className="flex items-center gap-2">
-                          <ProgressRing percent={pct} size={32} strokeWidth={3} textClass="text-[10px]" />
+                          <ProgressRing percent={pct} size={44} strokeWidth={3} textClass="text-[9px]" />
                           {pct === 100 && lessonCount > 0 && (
                             <Badge className="bg-emerald-500/90 text-white border-0 shadow-lg text-xs">
                               <CheckCircle2 className="h-3 w-3 mr-1" />Fertig
@@ -1158,7 +1158,7 @@ export default function AcademyPortal() {
                     </div>
                     <div className="flex items-center justify-between pt-2">
                       <div className="flex items-center gap-2">
-                        <ProgressRing percent={pct} size={32} strokeWidth={3} textClass="text-[10px]" />
+                        <ProgressRing percent={pct} size={44} strokeWidth={3} textClass="text-[9px]" />
                         {pct === 100 && lessonCount > 0 && (
                           <Badge className="bg-emerald-500/90 text-white border-0 shadow-lg text-xs">
                             <CheckCircle2 className="h-3 w-3 mr-1" />Fertig
