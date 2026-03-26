@@ -1,4 +1,13 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) return <div style={{ padding: 40, color: "red", background: "#111", minHeight: "100vh" }}><h1>Fehler</h1><pre style={{ whiteSpace: "pre-wrap" }}>{this.state.error.message}{"\n"}{this.state.error.stack}</pre></div>;
+    return this.props.children;
+  }
+}
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
@@ -101,7 +110,7 @@ const App = () => {
                       <Route path="/calendar" element={<Calendar />} />
                       <Route path="/tasks" element={<Tasks />} />
                   <Route path="/files" element={<Files />} />
-                      <Route path="/academy-admin" element={<Academy />} />
+                      <Route path="/academy-admin" element={<ErrorBoundary><Academy /></ErrorBoundary>} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </AppLayout>
