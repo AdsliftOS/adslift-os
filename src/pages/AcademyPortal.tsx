@@ -51,7 +51,7 @@ import {
   Star, Award, Eye, Timer, Play, SkipForward, X, Printer,
   StickyNote, TrendingUp, Flame, Bell, MessageSquare, Send,
   FileText, Trophy, Target, Zap, Bookmark, Heart, Sparkles,
-  User, Settings, ChevronLeft,
+  User, Settings, ChevronLeft, Sun, Moon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -221,6 +221,17 @@ function ProgressRing({ percent, size = 64, strokeWidth = 5, className = "", tex
 export default function AcademyPortal() {
   const [view, setView] = useState<PortalView>("login");
   const [session, setSession] = useState<CustomerSession | null>(null);
+
+  // Theme
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    return (localStorage.getItem("academy_theme") as "dark" | "light") || "dark";
+  });
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    localStorage.setItem("academy_theme", next);
+  };
+  const isDark = theme === "dark";
 
   // Login
   const [loginEmail, setLoginEmail] = useState("");
@@ -805,17 +816,19 @@ export default function AcademyPortal() {
   // PORTAL LAYOUT
   // ══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="min-h-screen text-white" style={{ background: "#0a0a0f" }}>
+    <div className={`min-h-screen transition-colors duration-300 ${isDark ? "text-white" : "text-gray-900"}`} style={{ background: isDark ? "#0a0a0f" : "#f5f5f7" }}>
       <Sonner />
 
       {/* Background orbs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-violet-600/[0.04] rounded-full blur-[150px]" />
-        <div className="absolute bottom-0 left-1/4 w-[500px] h-[500px] bg-indigo-600/[0.03] rounded-full blur-[150px]" />
-      </div>
+      {isDark && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+          <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-violet-600/[0.04] rounded-full blur-[150px]" />
+          <div className="absolute bottom-0 left-1/4 w-[500px] h-[500px] bg-indigo-600/[0.03] rounded-full blur-[150px]" />
+        </div>
+      )}
 
       {/* ── Fixed Header ── */}
-      <header className="sticky top-0 z-50 border-b border-white/[0.04] backdrop-blur-2xl" style={{ background: "rgba(10,10,15,0.8)" }}>
+      <header className={`sticky top-0 z-50 border-b backdrop-blur-2xl ${isDark ? "border-white/[0.04]" : "border-gray-200"}`} style={{ background: isDark ? "rgba(10,10,15,0.8)" : "rgba(255,255,255,0.85)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           {/* Left */}
           <div className="flex items-center gap-3 shrink-0">
@@ -920,6 +933,13 @@ export default function AcademyPortal() {
                       </button>
                     ))}
                     <div className="border-t border-white/[0.04] mt-1 pt-1">
+                      <button
+                        onClick={() => { toggleTheme(); setShowUserMenu(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm ${isDark ? "text-white/60 hover:text-white" : "text-gray-600 hover:text-gray-900"} hover:bg-white/[0.04] transition-colors`}
+                      >
+                        {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                        {isDark ? "Light Mode" : "Dark Mode"}
+                      </button>
                       <button
                         onClick={() => { handleLogout(); setShowUserMenu(false); }}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/[0.05] transition-colors"
@@ -1919,6 +1939,18 @@ export default function AcademyPortal() {
                 );
               })}
             </div>
+          </div>
+
+          {/* Theme Toggle */}
+          <div className={`rounded-2xl border p-6 flex items-center justify-between ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+            <div>
+              <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Erscheinungsbild</h3>
+              <p className={`text-sm ${isDark ? "text-white/40" : "text-gray-500"}`}>{isDark ? "Dark Mode aktiv" : "Light Mode aktiv"}</p>
+            </div>
+            <Button onClick={toggleTheme} variant="outline" className={`rounded-xl gap-2 ${isDark ? "border-white/10 text-white hover:bg-white/5" : "border-gray-300 text-gray-700 hover:bg-gray-100"}`}>
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {isDark ? "Light Mode" : "Dark Mode"}
+            </Button>
           </div>
 
           {/* Logout */}
