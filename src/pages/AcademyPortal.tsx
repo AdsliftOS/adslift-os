@@ -187,7 +187,7 @@ function formatMinutes(m: number): string {
 }
 
 // ─── Circular Progress Ring ──────────────────────────────────────────────────
-function ProgressRing({ percent, size = 64, strokeWidth = 5, className = "", textClass = "" }: { percent: number; size?: number; strokeWidth?: number; className?: string; textClass?: string }) {
+function ProgressRing({ percent, size = 64, strokeWidth = 5, className = "", textClass = "", isDark = true }: { percent: number; size?: number; strokeWidth?: number; className?: string; textClass?: string; isDark?: boolean }) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (percent / 100) * circumference;
@@ -195,7 +195,7 @@ function ProgressRing({ percent, size = 64, strokeWidth = 5, className = "", tex
   return (
     <div className={`relative inline-flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
       <svg width={size} height={size} className="transform -rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} stroke="currentColor" strokeWidth={strokeWidth} fill="none" className="text-white/[0.06]" />
+        <circle cx={size / 2} cy={size / 2} r={radius} stroke="currentColor" strokeWidth={strokeWidth} fill="none" className={isDark ? "text-white/[0.06]" : "text-gray-200"} />
         <circle
           cx={size / 2} cy={size / 2} r={radius}
           stroke={`url(#${gradientId})`} strokeWidth={strokeWidth} fill="none"
@@ -210,7 +210,7 @@ function ProgressRing({ percent, size = 64, strokeWidth = 5, className = "", tex
           </linearGradient>
         </defs>
       </svg>
-      <span className={`absolute font-bold text-white ${textClass || (size > 80 ? "text-xl" : size > 50 ? "text-sm" : "text-xs")}`}>{percent}%</span>
+      <span className={`absolute font-bold ${isDark ? "text-white" : "text-gray-900"} ${textClass || (size > 80 ? "text-xl" : size > 50 ? "text-sm" : "text-xs")}`}>{percent}%</span>
     </div>
   );
 }
@@ -748,12 +748,22 @@ export default function AcademyPortal() {
   // ══════════════════════════════════════════════════════════════════════════
   if (view === "login") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ background: "#0a0a0f" }}>
+      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ background: isDark ? "#0a0a0f" : "#f5f5f7" }}>
         <Sonner />
         {/* Animated gradient orbs */}
-        <div className="absolute top-1/4 -left-32 w-[500px] h-[500px] bg-violet-600/15 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-1/4 -right-32 w-[500px] h-[500px] bg-indigo-600/15 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: "1.5s" }} />
-        <div className="absolute top-2/3 left-1/3 w-[300px] h-[300px] bg-purple-500/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: "3s" }} />
+        {isDark && (
+          <>
+            <div className="absolute top-1/4 -left-32 w-[500px] h-[500px] bg-violet-600/15 rounded-full blur-[120px] animate-pulse" />
+            <div className="absolute bottom-1/4 -right-32 w-[500px] h-[500px] bg-indigo-600/15 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: "1.5s" }} />
+            <div className="absolute top-2/3 left-1/3 w-[300px] h-[300px] bg-purple-500/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: "3s" }} />
+          </>
+        )}
+        {!isDark && (
+          <>
+            <div className="absolute top-1/4 -left-32 w-[500px] h-[500px] bg-violet-300/10 rounded-full blur-[120px] animate-pulse" />
+            <div className="absolute bottom-1/4 -right-32 w-[500px] h-[500px] bg-indigo-300/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: "1.5s" }} />
+          </>
+        )}
 
         <div className="w-full max-w-md relative z-10">
           {/* Logo */}
@@ -762,31 +772,31 @@ export default function AcademyPortal() {
               <img src="/favicon.png" alt="Adslift" className="h-10 w-10 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
               <GraduationCap className="h-10 w-10 text-white" />
             </div>
-            <h1 className="text-4xl font-bold text-white tracking-tight">Adslift Academy</h1>
-            <p className="text-white/40 mt-3 text-lg">Willkommen zuruck</p>
+            <h1 className={`text-4xl font-bold tracking-tight ${isDark ? "text-white" : "text-gray-900"}`}>Adslift Academy</h1>
+            <p className={`mt-3 text-lg ${isDark ? "text-white/40" : "text-gray-400"}`}>Willkommen zuruck</p>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-2xl shadow-2xl shadow-black/40 p-8 space-y-6">
+          <div className={`rounded-2xl border backdrop-blur-2xl shadow-2xl p-8 space-y-6 ${isDark ? "border-white/[0.06] bg-white/[0.03] shadow-black/40" : "border-gray-200 bg-white shadow-gray-200/50"}`}>
             <div className="space-y-2">
-              <Label className="text-white/60 text-sm font-medium">E-Mail</Label>
+              <Label className={`text-sm font-medium ${isDark ? "text-white/60" : "text-gray-600"}`}>E-Mail</Label>
               <Input
                 type="email"
                 placeholder="deine@email.de"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-violet-500/50 focus:ring-violet-500/20 h-12 rounded-xl text-base"
+                className={`focus:border-violet-500/50 focus:ring-violet-500/20 h-12 rounded-xl text-base ${isDark ? "bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20" : "bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-300"}`}
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-white/60 text-sm font-medium">Passwort</Label>
+              <Label className={`text-sm font-medium ${isDark ? "text-white/60" : "text-gray-600"}`}>Passwort</Label>
               <Input
                 type="password"
                 placeholder="Dein Passwort"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-violet-500/50 focus:ring-violet-500/20 h-12 rounded-xl text-base"
+                className={`focus:border-violet-500/50 focus:ring-violet-500/20 h-12 rounded-xl text-base ${isDark ? "bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20" : "bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-300"}`}
               />
             </div>
             <Button
@@ -803,7 +813,7 @@ export default function AcademyPortal() {
             </Button>
           </div>
 
-          <p className="text-center text-sm text-white/20 mt-8">
+          <p className={`text-center text-sm mt-8 ${isDark ? "text-white/20" : "text-gray-300"}`}>
             Probleme beim Login? Schreib uns an{" "}
             <a href="mailto:support@adslift.de" className="text-violet-400 hover:text-violet-300 transition-colors">support@adslift.de</a>
           </p>
@@ -842,7 +852,7 @@ export default function AcademyPortal() {
                   else if (view === "course-detail") setView("courses");
                   else setView("dashboard");
                 }}
-                className="text-white/40 hover:text-white hover:bg-white/[0.05] rounded-xl transition-all duration-200"
+                className={`rounded-xl transition-all duration-200 ${isDark ? "text-white/40 hover:text-white hover:bg-white/[0.05]" : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"}`}
               >
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 <span className="hidden sm:inline">Zuruck</span>
@@ -855,14 +865,14 @@ export default function AcademyPortal() {
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
                 <GraduationCap className="h-4 w-4 text-white" />
               </div>
-              <span className="font-bold text-base text-white hidden sm:block">Academy</span>
+              <span className={`font-bold text-base hidden sm:block ${isDark ? "text-white" : "text-gray-900"}`}>Academy</span>
             </button>
           </div>
 
           {/* Center: Search */}
           <div className="flex-1 max-w-md mx-4 hidden md:block">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/20" />
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${isDark ? "text-white/20" : "text-gray-300"}`} />
               <Input
                 placeholder="Kurse & Lektionen durchsuchen..."
                 value={searchQuery}
@@ -871,7 +881,7 @@ export default function AcademyPortal() {
                   if (e.target.value.trim() && view !== "search") setView("search");
                   if (!e.target.value.trim() && view === "search") setView("dashboard");
                 }}
-                className="pl-10 bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/20 focus:border-violet-500/40 focus:ring-violet-500/10 h-10 rounded-xl"
+                className={`pl-10 focus:border-violet-500/40 focus:ring-violet-500/10 h-10 rounded-xl ${isDark ? "bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/20" : "bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-300"}`}
               />
             </div>
           </div>
@@ -882,7 +892,7 @@ export default function AcademyPortal() {
             <Button
               variant="ghost" size="sm"
               onClick={() => { if (view === "search") { setSearchQuery(""); setView("dashboard"); } else { setView("search"); } }}
-              className="md:hidden text-white/40 hover:text-white hover:bg-white/[0.05] rounded-xl"
+              className={`md:hidden rounded-xl ${isDark ? "text-white/40 hover:text-white hover:bg-white/[0.05]" : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"}`}
             >
               <Search className="h-4 w-4" />
             </Button>
@@ -891,7 +901,7 @@ export default function AcademyPortal() {
             <Button
               variant="ghost" size="sm"
               onClick={() => setView("downloads")}
-              className="text-white/40 hover:text-white hover:bg-white/[0.05] rounded-xl gap-1.5"
+              className={`rounded-xl gap-1.5 ${isDark ? "text-white/40 hover:text-white hover:bg-white/[0.05]" : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"}`}
             >
               <Download className="h-4 w-4" />
               <span className="hidden sm:inline text-xs">Skripte & Assets</span>
@@ -901,22 +911,22 @@ export default function AcademyPortal() {
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 pl-2 ml-1 border-l border-white/[0.06] hover:opacity-80 transition-opacity"
+                className={`flex items-center gap-2 pl-2 ml-1 border-l hover:opacity-80 transition-opacity ${isDark ? "border-white/[0.06]" : "border-gray-200"}`}
               >
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500/30 to-indigo-500/30 border border-white/[0.08] flex items-center justify-center text-sm font-bold text-violet-300">
+                <div className={`w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500/30 to-indigo-500/30 border flex items-center justify-center text-sm font-bold text-violet-300 ${isDark ? "border-white/[0.08]" : "border-gray-200"}`}>
                   {session?.name?.charAt(0)?.toUpperCase() || "?"}
                 </div>
-                <span className="text-sm text-white/60 hidden lg:block max-w-[100px] truncate">{session?.name?.split(" ")[0]}</span>
-                <ChevronDown className="h-3 w-3 text-white/30 hidden lg:block" />
+                <span className={`text-sm hidden lg:block max-w-[100px] truncate ${isDark ? "text-white/60" : "text-gray-600"}`}>{session?.name?.split(" ")[0]}</span>
+                <ChevronDown className={`h-3 w-3 hidden lg:block ${isDark ? "text-white/30" : "text-gray-400"}`} />
               </button>
 
               {showUserMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-white/[0.06] bg-[#12121a]/95 backdrop-blur-2xl shadow-2xl z-50 py-2 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-white/[0.04]">
-                      <p className="text-sm font-medium text-white">{session?.name}</p>
-                      <p className="text-xs text-white/40">{session?.email}</p>
+                  <div className={`absolute right-0 top-full mt-2 w-56 rounded-2xl border backdrop-blur-2xl shadow-2xl z-50 py-2 overflow-hidden ${isDark ? "border-white/[0.06] bg-[#12121a]/95" : "border-gray-200 bg-white/98"}`} style={{ background: isDark ? "rgba(10,10,15,0.95)" : "rgba(255,255,255,0.98)" }}>
+                    <div className={`px-4 py-3 border-b ${isDark ? "border-white/[0.04]" : "border-gray-100"}`}>
+                      <p className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{session?.name}</p>
+                      <p className={`text-xs ${isDark ? "text-white/40" : "text-gray-400"}`}>{session?.email}</p>
                     </div>
                     {[
                       { label: "Profil", icon: User, view: "profile" as PortalView },
@@ -926,16 +936,16 @@ export default function AcademyPortal() {
                       <button
                         key={item.label}
                         onClick={() => { setView(item.view); setShowUserMenu(false); }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors"
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${isDark ? "text-white/60 hover:text-white hover:bg-white/[0.04]" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"}`}
                       >
                         <item.icon className="h-4 w-4" />
                         {item.label}
                       </button>
                     ))}
-                    <div className="border-t border-white/[0.04] mt-1 pt-1">
+                    <div className={`border-t mt-1 pt-1 ${isDark ? "border-white/[0.04]" : "border-gray-100"}`}>
                       <button
                         onClick={() => { toggleTheme(); setShowUserMenu(false); }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm ${isDark ? "text-white/60 hover:text-white" : "text-gray-600 hover:text-gray-900"} hover:bg-white/[0.04] transition-colors`}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${isDark ? "text-white/60 hover:text-white hover:bg-white/[0.04]" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"}`}
                       >
                         {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                         {isDark ? "Light Mode" : "Dark Mode"}
@@ -967,12 +977,12 @@ export default function AcademyPortal() {
                 {session?.name?.split(" ")[0]}
               </span>
             </h1>
-            <p className="text-white/30 mt-2 text-lg">Dein nachster Erfolg wartet auf dich.</p>
+            <p className={`mt-2 text-lg ${isDark ? "text-white/30" : "text-gray-400"}`}>Dein nachster Erfolg wartet auf dich.</p>
           </div>
 
           {/* Continue Learning */}
           {lastWatched && (
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl overflow-hidden group hover:border-violet-500/20 transition-all duration-300">
+            <div className={`rounded-2xl border backdrop-blur-xl overflow-hidden group hover:border-violet-500/20 transition-all duration-300 ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
               <div className="flex flex-col sm:flex-row">
                 <div className="sm:w-72 h-44 sm:h-auto bg-gradient-to-br from-violet-600/20 to-indigo-600/20 relative shrink-0 overflow-hidden">
                   {lastWatched.course.thumbnail_url ? (
@@ -982,18 +992,18 @@ export default function AcademyPortal() {
                       <PlayCircle className="h-14 w-14 text-violet-400/30" />
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#0a0a0f]/80 hidden sm:block" />
+                  <div className={`absolute inset-0 bg-gradient-to-r from-transparent hidden sm:block ${isDark ? "to-[#0a0a0f]/80" : "to-white/80"}`} />
                 </div>
                 <div className="flex-1 p-6 sm:p-8 flex flex-col justify-between">
                   <div>
                     <Badge className="bg-violet-500/10 text-violet-300 border-violet-500/20 hover:bg-violet-500/10 mb-3 text-xs">
                       Weiter lernen
                     </Badge>
-                    <h3 className="text-xl font-bold text-white mb-1">{lastWatched.lesson.title}</h3>
-                    <p className="text-sm text-white/40">{lastWatched.course.title}</p>
+                    <h3 className={`text-xl font-bold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>{lastWatched.lesson.title}</h3>
+                    <p className={`text-sm ${isDark ? "text-white/40" : "text-gray-400"}`}>{lastWatched.course.title}</p>
                   </div>
                   <div className="mt-5">
-                    <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden mb-5">
+                    <div className={`h-1.5 rounded-full overflow-hidden mb-5 ${isDark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
                       <div className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500" style={{ width: `${getCourseProgress(lastWatched.course.id)}%` }} />
                     </div>
                     <Button
@@ -1019,13 +1029,13 @@ export default function AcademyPortal() {
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl p-5 hover:bg-white/[0.05] transition-all duration-300 group"
+                className={`rounded-2xl border backdrop-blur-xl p-5 transition-all duration-300 group ${isDark ? "border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.05]" : "border-gray-200 bg-white hover:bg-gray-100"}`}
               >
                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300`}>
                   <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
                 </div>
-                <p className="text-2xl font-bold text-white">{stat.value}</p>
-                <p className="text-sm text-white/30 mt-0.5">{stat.label}</p>
+                <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{stat.value}</p>
+                <p className={`text-sm mt-0.5 ${isDark ? "text-white/30" : "text-gray-400"}`}>{stat.label}</p>
               </div>
             ))}
           </div>
@@ -1033,18 +1043,18 @@ export default function AcademyPortal() {
           {/* Overall Progress + Achievements */}
           <div className="grid lg:grid-cols-3 gap-6">
             {/* Overall Progress */}
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center">
-              <ProgressRing percent={overallProgress} size={140} strokeWidth={10} textClass="text-2xl" />
-              <h3 className="text-lg font-bold text-white mt-5">Gesamtfortschritt</h3>
-              <p className="text-sm text-white/30 mt-1">
+            <div className={`rounded-2xl border backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+              <ProgressRing percent={overallProgress} size={140} strokeWidth={10} textClass="text-2xl" isDark={isDark} />
+              <h3 className={`text-lg font-bold mt-5 ${isDark ? "text-white" : "text-gray-900"}`}>Gesamtfortschritt</h3>
+              <p className={`text-sm mt-1 ${isDark ? "text-white/30" : "text-gray-400"}`}>
                 {lessons.filter((l) => isLessonCompleted(l.id)).length} von {lessons.length} Lektionen
               </p>
             </div>
 
             {/* Achievements preview */}
-            <div className="lg:col-span-2 rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl p-6">
+            <div className={`lg:col-span-2 rounded-2xl border backdrop-blur-xl p-6 ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white">Achievements</h3>
+                <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Achievements</h3>
                 <button onClick={() => setView("achievements")} className="text-sm text-violet-400 hover:text-violet-300 transition-colors">
                   Alle anzeigen <ChevronRight className="h-3.5 w-3.5 inline" />
                 </button>
@@ -1057,13 +1067,13 @@ export default function AcademyPortal() {
                       <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${
                         earned
                           ? `bg-gradient-to-br ${def.color} shadow-lg ring-2 ring-white/10`
-                          : "bg-white/[0.04] border border-white/[0.06]"
+                          : isDark ? "bg-white/[0.04] border border-white/[0.06]" : "bg-gray-100 border border-gray-200"
                       }`}>
-                        <span className={earned ? "text-white" : "text-white/20"}>
+                        <span className={earned ? "text-white" : isDark ? "text-white/20" : "text-gray-300"}>
                           {getAchievementIcon(def.icon)}
                         </span>
                       </div>
-                      <span className={`text-xs text-center leading-tight ${earned ? "text-white/60" : "text-white/20"}`}>{def.label}</span>
+                      <span className={`text-xs text-center leading-tight ${earned ? (isDark ? "text-white/60" : "text-gray-600") : (isDark ? "text-white/20" : "text-gray-300")}`}>{def.label}</span>
                     </div>
                   );
                 })}
@@ -1087,7 +1097,7 @@ export default function AcademyPortal() {
                 return (
                   <div
                     key={course.id}
-                    className="group rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl cursor-pointer transition-all duration-300 overflow-hidden hover:border-violet-500/20 hover:shadow-2xl hover:shadow-violet-500/[0.06] hover:scale-[1.02]"
+                    className={`group rounded-2xl border backdrop-blur-xl cursor-pointer transition-all duration-300 overflow-hidden hover:border-violet-500/20 hover:shadow-2xl hover:shadow-violet-500/[0.06] hover:scale-[1.02] ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}
                     onClick={() => goToCourseDetail(course.id)}
                   >
                     <div className="relative h-44 overflow-hidden bg-gradient-to-br from-violet-600/20 to-indigo-600/20">
@@ -1099,23 +1109,23 @@ export default function AcademyPortal() {
                       {course.thumbnail_url && course.thumbnail_url.startsWith("http") && (
                         <img src={course.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-transparent to-transparent" />
+                      <div className={`absolute inset-0 bg-gradient-to-t via-transparent to-transparent ${isDark ? "from-[#0a0a0f]" : "from-white"}`} />
                       {course.category && (
-                        <Badge className="absolute top-3 left-3 bg-white/10 backdrop-blur-md text-white border-white/20 text-xs z-10">
+                        <Badge className={`absolute top-3 left-3 backdrop-blur-md text-xs z-10 ${isDark ? "bg-white/10 text-white border-white/20" : "bg-black/10 text-white border-white/30"}`}>
                           {course.category}
                         </Badge>
                       )}
                     </div>
                     <div className="p-5 space-y-3">
-                      <h3 className="font-bold text-white group-hover:text-violet-300 transition-colors text-base line-clamp-1">{course.title}</h3>
-                      {course.description && <p className="text-sm text-white/30 line-clamp-2 leading-relaxed">{course.description}</p>}
-                      <div className="flex items-center gap-4 text-xs text-white/25 pt-1">
+                      <h3 className={`font-bold group-hover:text-violet-300 transition-colors text-base line-clamp-1 ${isDark ? "text-white" : "text-gray-900"}`}>{course.title}</h3>
+                      {course.description && <p className={`text-sm line-clamp-2 leading-relaxed ${isDark ? "text-white/30" : "text-gray-400"}`}>{course.description}</p>}
+                      <div className={`flex items-center gap-4 text-xs pt-1 ${isDark ? "text-white/25" : "text-gray-400"}`}>
                         <span className="flex items-center gap-1.5"><PlayCircle className="h-3.5 w-3.5" />{lessonCount} Lektionen</span>
                         {totalMin > 0 && <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{formatMinutes(totalMin)}</span>}
                       </div>
                       <div className="flex items-center justify-between pt-2">
                         <div className="flex items-center gap-2">
-                          <ProgressRing percent={pct} size={44} strokeWidth={3} textClass="text-[9px]" />
+                          <ProgressRing percent={pct} size={44} strokeWidth={3} textClass="text-[9px]" isDark={isDark} />
                           {pct === 100 && lessonCount > 0 && (
                             <Badge className="bg-emerald-500/90 text-white border-0 shadow-lg text-xs">
                               <CheckCircle2 className="h-3 w-3 mr-1" />Fertig
@@ -1124,7 +1134,7 @@ export default function AcademyPortal() {
                         </div>
                       </div>
                       <Button
-                        className="w-full mt-2 rounded-xl text-sm h-9 bg-white/[0.04] hover:bg-violet-600 border border-white/[0.06] hover:border-violet-500 text-white transition-all duration-300"
+                        className={`w-full mt-2 rounded-xl text-sm h-9 hover:bg-violet-600 border hover:border-violet-500 transition-all duration-300 ${isDark ? "bg-white/[0.04] border-white/[0.06] text-white" : "bg-gray-100 border-gray-200 text-gray-900 hover:text-white"}`}
                         variant="ghost"
                         onClick={(e) => { e.stopPropagation(); goToCourseDetail(course.id); }}
                       >
@@ -1144,7 +1154,7 @@ export default function AcademyPortal() {
         <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Alle Kurse</h1>
-            <p className="text-white/30 mt-2">Wahle einen Kurs aus, um zu starten</p>
+            <p className={`mt-2 ${isDark ? "text-white/30" : "text-gray-400"}`}>Wahle einen Kurs aus, um zu starten</p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {courses.map((course) => {
@@ -1154,7 +1164,7 @@ export default function AcademyPortal() {
               return (
                 <div
                   key={course.id}
-                  className="group rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl cursor-pointer transition-all duration-300 overflow-hidden hover:border-violet-500/20 hover:shadow-2xl hover:shadow-violet-500/[0.06] hover:scale-[1.02]"
+                  className={`group rounded-2xl border backdrop-blur-xl cursor-pointer transition-all duration-300 overflow-hidden hover:border-violet-500/20 hover:shadow-2xl hover:shadow-violet-500/[0.06] hover:scale-[1.02] ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}
                   onClick={() => goToCourseDetail(course.id)}
                 >
                   <div className="relative h-44 overflow-hidden">
@@ -1165,21 +1175,21 @@ export default function AcademyPortal() {
                         <BookOpen className="h-14 w-14 text-violet-400/20" />
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-transparent to-transparent" />
+                    <div className={`absolute inset-0 bg-gradient-to-t via-transparent to-transparent ${isDark ? "from-[#0a0a0f]" : "from-white"}`} />
                     {course.category && (
-                      <Badge className="absolute top-3 left-3 bg-white/10 backdrop-blur-md text-white border-white/20 text-xs">{course.category}</Badge>
+                      <Badge className={`absolute top-3 left-3 backdrop-blur-md text-xs ${isDark ? "bg-white/10 text-white border-white/20" : "bg-black/10 text-white border-white/30"}`}>{course.category}</Badge>
                     )}
                   </div>
                   <div className="p-5 space-y-3">
-                    <h3 className="font-bold text-white group-hover:text-violet-300 transition-colors text-base line-clamp-1">{course.title}</h3>
-                    {course.description && <p className="text-sm text-white/30 line-clamp-2 leading-relaxed">{course.description}</p>}
-                    <div className="flex items-center gap-4 text-xs text-white/25 pt-1">
+                    <h3 className={`font-bold group-hover:text-violet-300 transition-colors text-base line-clamp-1 ${isDark ? "text-white" : "text-gray-900"}`}>{course.title}</h3>
+                    {course.description && <p className={`text-sm line-clamp-2 leading-relaxed ${isDark ? "text-white/30" : "text-gray-400"}`}>{course.description}</p>}
+                    <div className={`flex items-center gap-4 text-xs pt-1 ${isDark ? "text-white/25" : "text-gray-400"}`}>
                       <span className="flex items-center gap-1.5"><PlayCircle className="h-3.5 w-3.5" />{lessonCount} Lektionen</span>
                       {totalMin > 0 && <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{formatMinutes(totalMin)}</span>}
                     </div>
                     <div className="flex items-center justify-between pt-2">
                       <div className="flex items-center gap-2">
-                        <ProgressRing percent={pct} size={44} strokeWidth={3} textClass="text-[9px]" />
+                        <ProgressRing percent={pct} size={44} strokeWidth={3} textClass="text-[9px]" isDark={isDark} />
                         {pct === 100 && lessonCount > 0 && (
                           <Badge className="bg-emerald-500/90 text-white border-0 shadow-lg text-xs">
                             <CheckCircle2 className="h-3 w-3 mr-1" />Fertig
@@ -1188,7 +1198,7 @@ export default function AcademyPortal() {
                       </div>
                     </div>
                     <Button
-                      className="w-full mt-2 rounded-xl text-sm h-9 bg-white/[0.04] hover:bg-violet-600 border border-white/[0.06] hover:border-violet-500 text-white transition-all duration-300"
+                      className={`w-full mt-2 rounded-xl text-sm h-9 hover:bg-violet-600 border hover:border-violet-500 transition-all duration-300 ${isDark ? "bg-white/[0.04] border-white/[0.06] text-white" : "bg-gray-100 border-gray-200 text-gray-900 hover:text-white"}`}
                       variant="ghost"
                       onClick={(e) => { e.stopPropagation(); goToCourseDetail(course.id); }}
                     >
@@ -1199,7 +1209,7 @@ export default function AcademyPortal() {
               );
             })}
             {courses.length === 0 && (
-              <div className="col-span-full text-center py-20 text-white/20">
+              <div className={`col-span-full text-center py-20 ${isDark ? "text-white/20" : "text-gray-300"}`}>
                 <BookOpen className="h-16 w-16 mx-auto mb-4 opacity-30" />
                 <p className="text-lg">Noch keine Kurse verfugbar</p>
               </div>
@@ -1212,15 +1222,15 @@ export default function AcademyPortal() {
       {view === "course-detail" && selectedCourse && (
         <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
           {/* Hero */}
-          <div className="relative rounded-2xl overflow-hidden bg-white/[0.02] border border-white/[0.06]">
+          <div className={`relative rounded-2xl overflow-hidden border ${isDark ? "bg-white/[0.02] border-white/[0.06]" : "bg-white border-gray-200"}`}>
             <div className="p-8 sm:p-10 flex flex-col sm:flex-row items-start gap-8">
               <div className="flex-1 space-y-4">
                 {selectedCourse.category && (
                   <Badge className="bg-violet-500/10 text-violet-300 border-violet-500/20 hover:bg-violet-500/10 text-xs">{selectedCourse.category}</Badge>
                 )}
                 <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">{selectedCourse.title}</h1>
-                {selectedCourse.description && <p className="text-white/50 text-lg leading-relaxed max-w-2xl">{selectedCourse.description}</p>}
-                <div className="flex items-center gap-6 text-sm text-white/30 pt-2">
+                {selectedCourse.description && <p className={`text-lg leading-relaxed max-w-2xl ${isDark ? "text-white/50" : "text-gray-500"}`}>{selectedCourse.description}</p>}
+                <div className={`flex items-center gap-6 text-sm pt-2 ${isDark ? "text-white/30" : "text-gray-400"}`}>
                   <span className="flex items-center gap-2"><PlayCircle className="h-4 w-4" />{courseLessons.length} Lektionen</span>
                   <span className="flex items-center gap-2"><Clock className="h-4 w-4" />{formatMinutes(courseLessons.reduce((s, l) => s + (l.duration_minutes || 0), 0))}</span>
                   <span className="flex items-center gap-2"><Download className="h-4 w-4" />{courseLessons.filter((l) => l.download_url).length} Downloads</span>
@@ -1228,10 +1238,10 @@ export default function AcademyPortal() {
                 {/* Progress bar */}
                 <div className="max-w-md">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-white/30">{getCourseProgress(selectedCourse.id)}% abgeschlossen</span>
-                    <span className="text-xs text-white/20">{courseLessons.filter((l) => isLessonCompleted(l.id)).length}/{courseLessons.length}</span>
+                    <span className={`text-xs ${isDark ? "text-white/30" : "text-gray-400"}`}>{getCourseProgress(selectedCourse.id)}% abgeschlossen</span>
+                    <span className={`text-xs ${isDark ? "text-white/20" : "text-gray-300"}`}>{courseLessons.filter((l) => isLessonCompleted(l.id)).length}/{courseLessons.length}</span>
                   </div>
-                  <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+                  <div className={`h-2 rounded-full overflow-hidden ${isDark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
                     <div className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500" style={{ width: `${getCourseProgress(selectedCourse.id)}%` }} />
                   </div>
                 </div>
@@ -1261,17 +1271,17 @@ export default function AcademyPortal() {
                   )}
                 </div>
               </div>
-              <div className="shrink-0 hidden sm:flex items-center justify-center w-[120px] h-[120px] rounded-2xl bg-white/[0.04] border border-white/[0.06]">
-                <ProgressRing percent={getCourseProgress(selectedCourse.id)} size={80} strokeWidth={6} textClass="text-lg" />
+              <div className={`shrink-0 hidden sm:flex items-center justify-center w-[120px] h-[120px] rounded-2xl border ${isDark ? "bg-white/[0.04] border-white/[0.06]" : "bg-gray-100 border-gray-200"}`}>
+                <ProgressRing percent={getCourseProgress(selectedCourse.id)} size={80} strokeWidth={6} textClass="text-lg" isDark={isDark} />
               </div>
             </div>
           </div>
 
           {/* Course description card */}
           {selectedCourse.description && (
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 space-y-3">
+            <div className={`rounded-2xl border p-6 space-y-3 ${isDark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-200 bg-gray-50"}`}>
               <h2 className="text-lg font-bold flex items-center gap-2"><BookOpen className="h-5 w-5 text-violet-400" />Was dich erwartet</h2>
-              <p className="text-white/50 leading-relaxed">{selectedCourse.description}</p>
+              <p className={`leading-relaxed ${isDark ? "text-white/50" : "text-gray-500"}`}>{selectedCourse.description}</p>
             </div>
           )}
 
@@ -1289,21 +1299,21 @@ export default function AcademyPortal() {
               return (
                 <Collapsible key={sectionKey} open={isOpen} onOpenChange={(open) => setOpenSections((prev) => ({ ...prev, [sectionKey]: open }))}>
                   <CollapsibleTrigger asChild>
-                    <button className="w-full flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-all duration-200 group">
+                    <button className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-200 group ${isDark ? "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05]" : "bg-white border-gray-200 hover:bg-gray-100"}`}>
                       <div className="flex items-center gap-3">
-                        <ChevronDown className={`h-4 w-4 text-white/30 transition-transform duration-200 ${isOpen ? "" : "-rotate-90"}`} />
+                        <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isDark ? "text-white/30" : "text-gray-400"} ${isOpen ? "" : "-rotate-90"}`} />
                         <div className="text-left">
-                          <h3 className="font-semibold text-white text-sm group-hover:text-violet-300 transition-colors">
+                          <h3 className={`font-semibold text-sm group-hover:text-violet-300 transition-colors ${isDark ? "text-white" : "text-gray-900"}`}>
                             {group.chapter ? `${gIdx + 1}. ${group.chapter.title}` : (chapteredLessons.length > 1 ? "Weitere Lektionen" : "Lektionen")}
                           </h3>
-                          <p className="text-xs text-white/25 mt-0.5">
+                          <p className={`text-xs mt-0.5 ${isDark ? "text-white/25" : "text-gray-400"}`}>
                             {group.lessons.length} Lektionen &middot; {formatMinutes(group.lessons.reduce((s, l) => s + (l.duration_minutes || 0), 0))}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         {sectionCompleted && <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
-                        <span className="text-xs text-white/25 font-medium">{sectionProgress}%</span>
+                        <span className={`text-xs font-medium ${isDark ? "text-white/25" : "text-gray-400"}`}>{sectionProgress}%</span>
                       </div>
                     </button>
                   </CollapsibleTrigger>
@@ -1317,22 +1327,22 @@ export default function AcademyPortal() {
                         return (
                           <div
                             key={lesson.id}
-                            className={`group flex items-center gap-4 p-4 rounded-xl transition-all duration-200 ${locked ? "opacity-40 cursor-not-allowed" : "hover:bg-white/[0.03] cursor-pointer"}`}
+                            className={`group flex items-center gap-4 p-4 rounded-xl transition-all duration-200 ${locked ? "opacity-40 cursor-not-allowed" : (isDark ? "hover:bg-white/[0.03]" : "hover:bg-gray-50") + " cursor-pointer"}`}
                             onClick={() => !locked && goToPlayer(selectedCourse.id, lesson.id)}
                           >
                             <div className="shrink-0">
                               {locked ? (
-                                <Lock className="h-5 w-5 text-white/20" />
+                                <Lock className={`h-5 w-5 ${isDark ? "text-white/20" : "text-gray-300"}`} />
                               ) : completed ? (
                                 <CheckCircle2 className="h-5 w-5 text-emerald-400" />
                               ) : (
-                                <Circle className="h-5 w-5 text-white/20 group-hover:text-violet-400 transition-colors" />
+                                <Circle className={`h-5 w-5 group-hover:text-violet-400 transition-colors ${isDark ? "text-white/20" : "text-gray-300"}`} />
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="text-xs text-white/15 font-mono w-6">{String(idx + 1).padStart(2, "0")}</span>
-                                <h4 className={`font-medium text-sm truncate transition-colors ${completed ? "text-white/30 line-through decoration-white/10" : "text-white group-hover:text-violet-300"}`}>
+                                <span className={`text-xs font-mono w-6 ${isDark ? "text-white/15" : "text-gray-300"}`}>{String(idx + 1).padStart(2, "0")}</span>
+                                <h4 className={`font-medium text-sm truncate transition-colors ${completed ? (isDark ? "text-white/30 line-through decoration-white/10" : "text-gray-300 line-through decoration-gray-200") : (isDark ? "text-white group-hover:text-violet-300" : "text-gray-900 group-hover:text-violet-600")}`}>
                                   {lesson.title}
                                 </h4>
                               </div>
@@ -1345,8 +1355,8 @@ export default function AcademyPortal() {
                                   <Download className="h-2.5 w-2.5 mr-0.5" />{lesson.download_name || "PDF"}
                                 </Badge>
                               )}
-                              {lesson.duration_minutes > 0 && <span className="text-xs text-white/20 tabular-nums">{lesson.duration_minutes}m</span>}
-                              {!locked && <ChevronRight className="h-4 w-4 text-white/15 group-hover:text-violet-400 transition-colors" />}
+                              {lesson.duration_minutes > 0 && <span className={`text-xs tabular-nums ${isDark ? "text-white/20" : "text-gray-300"}`}>{lesson.duration_minutes}m</span>}
+                              {!locked && <ChevronRight className={`h-4 w-4 group-hover:text-violet-400 transition-colors ${isDark ? "text-white/15" : "text-gray-300"}`} />}
                             </div>
                           </div>
                         );
@@ -1357,7 +1367,7 @@ export default function AcademyPortal() {
               );
             })}
             {courseLessons.length === 0 && (
-              <div className="text-center py-16 text-white/20">
+              <div className={`text-center py-16 ${isDark ? "text-white/20" : "text-gray-300"}`}>
                 <Lock className="h-12 w-12 mx-auto mb-3 opacity-30" />
                 <p className="text-lg">Noch keine Lektionen verfugbar</p>
               </div>
@@ -1374,19 +1384,19 @@ export default function AcademyPortal() {
             <div className="flex-1 lg:w-[75%] overflow-auto">
               <div className="p-4 sm:p-6 space-y-6">
                 {/* Breadcrumb */}
-                <div className="flex items-center gap-2 text-xs text-white/25">
+                <div className={`flex items-center gap-2 text-xs ${isDark ? "text-white/25" : "text-gray-400"}`}>
                   <button onClick={() => goToCourseDetail(selectedCourse.id)} className="hover:text-violet-400 transition-colors">{selectedCourse.title}</button>
                   <ChevronRight className="h-3 w-3" />
                   {selectedLesson.chapter_id && (() => {
                     const ch = chapters.find((c) => c.id === selectedLesson.chapter_id);
                     return ch ? <><span>{ch.title}</span><ChevronRight className="h-3 w-3" /></> : null;
                   })()}
-                  <span className="text-white/40">{selectedLesson.title}</span>
+                  <span className={isDark ? "text-white/40" : "text-gray-500"}>{selectedLesson.title}</span>
                 </div>
 
                 {/* Video Player */}
                 {getEmbedUrl(selectedLesson.vimeo_id) ? (
-                  <div className="relative w-full rounded-2xl overflow-hidden bg-black shadow-2xl shadow-black/50 ring-1 ring-white/[0.06]" style={{ paddingTop: "56.25%" }}>
+                  <div className={`relative w-full rounded-2xl overflow-hidden bg-black shadow-2xl shadow-black/50 ring-1 ${isDark ? "ring-white/[0.06]" : "ring-gray-200"}`} style={{ paddingTop: "56.25%" }}>
                     <iframe
                       src={getEmbedUrl(selectedLesson.vimeo_id)!}
                       frameBorder="0"
@@ -1396,9 +1406,9 @@ export default function AcademyPortal() {
                     />
                   </div>
                 ) : (
-                  <div className="relative w-full rounded-2xl bg-white/[0.02] ring-1 ring-white/[0.06] flex items-center justify-center" style={{ paddingTop: "56.25%" }}>
+                  <div className={`relative w-full rounded-2xl ring-1 flex items-center justify-center ${isDark ? "bg-white/[0.02] ring-white/[0.06]" : "bg-gray-50 ring-gray-200"}`} style={{ paddingTop: "56.25%" }}>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center text-white/20">
+                      <div className={`text-center ${isDark ? "text-white/20" : "text-gray-300"}`}>
                         <PlayCircle className="h-16 w-16 mx-auto mb-3 opacity-30" />
                         <p>Kein Video verfugbar</p>
                       </div>
@@ -1411,15 +1421,15 @@ export default function AcademyPortal() {
                   <div className="flex items-center justify-between p-4 rounded-2xl bg-violet-500/10 border border-violet-500/20">
                     <div className="flex items-center gap-3">
                       <SkipForward className="h-5 w-5 text-violet-400" />
-                      <span className="text-sm text-violet-200">
-                        Nachstes Video in <span className="font-bold text-white">{autoAdvanceCountdown}s</span>: {nextLesson.title}
+                      <span className={`text-sm ${isDark ? "text-violet-200" : "text-violet-700"}`}>
+                        Nachstes Video in <span className={`font-bold ${isDark ? "text-white" : "text-violet-900"}`}>{autoAdvanceCountdown}s</span>: {nextLesson.title}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button size="sm" onClick={() => { cancelAutoAdvance(); setSelectedLessonId(nextLesson.id); }} className="bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-xs h-8">
                         Jetzt abspielen
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={cancelAutoAdvance} className="text-white/40 hover:text-white hover:bg-white/[0.05] rounded-xl text-xs h-8">
+                      <Button size="sm" variant="ghost" onClick={cancelAutoAdvance} className={`rounded-xl text-xs h-8 ${isDark ? "text-white/40 hover:text-white hover:bg-white/[0.05]" : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"}`}>
                         <X className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -1431,7 +1441,7 @@ export default function AcademyPortal() {
                   <div>
                     <h1 className="text-xl sm:text-2xl font-bold">{selectedLesson.title}</h1>
                     {selectedLesson.duration_minutes > 0 && (
-                      <Badge className="mt-2 bg-white/[0.04] text-white/40 border-white/[0.06] hover:bg-white/[0.04]">
+                      <Badge className={`mt-2 ${isDark ? "bg-white/[0.04] text-white/40 border-white/[0.06] hover:bg-white/[0.04]" : "bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-100"}`}>
                         <Clock className="h-3 w-3 mr-1" />{selectedLesson.duration_minutes} Min
                       </Badge>
                     )}
@@ -1445,7 +1455,7 @@ export default function AcademyPortal() {
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-200 text-sm ${
                       isLessonBookmarked(selectedLesson.id)
                         ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
-                        : "bg-white/[0.03] border-white/[0.06] text-white/40 hover:text-yellow-400 hover:border-yellow-500/20"
+                        : isDark ? "bg-white/[0.03] border-white/[0.06] text-white/40 hover:text-yellow-400 hover:border-yellow-500/20" : "bg-white border-gray-200 text-gray-400 hover:text-yellow-400 hover:border-yellow-500/20"
                     }`}
                   >
                     <Star className={`h-4 w-4 ${isLessonBookmarked(selectedLesson.id) ? "fill-yellow-400" : ""}`} />
@@ -1455,7 +1465,7 @@ export default function AcademyPortal() {
                   {selectedLesson.download_url && (
                     <button
                       onClick={() => { logDownload(selectedLesson.id); window.open(selectedLesson.download_url, "_blank"); toast.success("Download gestartet"); }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/[0.06] bg-white/[0.03] text-white/40 hover:text-violet-400 hover:border-violet-500/20 transition-all duration-200 text-sm"
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-200 text-sm ${isDark ? "border-white/[0.06] bg-white/[0.03] text-white/40 hover:text-violet-400 hover:border-violet-500/20" : "border-gray-200 bg-white text-gray-400 hover:text-violet-600 hover:border-violet-500/20"}`}
                     >
                       <Download className="h-4 w-4" />
                       {selectedLesson.download_name || "Download"}
@@ -1479,9 +1489,9 @@ export default function AcademyPortal() {
 
                 {/* Description */}
                 {selectedLesson.description && (
-                  <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
-                    <h3 className="text-sm font-semibold text-white/60 mb-2">Beschreibung</h3>
-                    <p className={`text-sm text-white/40 leading-relaxed whitespace-pre-wrap ${!descExpanded && selectedLesson.description.length > 300 ? "line-clamp-4" : ""}`}>
+                  <div className={`p-5 rounded-2xl border ${isDark ? "bg-white/[0.02] border-white/[0.04]" : "bg-gray-50 border-gray-100"}`}>
+                    <h3 className={`text-sm font-semibold mb-2 ${isDark ? "text-white/60" : "text-gray-600"}`}>Beschreibung</h3>
+                    <p className={`text-sm leading-relaxed whitespace-pre-wrap ${isDark ? "text-white/40" : "text-gray-400"} ${!descExpanded && selectedLesson.description.length > 300 ? "line-clamp-4" : ""}`}>
                       {selectedLesson.description}
                     </p>
                     {selectedLesson.description.length > 300 && (
@@ -1494,10 +1504,10 @@ export default function AcademyPortal() {
 
                 {/* Quiz section */}
                 {selectedLesson.has_quiz && lessonQuizzes.length > 0 && isLessonCompleted(selectedLesson.id) && (
-                  <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+                  <div className={`p-5 rounded-2xl border ${isDark ? "bg-white/[0.02] border-white/[0.04]" : "bg-gray-50 border-gray-100"}`}>
                     <div className="flex items-center gap-2 mb-4">
                       <Zap className="h-4 w-4 text-pink-400" />
-                      <h3 className="text-sm font-semibold text-white/60">Quiz</h3>
+                      <h3 className={`text-sm font-semibold ${isDark ? "text-white/60" : "text-gray-600"}`}>Quiz</h3>
                       {(quizSubmitted || quizAlreadyDone) && (
                         <Badge className={`ml-auto ${
                           lessonQuizzes.every((q) => {
@@ -1516,7 +1526,7 @@ export default function AcademyPortal() {
                         const selectedAnswer = existingResult ? existingResult.selected_index : quizAnswers[quiz.id];
                         return (
                           <div key={quiz.id} className="space-y-3">
-                            <p className="text-sm font-medium text-white">{qi + 1}. {quiz.question}</p>
+                            <p className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{qi + 1}. {quiz.question}</p>
                             <div className="grid gap-2">
                               {[quiz.option_a, quiz.option_b, quiz.option_c, quiz.option_d].map((opt, oi) => {
                                 if (!opt) return null;
@@ -1533,10 +1543,10 @@ export default function AcademyPortal() {
                                           ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                                           : isSelected
                                             ? "bg-red-500/10 border-red-500/20 text-red-400"
-                                            : "bg-white/[0.02] border-white/[0.04] text-white/30"
+                                            : isDark ? "bg-white/[0.02] border-white/[0.04] text-white/30" : "bg-gray-50 border-gray-100 text-gray-400"
                                         : isSelected
                                           ? "bg-violet-500/10 border-violet-500/30 text-violet-300"
-                                          : "bg-white/[0.02] border-white/[0.06] text-white/50 hover:bg-white/[0.04] hover:border-white/[0.1]"
+                                          : isDark ? "bg-white/[0.02] border-white/[0.06] text-white/50 hover:bg-white/[0.04] hover:border-white/[0.1]" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-100 hover:border-gray-300"
                                     }`}
                                   >
                                     <span className="font-medium mr-2">{String.fromCharCode(65 + oi)})</span>
@@ -1562,10 +1572,10 @@ export default function AcademyPortal() {
                 )}
 
                 {/* Notes */}
-                <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+                <div className={`p-5 rounded-2xl border ${isDark ? "bg-white/[0.02] border-white/[0.04]" : "bg-gray-50 border-gray-100"}`}>
                   <div className="flex items-center gap-2 mb-3">
                     <StickyNote className="h-4 w-4 text-violet-400" />
-                    <h3 className="text-sm font-semibold text-white/60">Meine Notizen</h3>
+                    <h3 className={`text-sm font-semibold ${isDark ? "text-white/60" : "text-gray-600"}`}>Meine Notizen</h3>
                   </div>
                   <Textarea
                     placeholder="Schreibe hier deine Notizen zu dieser Lektion..."
@@ -1574,30 +1584,30 @@ export default function AcademyPortal() {
                       setCurrentNote(e.target.value);
                       saveNote(selectedLesson.id, e.target.value);
                     }}
-                    className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/15 focus:border-violet-500/40 focus:ring-violet-500/10 rounded-xl min-h-[100px] resize-none"
+                    className={`focus:border-violet-500/40 focus:ring-violet-500/10 rounded-xl min-h-[100px] resize-none ${isDark ? "bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/15" : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-300"}`}
                   />
                 </div>
 
                 {/* Comments */}
-                <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+                <div className={`p-5 rounded-2xl border ${isDark ? "bg-white/[0.02] border-white/[0.04]" : "bg-gray-50 border-gray-100"}`}>
                   <div className="flex items-center gap-2 mb-4">
                     <MessageSquare className="h-4 w-4 text-blue-400" />
-                    <h3 className="text-sm font-semibold text-white/60">Kommentare ({lessonComments.length})</h3>
+                    <h3 className={`text-sm font-semibold ${isDark ? "text-white/60" : "text-gray-600"}`}>Kommentare ({lessonComments.length})</h3>
                   </div>
                   {/* Comment list */}
                   {lessonComments.length > 0 && (
                     <div className="space-y-3 mb-4 max-h-[300px] overflow-auto">
                       {lessonComments.map((comment) => (
-                        <div key={comment.id} className="flex gap-3 p-3 rounded-xl bg-white/[0.02]">
-                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 border border-white/[0.06] flex items-center justify-center text-xs font-bold text-violet-300 shrink-0">
+                        <div key={comment.id} className={`flex gap-3 p-3 rounded-xl ${isDark ? "bg-white/[0.02]" : "bg-white"}`}>
+                          <div className={`w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 border flex items-center justify-center text-xs font-bold text-violet-300 shrink-0 ${isDark ? "border-white/[0.06]" : "border-gray-200"}`}>
                             {comment.customer_name?.charAt(0)?.toUpperCase() || "?"}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-white/70">{comment.customer_name}</span>
-                              <span className="text-xs text-white/20">{new Date(comment.created_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                              <span className={`text-sm font-medium ${isDark ? "text-white/70" : "text-gray-700"}`}>{comment.customer_name}</span>
+                              <span className={`text-xs ${isDark ? "text-white/20" : "text-gray-300"}`}>{new Date(comment.created_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
                             </div>
-                            <p className="text-sm text-white/40 mt-1">{comment.content}</p>
+                            <p className={`text-sm mt-1 ${isDark ? "text-white/40" : "text-gray-400"}`}>{comment.content}</p>
                           </div>
                         </div>
                       ))}
@@ -1610,7 +1620,7 @@ export default function AcademyPortal() {
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && submitComment(selectedLesson.id)}
-                      className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/15 focus:border-violet-500/40 rounded-xl"
+                      className={`focus:border-violet-500/40 rounded-xl ${isDark ? "bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/15" : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-300"}`}
                     />
                     <Button
                       onClick={() => submitComment(selectedLesson.id)}
@@ -1628,7 +1638,7 @@ export default function AcademyPortal() {
                     <Button
                       variant="ghost"
                       onClick={() => { cancelAutoAdvance(); setSelectedLessonId(prevLesson.id); }}
-                      className="text-white/40 hover:text-white hover:bg-white/[0.05] rounded-xl"
+                      className={`rounded-xl ${isDark ? "text-white/40 hover:text-white hover:bg-white/[0.05]" : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"}`}
                     >
                       <ChevronLeft className="h-4 w-4 mr-2" />
                       Vorherige Lektion
@@ -1637,7 +1647,7 @@ export default function AcademyPortal() {
                   {nextLesson && (
                     <Button
                       onClick={() => { cancelAutoAdvance(); setSelectedLessonId(nextLesson.id); }}
-                      className="bg-white/[0.05] hover:bg-violet-600 border border-white/[0.06] hover:border-violet-500 text-white rounded-xl transition-all duration-300"
+                      className={`hover:bg-violet-600 border hover:border-violet-500 rounded-xl transition-all duration-300 ${isDark ? "bg-white/[0.05] border-white/[0.06] text-white" : "bg-gray-100 border-gray-200 text-gray-900 hover:text-white"}`}
                     >
                       Nachste Lektion
                       <ChevronRight className="h-4 w-4 ml-2" />
@@ -1648,14 +1658,14 @@ export default function AcademyPortal() {
             </div>
 
             {/* Sidebar (25%) */}
-            <div className="lg:w-[25%] lg:min-w-[300px] border-l border-white/[0.04] bg-white/[0.01]">
+            <div className={`lg:w-[25%] lg:min-w-[300px] border-l ${isDark ? "border-white/[0.04] bg-white/[0.01]" : "border-gray-200 bg-gray-50/50"}`}>
               <div className="sticky top-16 h-[calc(100vh-4rem)] flex flex-col">
-                <div className="p-4 border-b border-white/[0.04]">
-                  <h3 className="font-bold text-white text-sm truncate">{selectedCourse.title}</h3>
-                  <p className="text-xs text-white/25 mt-1">
+                <div className={`p-4 border-b ${isDark ? "border-white/[0.04]" : "border-gray-200"}`}>
+                  <h3 className={`font-bold text-sm truncate ${isDark ? "text-white" : "text-gray-900"}`}>{selectedCourse.title}</h3>
+                  <p className={`text-xs mt-1 ${isDark ? "text-white/25" : "text-gray-400"}`}>
                     {courseLessons.filter((l) => isLessonCompleted(l.id)).length}/{courseLessons.length} abgeschlossen
                   </p>
-                  <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden mt-3">
+                  <div className={`h-1 rounded-full overflow-hidden mt-3 ${isDark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
                     <div className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500" style={{ width: `${getCourseProgress(selectedCourse.id)}%` }} />
                   </div>
                 </div>
@@ -1678,28 +1688,28 @@ export default function AcademyPortal() {
                               ? "bg-violet-500/10 border border-violet-500/20"
                               : locked
                                 ? "opacity-30 border border-transparent"
-                                : "hover:bg-white/[0.03] border border-transparent"
+                                : isDark ? "hover:bg-white/[0.03] border border-transparent" : "hover:bg-gray-100 border border-transparent"
                           }`}
                         >
                           <div className="shrink-0 mt-0.5">
                             {locked ? (
-                              <Lock className="h-4 w-4 text-white/20" />
+                              <Lock className={`h-4 w-4 ${isDark ? "text-white/20" : "text-gray-300"}`} />
                             ) : completed ? (
                               <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                             ) : isCurrent ? (
                               <PlayCircle className="h-4 w-4 text-violet-400" />
                             ) : (
-                              <Circle className="h-4 w-4 text-white/20" />
+                              <Circle className={`h-4 w-4 ${isDark ? "text-white/20" : "text-gray-300"}`} />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className={`text-sm font-medium truncate transition-colors ${
-                              isCurrent ? "text-violet-300" : completed ? "text-white/30" : "text-white/60 group-hover:text-white"
+                              isCurrent ? "text-violet-300" : completed ? (isDark ? "text-white/30" : "text-gray-300") : (isDark ? "text-white/60 group-hover:text-white" : "text-gray-600 group-hover:text-gray-900")
                             }`}>
                               {idx + 1}. {lesson.title}
                             </p>
                             {lesson.duration_minutes > 0 && (
-                              <span className="text-xs text-white/15 mt-0.5 block">{lesson.duration_minutes} Min</span>
+                              <span className={`text-xs mt-0.5 block ${isDark ? "text-white/15" : "text-gray-300"}`}>{lesson.duration_minutes} Min</span>
                             )}
                           </div>
                         </button>
@@ -1708,10 +1718,10 @@ export default function AcademyPortal() {
                   </div>
                 </ScrollArea>
                 {nextLesson && (
-                  <div className="p-3 border-t border-white/[0.04]">
+                  <div className={`p-3 border-t ${isDark ? "border-white/[0.04]" : "border-gray-200"}`}>
                     <Button
                       onClick={() => { cancelAutoAdvance(); setSelectedLessonId(nextLesson.id); }}
-                      className="w-full bg-white/[0.04] hover:bg-violet-600 border border-white/[0.06] hover:border-violet-500 text-white rounded-xl transition-all duration-300 text-sm"
+                      className={`w-full hover:bg-violet-600 border hover:border-violet-500 rounded-xl transition-all duration-300 text-sm ${isDark ? "bg-white/[0.04] border-white/[0.06] text-white" : "bg-gray-100 border-gray-200 text-gray-900 hover:text-white"}`}
                     >
                       Nachstes Video
                       <SkipForward className="h-4 w-4 ml-2" />
@@ -1730,30 +1740,30 @@ export default function AcademyPortal() {
           {/* Mobile search input */}
           <div className="md:hidden">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/20" />
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${isDark ? "text-white/20" : "text-gray-300"}`} />
               <Input
                 placeholder="Suchen..."
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); if (!e.target.value.trim()) setView("dashboard"); }}
                 autoFocus
-                className="pl-10 bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/20 h-10 rounded-xl"
+                className={`pl-10 h-10 rounded-xl ${isDark ? "bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/20" : "bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-300"}`}
               />
             </div>
           </div>
           <div>
             <h1 className="text-2xl font-bold">Suchergebnisse</h1>
-            <p className="text-white/30 mt-1">
+            <p className={`mt-1 ${isDark ? "text-white/30" : "text-gray-400"}`}>
               {searchQuery.trim() ? `${searchResults.courses.length + searchResults.lessons.length} Ergebnisse fur "${searchQuery}"` : "Gib einen Suchbegriff ein"}
             </p>
           </div>
           {searchResults.courses.length > 0 && (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-white/60">Kurse</h2>
+              <h2 className={`text-lg font-semibold ${isDark ? "text-white/60" : "text-gray-600"}`}>Kurse</h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {searchResults.courses.map((course) => (
-                  <div key={course.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl cursor-pointer hover:border-violet-500/20 hover:scale-[1.02] transition-all duration-300 group p-5" onClick={() => goToCourseDetail(course.id)}>
-                    <h3 className="font-bold text-white group-hover:text-violet-300 transition-colors">{course.title}</h3>
-                    {course.description && <p className="text-sm text-white/30 mt-1 line-clamp-2">{course.description}</p>}
+                  <div key={course.id} className={`rounded-2xl border backdrop-blur-xl cursor-pointer hover:border-violet-500/20 hover:scale-[1.02] transition-all duration-300 group p-5 ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`} onClick={() => goToCourseDetail(course.id)}>
+                    <h3 className={`font-bold group-hover:text-violet-300 transition-colors ${isDark ? "text-white" : "text-gray-900"}`}>{course.title}</h3>
+                    {course.description && <p className={`text-sm mt-1 line-clamp-2 ${isDark ? "text-white/30" : "text-gray-400"}`}>{course.description}</p>}
                   </div>
                 ))}
               </div>
@@ -1761,19 +1771,19 @@ export default function AcademyPortal() {
           )}
           {searchResults.lessons.length > 0 && (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-white/60">Lektionen</h2>
+              <h2 className={`text-lg font-semibold ${isDark ? "text-white/60" : "text-gray-600"}`}>Lektionen</h2>
               <div className="space-y-2">
                 {searchResults.lessons.map((lesson) => {
                   const course = courses.find((c) => c.id === lesson.course_id);
                   return (
-                    <div key={lesson.id} className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] hover:border-violet-500/20 cursor-pointer transition-all duration-200 group" onClick={() => course && goToPlayer(course.id, lesson.id)}>
-                      {isLessonCompleted(lesson.id) ? <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" /> : <PlayCircle className="h-5 w-5 text-white/20 group-hover:text-violet-400 shrink-0 transition-colors" />}
+                    <div key={lesson.id} className={`flex items-center gap-4 p-4 rounded-xl border hover:border-violet-500/20 cursor-pointer transition-all duration-200 group ${isDark ? "bg-white/[0.02] border-white/[0.04] hover:bg-white/[0.04]" : "bg-gray-50 border-gray-100 hover:bg-gray-100"}`} onClick={() => course && goToPlayer(course.id, lesson.id)}>
+                      {isLessonCompleted(lesson.id) ? <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" /> : <PlayCircle className={`h-5 w-5 group-hover:text-violet-400 shrink-0 transition-colors ${isDark ? "text-white/20" : "text-gray-300"}`} />}
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-white group-hover:text-violet-300 transition-colors truncate">{lesson.title}</h4>
-                        <p className="text-xs text-white/25 mt-0.5">{course?.title}</p>
+                        <h4 className={`text-sm font-medium group-hover:text-violet-300 transition-colors truncate ${isDark ? "text-white" : "text-gray-900"}`}>{lesson.title}</h4>
+                        <p className={`text-xs mt-0.5 ${isDark ? "text-white/25" : "text-gray-400"}`}>{course?.title}</p>
                       </div>
-                      {lesson.duration_minutes > 0 && <span className="text-xs text-white/20">{lesson.duration_minutes}m</span>}
-                      <ChevronRight className="h-4 w-4 text-white/15 group-hover:text-violet-400 transition-colors shrink-0" />
+                      {lesson.duration_minutes > 0 && <span className={`text-xs ${isDark ? "text-white/20" : "text-gray-300"}`}>{lesson.duration_minutes}m</span>}
+                      <ChevronRight className={`h-4 w-4 group-hover:text-violet-400 transition-colors shrink-0 ${isDark ? "text-white/15" : "text-gray-300"}`} />
                     </div>
                   );
                 })}
@@ -1781,7 +1791,7 @@ export default function AcademyPortal() {
             </div>
           )}
           {searchQuery.trim() && searchResults.courses.length === 0 && searchResults.lessons.length === 0 && (
-            <div className="text-center py-20 text-white/20">
+            <div className={`text-center py-20 ${isDark ? "text-white/20" : "text-gray-300"}`}>
               <Search className="h-12 w-12 mx-auto mb-3 opacity-30" />
               <p className="text-lg">Keine Ergebnisse gefunden</p>
             </div>
@@ -1797,7 +1807,7 @@ export default function AcademyPortal() {
               <Download className="h-6 w-6 text-violet-400" />
               Downloads
             </h1>
-            <p className="text-white/30 mt-1">{allDownloads.length} Downloads verfugbar</p>
+            <p className={`mt-1 ${isDark ? "text-white/30" : "text-gray-400"}`}>{allDownloads.length} Downloads verfugbar</p>
           </div>
           {(() => {
             const grouped: Record<string, { course: Course; downloads: { lesson: Lesson; course: Course }[] }> = {};
@@ -1807,14 +1817,14 @@ export default function AcademyPortal() {
             });
             return Object.values(grouped).map((group) => (
               <div key={group.course.id} className="space-y-3">
-                <h2 className="text-lg font-semibold text-white/60">{group.course.title}</h2>
+                <h2 className={`text-lg font-semibold ${isDark ? "text-white/60" : "text-gray-600"}`}>{group.course.title}</h2>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {group.downloads.map((d) => (
-                    <div key={d.lesson.id} className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 hover:bg-white/[0.05] transition-all duration-200 group">
+                    <div key={d.lesson.id} className={`rounded-xl border p-4 transition-all duration-200 group ${isDark ? "border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.05]" : "border-gray-200 bg-white hover:bg-gray-100"}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-white truncate">{d.lesson.download_name || d.lesson.title}</p>
-                          <p className="text-xs text-white/25 mt-1">{d.lesson.title}</p>
+                          <p className={`text-sm font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>{d.lesson.download_name || d.lesson.title}</p>
+                          <p className={`text-xs mt-1 ${isDark ? "text-white/25" : "text-gray-400"}`}>{d.lesson.title}</p>
                           <Badge className="mt-2 text-xs bg-violet-500/10 text-violet-300 border-violet-500/20">
                             <FileText className="h-2.5 w-2.5 mr-1" />PDF
                           </Badge>
@@ -1834,7 +1844,7 @@ export default function AcademyPortal() {
             ));
           })()}
           {allDownloads.length === 0 && (
-            <div className="text-center py-20 text-white/20">
+            <div className={`text-center py-20 ${isDark ? "text-white/20" : "text-gray-300"}`}>
               <Download className="h-12 w-12 mx-auto mb-3 opacity-30" />
               <p className="text-lg">Keine Downloads verfugbar</p>
             </div>
@@ -1850,7 +1860,7 @@ export default function AcademyPortal() {
               <Award className="h-8 w-8 text-amber-400" />
               Achievements
             </h1>
-            <p className="text-white/30 mt-2">{achievements.length} von {ACHIEVEMENT_DEFS.length} freigeschaltet</p>
+            <p className={`mt-2 ${isDark ? "text-white/30" : "text-gray-400"}`}>{achievements.length} von {ACHIEVEMENT_DEFS.length} freigeschaltet</p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {ACHIEVEMENT_DEFS.map((def) => {
@@ -1858,26 +1868,26 @@ export default function AcademyPortal() {
               return (
                 <div key={def.type} className={`rounded-2xl border p-6 transition-all duration-300 ${
                   earned
-                    ? "border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.06] shadow-lg"
-                    : "border-white/[0.04] bg-white/[0.01] opacity-50"
+                    ? isDark ? "border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.06] shadow-lg" : "border-gray-200 bg-white hover:bg-gray-50 shadow-lg"
+                    : isDark ? "border-white/[0.04] bg-white/[0.01] opacity-50" : "border-gray-100 bg-gray-50 opacity-50"
                 }`}>
                   <div className="flex items-center gap-4">
                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${
                       earned
                         ? `bg-gradient-to-br ${def.color} shadow-lg ring-2 ring-white/10`
-                        : "bg-white/[0.04] border border-white/[0.06]"
+                        : isDark ? "bg-white/[0.04] border border-white/[0.06]" : "bg-gray-100 border border-gray-200"
                     }`}>
-                      <span className={earned ? "text-white" : "text-white/20"}>
+                      <span className={earned ? "text-white" : isDark ? "text-white/20" : "text-gray-300"}>
                         {getAchievementIcon(def.icon)}
                       </span>
                     </div>
                     <div>
-                      <h3 className={`font-bold ${earned ? "text-white" : "text-white/30"}`}>{def.label}</h3>
-                      <p className={`text-sm mt-0.5 ${earned ? "text-white/50" : "text-white/15"}`}>{def.description}</p>
+                      <h3 className={`font-bold ${earned ? (isDark ? "text-white" : "text-gray-900") : (isDark ? "text-white/30" : "text-gray-400")}`}>{def.label}</h3>
+                      <p className={`text-sm mt-0.5 ${earned ? (isDark ? "text-white/50" : "text-gray-500") : (isDark ? "text-white/15" : "text-gray-300")}`}>{def.description}</p>
                       {earned ? (
-                        <p className="text-xs text-white/25 mt-1">Freigeschaltet am {new Date(earned.earned_at).toLocaleDateString("de-DE")}</p>
+                        <p className={`text-xs mt-1 ${isDark ? "text-white/25" : "text-gray-400"}`}>Freigeschaltet am {new Date(earned.earned_at).toLocaleDateString("de-DE")}</p>
                       ) : (
-                        <p className="text-xs text-white/15 mt-1">Noch nicht freigeschaltet</p>
+                        <p className={`text-xs mt-1 ${isDark ? "text-white/15" : "text-gray-300"}`}>Noch nicht freigeschaltet</p>
                       )}
                     </div>
                   </div>
@@ -1896,14 +1906,14 @@ export default function AcademyPortal() {
           </div>
 
           {/* Avatar + Info */}
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-8">
+          <div className={`rounded-2xl border p-8 ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
             <div className="flex items-center gap-6">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500/30 to-indigo-500/30 border border-white/[0.08] flex items-center justify-center text-3xl font-bold text-violet-300">
+              <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500/30 to-indigo-500/30 border flex items-center justify-center text-3xl font-bold text-violet-300 ${isDark ? "border-white/[0.08]" : "border-gray-200"}`}>
                 {session?.name?.charAt(0)?.toUpperCase() || "?"}
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white">{session?.name}</h2>
-                <p className="text-sm text-white/40">{session?.email}</p>
+                <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{session?.name}</h2>
+                <p className={`text-sm ${isDark ? "text-white/40" : "text-gray-400"}`}>{session?.email}</p>
               </div>
             </div>
           </div>
@@ -1916,25 +1926,25 @@ export default function AcademyPortal() {
               { label: "Stunden gelernt", value: stats.hoursLearned },
               { label: "Achievements", value: achievements.length },
             ].map((s) => (
-              <div key={s.label} className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 text-center">
-                <p className="text-2xl font-bold text-white">{s.value}</p>
-                <p className="text-xs text-white/30 mt-1">{s.label}</p>
+              <div key={s.label} className={`rounded-xl border p-4 text-center ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{s.value}</p>
+                <p className={`text-xs mt-1 ${isDark ? "text-white/30" : "text-gray-400"}`}>{s.label}</p>
               </div>
             ))}
           </div>
 
           {/* Achievements earned */}
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-6">
+          <div className={`rounded-2xl border p-6 ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
             <h3 className="text-lg font-bold mb-4">Meine Achievements</h3>
             <div className="flex flex-wrap gap-3">
               {ACHIEVEMENT_DEFS.map((def) => {
                 const earned = achievements.some((a) => a.type === def.type);
                 return (
                   <div key={def.type} className={`flex items-center gap-2 px-3 py-2 rounded-xl ${
-                    earned ? `bg-gradient-to-r ${def.color} bg-opacity-10` : "bg-white/[0.03] opacity-30"
+                    earned ? `bg-gradient-to-r ${def.color} bg-opacity-10` : isDark ? "bg-white/[0.03] opacity-30" : "bg-gray-100 opacity-30"
                   }`}>
-                    <span className={earned ? "text-white" : "text-white/20"}>{getAchievementIcon(def.icon)}</span>
-                    <span className={`text-sm ${earned ? "text-white" : "text-white/20"}`}>{def.label}</span>
+                    <span className={earned ? "text-white" : isDark ? "text-white/20" : "text-gray-300"}>{getAchievementIcon(def.icon)}</span>
+                    <span className={`text-sm ${earned ? "text-white" : isDark ? "text-white/20" : "text-gray-300"}`}>{def.label}</span>
                   </div>
                 );
               })}
@@ -1963,7 +1973,7 @@ export default function AcademyPortal() {
 
       {/* ══════════════════ CERTIFICATE DIALOG ══════════════════ */}
       <Dialog open={showCertificate} onOpenChange={setShowCertificate}>
-        <DialogContent className="sm:max-w-2xl rounded-2xl p-0 overflow-hidden border-white/[0.06]" style={{ background: "#0a0a0f" }}>
+        <DialogContent className={`sm:max-w-2xl rounded-2xl p-0 overflow-hidden ${isDark ? "border-white/[0.06]" : "border-gray-200"}`} style={{ background: isDark ? "#0a0a0f" : "#ffffff" }}>
           <div className="bg-gradient-to-br from-violet-600/10 via-transparent to-indigo-600/10 p-8 sm:p-12">
             <DialogHeader className="sr-only">
               <DialogTitle>Zertifikat</DialogTitle>
@@ -1976,21 +1986,21 @@ export default function AcademyPortal() {
               </div>
               <div>
                 <p className="text-sm text-violet-400 uppercase tracking-widest font-medium">Zertifikat</p>
-                <h2 className="text-3xl sm:text-4xl font-bold text-white mt-2 tracking-tight">Kursabschluss</h2>
+                <h2 className={`text-3xl sm:text-4xl font-bold mt-2 tracking-tight ${isDark ? "text-white" : "text-gray-900"}`}>Kursabschluss</h2>
               </div>
               <div className="w-24 h-0.5 bg-gradient-to-r from-violet-500 to-indigo-500 mx-auto rounded-full" />
               <div className="space-y-4">
-                <p className="text-white/40">Hiermit wird bestatigt, dass</p>
+                <p className={isDark ? "text-white/40" : "text-gray-400"}>Hiermit wird bestatigt, dass</p>
                 <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">{session?.name}</p>
-                <p className="text-white/40">den Kurs erfolgreich abgeschlossen hat:</p>
-                <p className="text-xl font-semibold text-white">{courses.find((c) => c.id === certificateCourseId)?.title}</p>
+                <p className={isDark ? "text-white/40" : "text-gray-400"}>den Kurs erfolgreich abgeschlossen hat:</p>
+                <p className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{courses.find((c) => c.id === certificateCourseId)?.title}</p>
               </div>
               <div className="w-24 h-0.5 bg-gradient-to-r from-violet-500 to-indigo-500 mx-auto rounded-full" />
               <div>
-                <p className="text-sm text-white/25">Abgeschlossen am</p>
-                <p className="text-white font-medium mt-1">{new Date().toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })}</p>
+                <p className={`text-sm ${isDark ? "text-white/25" : "text-gray-400"}`}>Abgeschlossen am</p>
+                <p className={`font-medium mt-1 ${isDark ? "text-white" : "text-gray-900"}`}>{new Date().toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })}</p>
               </div>
-              <p className="text-sm text-white/15">Adslift Academy</p>
+              <p className={`text-sm ${isDark ? "text-white/15" : "text-gray-300"}`}>Adslift Academy</p>
             </div>
 
             <div className="flex justify-center mt-8">
