@@ -1820,7 +1820,7 @@ export default function Academy() {
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Vimeo ID</Label><Input value={lessonForm.vimeo_id} onChange={(e) => setLessonForm({ ...lessonForm, vimeo_id: e.target.value })} placeholder="123456789" /></div>
+              <div><Label>Video URL</Label><Input value={lessonForm.vimeo_id} onChange={(e) => setLessonForm({ ...lessonForm, vimeo_id: e.target.value })} placeholder="https://vimeo.com/123456789 oder https://fast.wistia.com/..." /></div>
               <div><Label>Dauer (min)</Label><Input type="number" value={lessonForm.duration_minutes} onChange={(e) => setLessonForm({ ...lessonForm, duration_minutes: parseInt(e.target.value) || 0 })} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">

@@ -1,4 +1,31 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+
+// Parse video URL into embed URL (supports Vimeo, Wistia, YouTube, Loom)
+function getEmbedUrl(input: string): string | null {
+  if (!input) return null;
+  const s = input.trim();
+
+  // Vimeo: https://vimeo.com/123456789 or https://player.vimeo.com/video/123456789 or just 123456789
+  const vimeoMatch = s.match(/vimeo\.com\/(?:video\/)?(\d+)/) || s.match(/^(\d{6,})$/);
+  if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}?badge=0&autopause=0&player_id=0&app_id=58479`;
+
+  // Wistia: https://fast.wistia.com/medias/abc123 or https://company.wistia.com/medias/abc123
+  const wistiaMatch = s.match(/wistia\.(?:com|net)\/(?:medias|embed\/iframe)\/([a-zA-Z0-9]+)/);
+  if (wistiaMatch) return `https://fast.wistia.net/embed/iframe/${wistiaMatch[1]}?seo=true&videoFoam=false`;
+
+  // YouTube: https://www.youtube.com/watch?v=xxx or https://youtu.be/xxx
+  const ytMatch = s.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+  if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+
+  // Loom: https://www.loom.com/share/xxx
+  const loomMatch = s.match(/loom\.com\/share\/([a-zA-Z0-9]+)/);
+  if (loomMatch) return `https://www.loom.com/embed/${loomMatch[1]}`;
+
+  // Already an embed URL or iframe src
+  if (s.startsWith("https://") && (s.includes("embed") || s.includes("player"))) return s;
+
+  return null;
+}
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1327,10 +1354,10 @@ export default function AcademyPortal() {
                 </div>
 
                 {/* Video Player */}
-                {selectedLesson.vimeo_id ? (
+                {getEmbedUrl(selectedLesson.vimeo_id) ? (
                   <div className="relative w-full rounded-2xl overflow-hidden bg-black shadow-2xl shadow-black/50 ring-1 ring-white/[0.06]" style={{ paddingTop: "56.25%" }}>
                     <iframe
-                      src={`https://player.vimeo.com/video/${selectedLesson.vimeo_id}?badge=0&autopause=0&player_id=0&app_id=58479`}
+                      src={getEmbedUrl(selectedLesson.vimeo_id)!}
                       frameBorder="0"
                       allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
                       allowFullScreen
