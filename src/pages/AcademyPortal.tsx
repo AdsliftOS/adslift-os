@@ -1190,16 +1190,8 @@ export default function AcademyPortal() {
       {view === "course-detail" && selectedCourse && (
         <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
           {/* Hero */}
-          <div className="relative rounded-3xl overflow-hidden">
-            <div className="absolute inset-0">
-              {selectedCourse.thumbnail_url ? (
-                <img src={selectedCourse.thumbnail_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-violet-600/20 to-indigo-800/20" />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0f] via-[#0a0a0f]/90 to-[#0a0a0f]/60" />
-            </div>
-            <div className="relative p-8 sm:p-12 flex flex-col sm:flex-row items-start gap-8">
+          <div className="relative rounded-2xl overflow-hidden bg-white/[0.02] border border-white/[0.06]">
+            <div className="p-8 sm:p-10 flex flex-col sm:flex-row items-start gap-8">
               <div className="flex-1 space-y-4">
                 {selectedCourse.category && (
                   <Badge className="bg-violet-500/10 text-violet-300 border-violet-500/20 hover:bg-violet-500/10 text-xs">{selectedCourse.category}</Badge>
