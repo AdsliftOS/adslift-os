@@ -196,8 +196,9 @@ export default function Calendar() {
     if (accounts.length === 0) return;
     setSyncing(true);
     try {
-      const timeMin = format(subWeeks(today, 4), "yyyy-MM-dd'T'00:00:00'Z'");
-      const timeMax = format(addWeeks(today, 8), "yyyy-MM-dd'T'23:59:59'Z'");
+      const currentYear = today.getFullYear();
+      const timeMin = `${currentYear}-01-01T00:00:00Z`;
+      const timeMax = `${currentYear}-12-31T23:59:59Z`;
       const allResults = await listAllEvents(timeMin, timeMax);
       const mapped: CalendarEvent[] = allResults.flatMap(({ email, events: gEvents }) => {
         const account = accounts.find((a) => a.email === email);
