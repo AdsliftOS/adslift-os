@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, Users, DollarSign, Clock, BarChart3, Megaphone, Calendar, ListTodo, FolderOpen, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Users, DollarSign, Clock, BarChart3, Megaphone, Calendar, ListTodo, FolderOpen, GraduationCap, Settings, LogOut } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -26,6 +26,7 @@ const navItems = [
   { title: "Aufgaben", url: "/tasks", icon: ListTodo },
   { title: "Dateien", url: "/files", icon: FolderOpen },
   { title: "Time Tracking", url: "/time", icon: Clock },
+  { title: "Academy", url: "/academy-admin", icon: GraduationCap },
 ];
 
 export function AppSidebar() {

@@ -23,6 +23,8 @@ import Tasks from "./pages/Tasks";
 import Files from "./pages/Files";
 import Onboarding from "./pages/Onboarding";
 import OnboardingFinanzberater from "./pages/OnboardingFinanzberater";
+import Academy from "./pages/Academy";
+import AcademyPortal from "./pages/AcademyPortal";
 import AuthCallback from "./pages/AuthCallback";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -79,8 +81,9 @@ const App = () => {
             <Routes>
               {/* Public routes — no login required */}
               <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/onboarding/finanzberater" element={<OnboardingFinanzberater />} />
+              <Route path="/onboarding/finanzberater" element={<OnboardingFinanzberater />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/academy" element={<AcademyPortal />} />
 
               {/* Everything else requires login */}
               <Route path="*" element={
@@ -98,6 +101,7 @@ const App = () => {
                       <Route path="/calendar" element={<Calendar />} />
                       <Route path="/tasks" element={<Tasks />} />
                   <Route path="/files" element={<Files />} />
+                      <Route path="/academy-admin" element={<Academy />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </AppLayout>
