@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 export type Category = "admin" | "growth" | "marketing" | "sales" | "customer-success";
 export type Priority = "high" | "medium" | "low";
@@ -67,6 +68,7 @@ export async function addTask(task: Omit<Task, "id">) {
     return data.id;
   } else {
     console.error("Failed to add task:", error);
+    toast.error("Aufgabe konnte nicht erstellt werden");
     return null;
   }
 }
@@ -89,6 +91,7 @@ export async function updateTask(id: string, updates: Partial<Task>) {
   const { data, error } = await supabase.from("tasks").update(dbUpdates).eq("id", id).select().single();
   if (error) {
     console.error("TASK UPDATE FAILED:", error, "updates:", dbUpdates, "id:", id);
+    toast.error("Aufgabe konnte nicht gespeichert werden");
     // Revert by reloading
     await loadTasks();
   } else if (data) {
@@ -106,6 +109,7 @@ export async function deleteTask(id: string) {
   const { error } = await supabase.from("tasks").delete().eq("id", id);
   if (error) {
     console.error("TASK DELETE FAILED:", error);
+    toast.error("Aufgabe konnte nicht gelöscht werden");
     await loadTasks();
   }
 }
@@ -119,6 +123,7 @@ export async function moveTask(id: string, column: Column) {
   const { data, error } = await supabase.from("tasks").update({ col: column }).eq("id", id).select().single();
   if (error) {
     console.error("TASK MOVE FAILED:", error, "column:", column, "id:", id);
+    toast.error("Spalte konnte nicht geändert werden");
     await loadTasks();
   } else if (data) {
     const updated = rowToTask(data);

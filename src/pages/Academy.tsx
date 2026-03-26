@@ -16,7 +16,7 @@ import {
   Eye, Download, Clock, TrendingUp, Activity, Award, FileQuestion, ChevronRight,
   ChevronDown, CheckCircle2, XCircle, Play, ArrowUp, ArrowDown, Shield, Ban,
   RotateCcw, CalendarPlus, Search, Filter, LayoutDashboard, ListChecks,
-  Timer, Target, Brain, Flame, MessageSquare, Layers,
+  Timer, Target, Brain, Flame, MessageSquare, Layers, GripVertical, ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -180,6 +180,15 @@ export default function Academy() {
   // Analytics
   const [analyticsRange, setAnalyticsRange] = useState<"week" | "month" | "all">("month");
 
+  // Vimeo thumbnail preview for lesson form
+  const [vimeoThumbnail, setVimeoThumbnail] = useState("");
+
+  // Drag & drop state
+  const [dragChapterId, setDragChapterId] = useState<string | null>(null);
+  const [dragLessonId, setDragLessonId] = useState<string | null>(null);
+  const [dragOverChapterId, setDragOverChapterId] = useState<string | null>(null);
+  const [dragOverLessonId, setDragOverLessonId] = useState<string | null>(null);
+
   // ─── Load data ─────────────────────────────────────────────────────────────
   const loadCourses = useCallback(async () => {
     const { data } = await supabase.from("courses").select("*").order("created_at", { ascending: false });
@@ -219,6 +228,73 @@ export default function Academy() {
     loadCustomers();
     loadAnalytics();
   }, [loadCourses, loadChapters, loadLessons, loadCustomers, loadAnalytics]);
+
+  // Vimeo thumbnail auto-fetch
+  const fetchVimeoThumbnail = useCallback(async (url: string) => {
+    if (!url) { setVimeoThumbnail(""); return; }
+    const vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?(\d+)/) || url.trim().match(/^(\d{6,})$/);
+    if (!vimeoMatch) { setVimeoThumbnail(""); return; }
+    const vimeoId = vimeoMatch[1];
+    try {
+      const res = await fetch(`https://vimeo.com/api/oembed.json?url=https://vimeo.com/${vimeoId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.thumbnail_url) setVimeoThumbnail(data.thumbnail_url);
+        else setVimeoThumbnail("");
+      } else {
+        setVimeoThumbnail("");
+      }
+    } catch {
+      setVimeoThumbnail("");
+    }
+  }, []);
+
+  // Drag & drop handlers for chapters
+  const handleChapterDrop = async (targetChapterId: string) => {
+    if (!dragChapterId || dragChapterId === targetChapterId) {
+      setDragChapterId(null);
+      setDragOverChapterId(null);
+      return;
+    }
+    const sorted = [...courseChapters];
+    const dragIdx = sorted.findIndex((c) => c.id === dragChapterId);
+    const targetIdx = sorted.findIndex((c) => c.id === targetChapterId);
+    if (dragIdx < 0 || targetIdx < 0) return;
+    const [moved] = sorted.splice(dragIdx, 1);
+    sorted.splice(targetIdx, 0, moved);
+    // Update sort_order for all
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].sort_order !== i + 1) {
+        await supabase.from("chapters").update({ sort_order: i + 1 }).eq("id", sorted[i].id);
+      }
+    }
+    setDragChapterId(null);
+    setDragOverChapterId(null);
+    loadChapters();
+  };
+
+  // Drag & drop handlers for lessons within a chapter
+  const handleLessonDrop = async (targetLessonId: string, chapterId: string | null) => {
+    if (!dragLessonId || dragLessonId === targetLessonId) {
+      setDragLessonId(null);
+      setDragOverLessonId(null);
+      return;
+    }
+    const chapterLessons = lessons.filter((l) => l.chapter_id === chapterId && l.course_id === selectedCourseId).sort((a, b) => a.sort_order - b.sort_order);
+    const dragIdx = chapterLessons.findIndex((l) => l.id === dragLessonId);
+    const targetIdx = chapterLessons.findIndex((l) => l.id === targetLessonId);
+    if (dragIdx < 0 || targetIdx < 0) return;
+    const [moved] = chapterLessons.splice(dragIdx, 1);
+    chapterLessons.splice(targetIdx, 0, moved);
+    for (let i = 0; i < chapterLessons.length; i++) {
+      if (chapterLessons[i].sort_order !== i + 1) {
+        await supabase.from("lessons").update({ sort_order: i + 1 }).eq("id", chapterLessons[i].id);
+      }
+    }
+    setDragLessonId(null);
+    setDragOverLessonId(null);
+    loadLessons();
+  };
 
   // ─── KPI Calculations ─────────────────────────────────────────────────────
   const kpis = useMemo(() => {
@@ -436,6 +512,9 @@ export default function Academy() {
         sort_order: lesson.sort_order || 0, has_quiz: lesson.has_quiz || false,
         is_mandatory: lesson.is_mandatory || false, chapter_id: lesson.chapter_id || "",
       });
+      // Fetch thumbnail if existing vimeo URL
+      if (lesson.vimeo_id) fetchVimeoThumbnail(lesson.vimeo_id);
+      else setVimeoThumbnail("");
     } else {
       const chLessons = chapterId ? lessons.filter((l) => l.chapter_id === chapterId) : lessons.filter((l) => l.course_id === selectedCourseId);
       setEditingLesson(null);
@@ -444,6 +523,7 @@ export default function Academy() {
         download_url: "", download_name: "", is_published: true, sort_order: chLessons.length + 1,
         has_quiz: false, is_mandatory: false, chapter_id: chapterId || "",
       });
+      setVimeoThumbnail("");
     }
     setLessonDialog(true);
   };
@@ -930,9 +1010,12 @@ export default function Academy() {
                           {course.is_sequential && <Badge variant="outline" className="text-xs">Sequenziell</Badge>}
                           {course.drip_enabled && <Badge variant="outline" className="text-xs">Drip ({course.drip_interval_days}d)</Badge>}
                         </div>
-                        <div className="flex gap-1.5 pt-1">
+                        <div className="flex gap-1.5 pt-1 flex-wrap">
                           <Button variant="outline" size="sm" onClick={() => { setSelectedCourseId(course.id); setCourseDetailMode(true); }}>
                             <Eye className="h-3.5 w-3.5 mr-1" />Verwalten
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => window.open(`/academy?preview=${course.id}`, "_blank")}>
+                            <ExternalLink className="h-3.5 w-3.5 mr-1" />Vorschau
                           </Button>
                           <Button variant="outline" size="sm" onClick={() => openCourseDialog(course)}><Pencil className="h-3.5 w-3.5" /></Button>
                           <Button variant="outline" size="sm" onClick={() => toggleCoursePublished(course)}>
@@ -979,17 +1062,21 @@ export default function Academy() {
                 {courseChapters.map((chapter, chIdx) => {
                   const chapterLessons = lessons.filter((l) => l.chapter_id === chapter.id).sort((a, b) => a.sort_order - b.sort_order);
                   return (
-                    <Card key={chapter.id}>
+                    <Card
+                      key={chapter.id}
+                      className={`transition-all duration-200 ${dragOverChapterId === chapter.id ? "ring-2 ring-violet-500/50" : ""}`}
+                      draggable
+                      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; setDragChapterId(chapter.id); }}
+                      onDragEnd={() => { setDragChapterId(null); setDragOverChapterId(null); }}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverChapterId(chapter.id); }}
+                      onDragLeave={() => setDragOverChapterId(null)}
+                      onDrop={(e) => { e.preventDefault(); handleChapterDrop(chapter.id); }}
+                    >
                       <CardHeader className="pb-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="flex flex-col gap-0.5">
-                              <button onClick={() => moveChapter(chapter.id, "up")} disabled={chIdx === 0} className="p-0.5 rounded hover:bg-muted disabled:opacity-20">
-                                <ArrowUp className="h-3 w-3" />
-                              </button>
-                              <button onClick={() => moveChapter(chapter.id, "down")} disabled={chIdx === courseChapters.length - 1} className="p-0.5 rounded hover:bg-muted disabled:opacity-20">
-                                <ArrowDown className="h-3 w-3" />
-                              </button>
+                            <div className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-muted" title="Zum Sortieren ziehen">
+                              <GripVertical className="h-4 w-4 text-muted-foreground/60" />
                             </div>
                             <div>
                               <CardTitle className="text-sm">{chIdx + 1}. {chapter.title}</CardTitle>
@@ -1007,8 +1094,19 @@ export default function Academy() {
                         {chapterLessons.length > 0 ? (
                           <div className="space-y-1">
                             {chapterLessons.map((lesson) => (
-                              <div key={lesson.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 group">
-                                <span className="text-xs text-muted-foreground font-mono w-6">{lesson.sort_order}</span>
+                              <div
+                                key={lesson.id}
+                                className={`flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 group transition-all duration-150 ${dragOverLessonId === lesson.id ? "ring-2 ring-violet-500/50 bg-violet-500/5" : ""}`}
+                                draggable
+                                onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = "move"; setDragLessonId(lesson.id); }}
+                                onDragEnd={() => { setDragLessonId(null); setDragOverLessonId(null); }}
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverLessonId(lesson.id); }}
+                                onDragLeave={() => setDragOverLessonId(null)}
+                                onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleLessonDrop(lesson.id, chapter.id); }}
+                              >
+                                <div className="cursor-grab active:cursor-grabbing" title="Zum Sortieren ziehen">
+                                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
+                                </div>
                                 <Video className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                                 <span className="text-sm flex-1 truncate">{lesson.title}</span>
                                 <div className="flex items-center gap-1.5">
@@ -1039,7 +1137,7 @@ export default function Academy() {
 
                 {/* Lessons without chapter */}
                 {(() => {
-                  const unassigned = lessons.filter((l) => l.course_id === selectedCourseId && !l.chapter_id);
+                  const unassigned = lessons.filter((l) => l.course_id === selectedCourseId && !l.chapter_id).sort((a, b) => a.sort_order - b.sort_order);
                   if (unassigned.length === 0 && courseChapters.length > 0) return null;
                   return (
                     <Card>
@@ -1050,8 +1148,19 @@ export default function Academy() {
                         {unassigned.length > 0 ? (
                           <div className="space-y-1">
                             {unassigned.map((lesson) => (
-                              <div key={lesson.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 group">
-                                <span className="text-xs text-muted-foreground font-mono w-6">{lesson.sort_order}</span>
+                              <div
+                                key={lesson.id}
+                                className={`flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 group transition-all duration-150 ${dragOverLessonId === lesson.id ? "ring-2 ring-violet-500/50 bg-violet-500/5" : ""}`}
+                                draggable
+                                onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; setDragLessonId(lesson.id); }}
+                                onDragEnd={() => { setDragLessonId(null); setDragOverLessonId(null); }}
+                                onDragOver={(e) => { e.preventDefault(); setDragOverLessonId(lesson.id); }}
+                                onDragLeave={() => setDragOverLessonId(null)}
+                                onDrop={(e) => { e.preventDefault(); handleLessonDrop(lesson.id, null); }}
+                              >
+                                <div className="cursor-grab active:cursor-grabbing" title="Zum Sortieren ziehen">
+                                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
+                                </div>
                                 <Video className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                                 <span className="text-sm flex-1 truncate">{lesson.title}</span>
                                 <div className="flex items-center gap-1.5">
@@ -1828,7 +1937,23 @@ export default function Academy() {
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Video URL</Label><Input value={lessonForm.vimeo_id} onChange={(e) => setLessonForm({ ...lessonForm, vimeo_id: e.target.value })} placeholder="https://vimeo.com/123456789 oder https://fast.wistia.com/..." /></div>
+              <div>
+                <Label>Video URL</Label>
+                <Input
+                  value={lessonForm.vimeo_id}
+                  onChange={(e) => {
+                    setLessonForm({ ...lessonForm, vimeo_id: e.target.value });
+                    fetchVimeoThumbnail(e.target.value);
+                  }}
+                  placeholder="https://vimeo.com/123456789 oder https://fast.wistia.com/..."
+                />
+                {vimeoThumbnail && (
+                  <div className="mt-2 rounded-lg overflow-hidden border border-border h-20 w-full relative">
+                    <img src={vimeoThumbnail} alt="Vimeo Thumbnail" className="w-full h-full object-cover" />
+                    <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">Vimeo Vorschau</span>
+                  </div>
+                )}
+              </div>
               <div><Label>Dauer (min)</Label><Input type="number" value={lessonForm.duration_minutes} onChange={(e) => setLessonForm({ ...lessonForm, duration_minutes: parseInt(e.target.value) || 0 })} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">

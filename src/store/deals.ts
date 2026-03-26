@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 export type PaymentStatus = "paid" | "planned" | "overdue" | "open" | "potenzial";
 export type ServiceType = "done4you" | "donewithyou";
@@ -58,26 +59,39 @@ export async function addDeal(deal: Omit<Deal, "id">): Promise<string | null> {
     return data.id;
   }
   console.error("Failed to add deal:", error);
+  toast.error("Deal konnte nicht erstellt werden");
   return null;
 }
 
 export async function updateDeal(id: string, updates: Partial<Deal>) {
+  // Optimistic update
+  const prev = deals;
+  deals = deals.map((d) => d.id === id ? { ...d, ...updates } : d);
+  emit();
+
   const { error } = await supabase.from("deals").update(dealToRow(updates)).eq("id", id);
-  if (!error) {
-    deals = deals.map((d) => d.id === id ? { ...d, ...updates } : d);
-    emit();
-  } else {
+  if (error) {
     console.error("Failed to update deal:", error);
+    toast.error("Deal konnte nicht gespeichert werden");
+    // Revert
+    deals = prev;
+    emit();
   }
 }
 
 export async function deleteDeal(id: string) {
+  // Optimistic delete
+  const prev = deals;
+  deals = deals.filter((d) => d.id !== id);
+  emit();
+
   const { error } = await supabase.from("deals").delete().eq("id", id);
-  if (!error) {
-    deals = deals.filter((d) => d.id !== id);
-    emit();
-  } else {
+  if (error) {
     console.error("Failed to delete deal:", error);
+    toast.error("Deal konnte nicht gelöscht werden");
+    // Revert
+    deals = prev;
+    emit();
   }
 }
 

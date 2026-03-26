@@ -145,7 +145,7 @@ type CustomerSession = {
 };
 
 // ─── Views ───────────────────────────────────────────────────────────────────
-type PortalView = "login" | "dashboard" | "courses" | "course-detail" | "player" | "downloads" | "achievements" | "profile" | "search";
+type PortalView = "login" | "dashboard" | "courses" | "course-detail" | "player" | "downloads" | "achievements" | "profile" | "search" | "forgot-password";
 
 // ─── Achievement Definitions ─────────────────────────────────────────────────
 const ACHIEVEMENT_DEFS: { type: string; label: string; description: string; icon: string; color: string }[] = [
@@ -238,6 +238,18 @@ export default function AcademyPortal() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
+  // Forgot password
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState("");
+
+  // Preview mode
+  const [previewMode, setPreviewMode] = useState(false);
+  const [previewCourseId, setPreviewCourseId] = useState("");
+
+  // Mobile search expanded
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+
   // Data
   const [courses, setCourses] = useState<Course[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -280,8 +292,20 @@ export default function AcademyPortal() {
   const [showCertificate, setShowCertificate] = useState(false);
   const [certificateCourseId, setCertificateCourseId] = useState("");
 
-  // ─── Session restore ───────────────────────────────────────────────────────
+  // ─── Session restore + Preview mode detection ────────────────────────────
   useEffect(() => {
+    // Check for preview mode
+    const params = new URLSearchParams(window.location.search);
+    const previewId = params.get("preview");
+    if (previewId) {
+      setPreviewMode(true);
+      setPreviewCourseId(previewId);
+      setSession({ customer_id: "preview", email: "preview@preview.com", name: "Vorschau" });
+      setView("course-detail");
+      setSelectedCourseId(previewId);
+      return;
+    }
+
     const stored = localStorage.getItem("academy_session");
     if (stored) {
       try {
@@ -297,6 +321,20 @@ export default function AcademyPortal() {
   // ─── Load data ─────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     if (!session) return;
+    if (previewMode) {
+      // Preview mode: load courses/chapters/lessons only (no customer data)
+      const [coursesRes, chaptersRes, lessonsRes, quizzesRes] = await Promise.all([
+        supabase.from("courses").select("*").order("created_at", { ascending: false }),
+        supabase.from("chapters").select("*").order("sort_order", { ascending: true }),
+        supabase.from("lessons").select("*").order("sort_order", { ascending: true }),
+        supabase.from("quizzes").select("*").order("sort_order", { ascending: true }),
+      ]);
+      if (coursesRes.data) setCourses(coursesRes.data);
+      if (chaptersRes.data) setChapters(chaptersRes.data);
+      if (lessonsRes.data) setLessons(lessonsRes.data);
+      if (quizzesRes.data) setQuizzes(quizzesRes.data);
+      return;
+    }
     const [coursesRes, chaptersRes, lessonsRes, progressRes, quizzesRes, quizResultsRes, commentsRes, achievementsRes] = await Promise.all([
       supabase.from("courses").select("*").eq("is_published", true).order("created_at", { ascending: false }),
       supabase.from("chapters").select("*").order("sort_order", { ascending: true }),
@@ -315,7 +353,7 @@ export default function AcademyPortal() {
     if (quizResultsRes.data) setQuizResults(quizResultsRes.data);
     if (commentsRes.data) setComments(commentsRes.data);
     if (achievementsRes.data) setAchievements(achievementsRes.data);
-  }, [session]);
+  }, [session, previewMode]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -396,6 +434,29 @@ export default function AcademyPortal() {
     setSearchQuery("");
     setAutoAdvanceCountdown(null);
     if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current);
+  };
+
+  const handleForgotPassword = async () => {
+    if (!forgotEmail.trim()) {
+      toast.error("Bitte gib deine E-Mail-Adresse ein");
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const { data } = await supabase
+        .from("academy_customers")
+        .select("id")
+        .eq("email", forgotEmail.trim().toLowerCase())
+        .single();
+      if (data) {
+        setForgotMessage("Bitte kontaktiere uns unter info@consulting-og.de um dein Passwort zuruckzusetzen.");
+      } else {
+        setForgotMessage("Es wurde kein Konto mit dieser E-Mail-Adresse gefunden.");
+      }
+    } catch {
+      setForgotMessage("Es wurde kein Konto mit dieser E-Mail-Adresse gefunden.");
+    }
+    setForgotLoading(false);
   };
 
   // ─── Achievement checker ───────────────────────────────────────────────────
@@ -746,7 +807,7 @@ export default function AcademyPortal() {
   // ══════════════════════════════════════════════════════════════════════════
   // LOGIN VIEW
   // ══════════════════════════════════════════════════════════════════════════
-  if (view === "login") {
+  if (view === "login" || view === "forgot-password") {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ background: isDark ? "#0a0a0f" : "#f5f5f7" }}>
         <Sonner />
@@ -768,15 +829,65 @@ export default function AcademyPortal() {
         <div className="w-full max-w-md relative z-10">
           {/* Logo */}
           <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-500 to-indigo-600 mb-6 shadow-2xl shadow-violet-500/30 ring-1 ring-white/10">
-              <img src="/favicon.png" alt="Adslift" className="h-10 w-10 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-              <GraduationCap className="h-10 w-10 text-white" />
+            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-violet-500 to-indigo-600 mb-6 shadow-2xl shadow-violet-500/30 ring-1 ring-white/10">
+              <img src="/favicon.png" alt="Adslift" className="h-8 w-8 sm:h-10 sm:w-10 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              <GraduationCap className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
             </div>
-            <h1 className={`text-4xl font-bold tracking-tight ${isDark ? "text-white" : "text-gray-900"}`}>Adslift Academy</h1>
-            <p className={`mt-3 text-lg ${isDark ? "text-white/40" : "text-gray-400"}`}>Willkommen zuruck</p>
+            <h1 className={`text-3xl sm:text-4xl font-bold tracking-tight ${isDark ? "text-white" : "text-gray-900"}`}>Adslift Academy</h1>
+            <p className={`mt-3 text-base sm:text-lg ${isDark ? "text-white/40" : "text-gray-400"}`}>
+              {view === "forgot-password" ? "Passwort zurucksetzen" : "Willkommen zuruck"}
+            </p>
           </div>
 
-          <div className={`rounded-2xl border backdrop-blur-2xl shadow-2xl p-8 space-y-6 ${isDark ? "border-white/[0.06] bg-white/[0.03] shadow-black/40" : "border-gray-200 bg-white shadow-gray-200/50"}`}>
+          {view === "forgot-password" ? (
+            <div className={`rounded-2xl border backdrop-blur-2xl shadow-2xl p-6 sm:p-8 space-y-6 ${isDark ? "border-white/[0.06] bg-white/[0.03] shadow-black/40" : "border-gray-200 bg-white shadow-gray-200/50"}`}>
+              {forgotMessage ? (
+                <div className="space-y-4 text-center">
+                  <p className={`text-sm leading-relaxed ${isDark ? "text-white/60" : "text-gray-600"}`}>{forgotMessage}</p>
+                  <Button
+                    onClick={() => { setView("login"); setForgotMessage(""); setForgotEmail(""); }}
+                    variant="outline"
+                    className={`rounded-xl h-10 ${isDark ? "border-white/10 text-white hover:bg-white/5" : "border-gray-300 text-gray-700 hover:bg-gray-100"}`}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />Zuruck zum Login
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label className={`text-sm font-medium ${isDark ? "text-white/60" : "text-gray-600"}`}>E-Mail</Label>
+                    <Input
+                      type="email"
+                      placeholder="deine@email.de"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleForgotPassword()}
+                      className={`focus:border-violet-500/50 focus:ring-violet-500/20 h-12 rounded-xl text-base ${isDark ? "bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20" : "bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-300"}`}
+                    />
+                  </div>
+                  <Button
+                    onClick={handleForgotPassword}
+                    disabled={forgotLoading}
+                    className="w-full h-12 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-xl shadow-violet-500/25 rounded-xl text-base font-semibold transition-all duration-300 hover:shadow-violet-500/40 hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    {forgotLoading ? (
+                      <span className="flex items-center gap-2">
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Wird gepruft...
+                      </span>
+                    ) : "Passwort zurucksetzen"}
+                  </Button>
+                  <button
+                    onClick={() => { setView("login"); setForgotEmail(""); setForgotMessage(""); }}
+                    className={`w-full text-sm text-center ${isDark ? "text-white/40 hover:text-white/60" : "text-gray-400 hover:text-gray-600"} transition-colors`}
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5 inline mr-1" />Zuruck zum Login
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+          <div className={`rounded-2xl border backdrop-blur-2xl shadow-2xl p-6 sm:p-8 space-y-6 ${isDark ? "border-white/[0.06] bg-white/[0.03] shadow-black/40" : "border-gray-200 bg-white shadow-gray-200/50"}`}>
             <div className="space-y-2">
               <Label className={`text-sm font-medium ${isDark ? "text-white/60" : "text-gray-600"}`}>E-Mail</Label>
               <Input
@@ -789,7 +900,15 @@ export default function AcademyPortal() {
               />
             </div>
             <div className="space-y-2">
-              <Label className={`text-sm font-medium ${isDark ? "text-white/60" : "text-gray-600"}`}>Passwort</Label>
+              <div className="flex items-center justify-between">
+                <Label className={`text-sm font-medium ${isDark ? "text-white/60" : "text-gray-600"}`}>Passwort</Label>
+                <button
+                  onClick={() => setView("forgot-password")}
+                  className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
+                >
+                  Passwort vergessen?
+                </button>
+              </div>
               <Input
                 type="password"
                 placeholder="Dein Passwort"
@@ -812,8 +931,9 @@ export default function AcademyPortal() {
               ) : "Anmelden"}
             </Button>
           </div>
+          )}
 
-          <p className={`text-center text-sm mt-8 ${isDark ? "text-white/20" : "text-gray-300"}`}>
+          <p className={`text-center text-xs sm:text-sm mt-8 ${isDark ? "text-white/20" : "text-gray-300"}`}>
             Probleme beim Login? Schreib uns an{" "}
             <a href="mailto:support@adslift.de" className="text-violet-400 hover:text-violet-300 transition-colors">support@adslift.de</a>
           </p>
@@ -869,29 +989,51 @@ export default function AcademyPortal() {
             </button>
           </div>
 
-          {/* Center: Search */}
-          <div className="flex-1 max-w-md mx-4 hidden md:block">
-            <div className="relative">
-              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${isDark ? "text-white/20" : "text-gray-300"}`} />
-              <Input
-                placeholder="Kurse & Lektionen durchsuchen..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  if (e.target.value.trim() && view !== "search") setView("search");
-                  if (!e.target.value.trim() && view === "search") setView("dashboard");
-                }}
-                className={`pl-10 focus:border-violet-500/40 focus:ring-violet-500/10 h-10 rounded-xl ${isDark ? "bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/20" : "bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-300"}`}
-              />
+          {/* Center: Search (desktop or mobile expanded) */}
+          {mobileSearchOpen ? (
+            <div className="flex-1 mx-2 md:mx-4 md:max-w-md">
+              <div className="relative">
+                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${isDark ? "text-white/20" : "text-gray-300"}`} />
+                <Input
+                  placeholder="Suchen..."
+                  value={searchQuery}
+                  autoFocus
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (e.target.value.trim() && view !== "search") setView("search");
+                    if (!e.target.value.trim() && view === "search") setView("dashboard");
+                  }}
+                  className={`pl-10 pr-8 focus:border-violet-500/40 focus:ring-violet-500/10 h-9 rounded-xl text-sm ${isDark ? "bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/20" : "bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-300"}`}
+                />
+                <button onClick={() => { setMobileSearchOpen(false); setSearchQuery(""); if (view === "search") setView("dashboard"); }} className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <X className={`h-4 w-4 ${isDark ? "text-white/30" : "text-gray-400"}`} />
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex-1 max-w-md mx-4 hidden md:block">
+              <div className="relative">
+                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${isDark ? "text-white/20" : "text-gray-300"}`} />
+                <Input
+                  placeholder="Kurse & Lektionen durchsuchen..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (e.target.value.trim() && view !== "search") setView("search");
+                    if (!e.target.value.trim() && view === "search") setView("dashboard");
+                  }}
+                  className={`pl-10 focus:border-violet-500/40 focus:ring-violet-500/10 h-10 rounded-xl ${isDark ? "bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/20" : "bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-300"}`}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Right */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* Mobile search */}
+          <div className={`flex items-center gap-1.5 shrink-0 ${mobileSearchOpen ? "hidden sm:flex" : ""}`}>
+            {/* Mobile search toggle */}
             <Button
               variant="ghost" size="sm"
-              onClick={() => { if (view === "search") { setSearchQuery(""); setView("dashboard"); } else { setView("search"); } }}
+              onClick={() => setMobileSearchOpen(true)}
               className={`md:hidden rounded-xl ${isDark ? "text-white/40 hover:text-white hover:bg-white/[0.05]" : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"}`}
             >
               <Search className="h-4 w-4" />
@@ -966,12 +1108,21 @@ export default function AcademyPortal() {
         </div>
       </header>
 
+      {/* Preview mode banner */}
+      {previewMode && (
+        <div className="sticky top-16 z-40 bg-amber-500/90 text-white text-center py-2 px-4 text-sm font-medium">
+          <Eye className="h-4 w-4 inline mr-2" />
+          Vorschau-Modus — Nur zur Ansicht. Keine Daten werden gespeichert.
+          <button onClick={() => window.close()} className="ml-4 underline hover:no-underline text-xs">Schliessen</button>
+        </div>
+      )}
+
       {/* ══════════════════ DASHBOARD ══════════════════ */}
       {view === "dashboard" && (
-        <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-10">
+        <main className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-8 sm:space-y-10">
           {/* Greeting */}
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">
               {getGreeting()},{" "}
               <span className="bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
                 {session?.name?.split(" ")[0]}
@@ -1089,7 +1240,7 @@ export default function AcademyPortal() {
                 Alle anzeigen <ChevronRight className="h-3.5 w-3.5 inline" />
               </button>
             </div>
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {courses.slice(0, 6).map((course) => {
                 const pct = getCourseProgress(course.id);
                 const lessonCount = lessons.filter((l) => l.course_id === course.id).length;
@@ -1151,9 +1302,9 @@ export default function AcademyPortal() {
 
       {/* ══════════════════ COURSES ══════════════════ */}
       {view === "courses" && (
-        <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+        <main className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Alle Kurse</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Alle Kurse</h1>
             <p className={`mt-2 ${isDark ? "text-white/30" : "text-gray-400"}`}>Wahle einen Kurs aus, um zu starten</p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -1220,15 +1371,15 @@ export default function AcademyPortal() {
 
       {/* ══════════════════ COURSE DETAIL ══════════════════ */}
       {view === "course-detail" && selectedCourse && (
-        <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+        <main className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
           {/* Hero */}
           <div className={`relative rounded-2xl overflow-hidden border ${isDark ? "bg-white/[0.02] border-white/[0.06]" : "bg-white border-gray-200"}`}>
-            <div className="p-8 sm:p-10 flex flex-col sm:flex-row items-start gap-8">
-              <div className="flex-1 space-y-4">
+            <div className="p-5 sm:p-10 flex flex-col sm:flex-row items-start gap-6 sm:gap-8">
+              <div className="flex-1 space-y-3 sm:space-y-4">
                 {selectedCourse.category && (
                   <Badge className="bg-violet-500/10 text-violet-300 border-violet-500/20 hover:bg-violet-500/10 text-xs">{selectedCourse.category}</Badge>
                 )}
-                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">{selectedCourse.title}</h1>
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">{selectedCourse.title}</h1>
                 {selectedCourse.description && <p className={`text-lg leading-relaxed max-w-2xl ${isDark ? "text-white/50" : "text-gray-500"}`}>{selectedCourse.description}</p>}
                 <div className={`flex items-center gap-6 text-sm pt-2 ${isDark ? "text-white/30" : "text-gray-400"}`}>
                   <span className="flex items-center gap-2"><PlayCircle className="h-4 w-4" />{courseLessons.length} Lektionen</span>
@@ -1381,8 +1532,8 @@ export default function AcademyPortal() {
         <main className="relative z-10 max-w-[1600px] mx-auto">
           <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)]">
             {/* Main content (75%) */}
-            <div className="flex-1 lg:w-[75%] overflow-auto">
-              <div className="p-4 sm:p-6 space-y-6">
+            <div className="flex-1 lg:w-[75%] overflow-auto order-1">
+              <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
                 {/* Breadcrumb */}
                 <div className={`flex items-center gap-2 text-xs ${isDark ? "text-white/25" : "text-gray-400"}`}>
                   <button onClick={() => goToCourseDetail(selectedCourse.id)} className="hover:text-violet-400 transition-colors">{selectedCourse.title}</button>
@@ -1439,7 +1590,7 @@ export default function AcademyPortal() {
                 {/* Lesson title + duration */}
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h1 className="text-xl sm:text-2xl font-bold">{selectedLesson.title}</h1>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-bold">{selectedLesson.title}</h1>
                     {selectedLesson.duration_minutes > 0 && (
                       <Badge className={`mt-2 ${isDark ? "bg-white/[0.04] text-white/40 border-white/[0.06] hover:bg-white/[0.04]" : "bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-100"}`}>
                         <Clock className="h-3 w-3 mr-1" />{selectedLesson.duration_minutes} Min
@@ -1657,9 +1808,9 @@ export default function AcademyPortal() {
               </div>
             </div>
 
-            {/* Sidebar (25%) */}
-            <div className={`lg:w-[25%] lg:min-w-[300px] border-l ${isDark ? "border-white/[0.04] bg-white/[0.01]" : "border-gray-200 bg-gray-50/50"}`}>
-              <div className="sticky top-16 h-[calc(100vh-4rem)] flex flex-col">
+            {/* Sidebar (25%) — stacks below on mobile */}
+            <div className={`lg:w-[25%] lg:min-w-[300px] border-t lg:border-t-0 lg:border-l order-2 ${isDark ? "border-white/[0.04] bg-white/[0.01]" : "border-gray-200 bg-gray-50/50"}`}>
+              <div className="lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] flex flex-col max-h-[60vh] lg:max-h-none">
                 <div className={`p-4 border-b ${isDark ? "border-white/[0.04]" : "border-gray-200"}`}>
                   <h3 className={`font-bold text-sm truncate ${isDark ? "text-white" : "text-gray-900"}`}>{selectedCourse.title}</h3>
                   <p className={`text-xs mt-1 ${isDark ? "text-white/25" : "text-gray-400"}`}>
@@ -1736,7 +1887,7 @@ export default function AcademyPortal() {
 
       {/* ══════════════════ SEARCH ══════════════════ */}
       {view === "search" && (
-        <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+        <main className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-6">
           {/* Mobile search input */}
           <div className="md:hidden">
             <div className="relative">
@@ -1801,7 +1952,7 @@ export default function AcademyPortal() {
 
       {/* ══════════════════ DOWNLOADS ══════════════════ */}
       {view === "downloads" && (
-        <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+        <main className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-6">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Download className="h-6 w-6 text-violet-400" />
@@ -1854,7 +2005,7 @@ export default function AcademyPortal() {
 
       {/* ══════════════════ ACHIEVEMENTS ══════════════════ */}
       {view === "achievements" && (
-        <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+        <main className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-3">
               <Award className="h-8 w-8 text-amber-400" />
@@ -1900,7 +2051,7 @@ export default function AcademyPortal() {
 
       {/* ══════════════════ PROFILE ══════════════════ */}
       {view === "profile" && (
-        <main className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+        <main className="relative z-10 max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
           <div>
             <h1 className="text-3xl font-bold">Mein Profil</h1>
           </div>
