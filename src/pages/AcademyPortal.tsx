@@ -1069,17 +1069,18 @@ export default function AcademyPortal() {
                     className="group rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl cursor-pointer transition-all duration-300 overflow-hidden hover:border-violet-500/20 hover:shadow-2xl hover:shadow-violet-500/[0.06] hover:scale-[1.02]"
                     onClick={() => goToCourseDetail(course.id)}
                   >
-                    <div className="relative h-44 overflow-hidden">
-                      {course.thumbnail_url ? (
-                        <img src={course.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-violet-600/20 to-indigo-600/20 flex items-center justify-center">
+                    <div className="relative h-44 overflow-hidden bg-gradient-to-br from-violet-600/20 to-indigo-600/20">
+                      {!course.thumbnail_url && (
+                        <div className="w-full h-full flex items-center justify-center">
                           <BookOpen className="h-14 w-14 text-violet-400/20" />
                         </div>
                       )}
+                      {course.thumbnail_url && course.thumbnail_url.startsWith("http") && (
+                        <img src={course.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      )}
                       <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-transparent to-transparent" />
                       {course.category && (
-                        <Badge className="absolute top-3 left-3 bg-white/10 backdrop-blur-md text-white border-white/20 text-xs">
+                        <Badge className="absolute top-3 left-3 bg-white/10 backdrop-blur-md text-white border-white/20 text-xs z-10">
                           {course.category}
                         </Badge>
                       )}
