@@ -28,8 +28,8 @@ type Course = {
   description: string;
   thumbnail_url: string;
   category: string;
-  published: boolean;
-  sequential: boolean;
+  is_published: boolean;
+  is_sequential: boolean;
   drip_enabled: boolean;
   drip_interval_days: number;
   created_at: string;
@@ -53,10 +53,10 @@ type Lesson = {
   duration_minutes: number;
   download_url: string;
   download_name: string;
-  published: boolean;
+  is_published: boolean;
   sort_order: number;
   has_quiz: boolean;
-  mandatory: boolean;
+  is_mandatory: boolean;
   created_at: string;
 };
 
@@ -132,7 +132,7 @@ export default function Academy() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [courseForm, setCourseForm] = useState({
     title: "", description: "", thumbnail_url: "", category: "Allgemein",
-    published: true, sequential: false, drip_enabled: false, drip_interval_days: 7,
+    is_published: true, is_sequential: false, drip_enabled: false, drip_interval_days: 7,
   });
 
   // Chapter form
@@ -145,8 +145,8 @@ export default function Academy() {
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
   const [lessonForm, setLessonForm] = useState({
     title: "", description: "", vimeo_id: "", duration_minutes: 0,
-    download_url: "", download_name: "", published: true, sort_order: 0,
-    has_quiz: false, mandatory: false, chapter_id: "" as string,
+    download_url: "", download_name: "", is_published: true, sort_order: 0,
+    has_quiz: false, is_mandatory: false, chapter_id: "" as string,
   });
 
   // Customer
@@ -328,14 +328,14 @@ export default function Academy() {
       setCourseForm({
         title: course.title, description: course.description || "",
         thumbnail_url: course.thumbnail_url || "", category: course.category || "Allgemein",
-        published: course.published, sequential: course.sequential || false,
+        is_published: course.is_published, is_sequential: course.is_sequential || false,
         drip_enabled: course.drip_enabled || false, drip_interval_days: course.drip_interval_days || 7,
       });
     } else {
       setEditingCourse(null);
       setCourseForm({
         title: "", description: "", thumbnail_url: "", category: "Allgemein",
-        published: true, sequential: false, drip_enabled: false, drip_interval_days: 7,
+        is_published: true, is_sequential: false, drip_enabled: false, drip_interval_days: 7,
       });
     }
     setCourseDialog(true);
@@ -369,8 +369,8 @@ export default function Academy() {
   };
 
   const toggleCoursePublished = async (course: Course) => {
-    await supabase.from("courses").update({ published: !course.published }).eq("id", course.id);
-    toast.success(course.published ? "Kurs als Entwurf markiert" : "Kurs veroffentlicht");
+    await supabase.from("courses").update({ is_published: !course.is_published }).eq("id", course.id);
+    toast.success(course.is_published ? "Kurs als Entwurf markiert" : "Kurs veroffentlicht");
     loadCourses();
   };
 
@@ -432,17 +432,17 @@ export default function Academy() {
       setLessonForm({
         title: lesson.title, description: lesson.description || "", vimeo_id: lesson.vimeo_id || "",
         duration_minutes: lesson.duration_minutes || 0, download_url: lesson.download_url || "",
-        download_name: lesson.download_name || "", published: lesson.published,
+        download_name: lesson.download_name || "", is_published: lesson.is_published,
         sort_order: lesson.sort_order || 0, has_quiz: lesson.has_quiz || false,
-        mandatory: lesson.mandatory || false, chapter_id: lesson.chapter_id || "",
+        is_mandatory: lesson.is_mandatory || false, chapter_id: lesson.chapter_id || "",
       });
     } else {
       const chLessons = chapterId ? lessons.filter((l) => l.chapter_id === chapterId) : lessons.filter((l) => l.course_id === selectedCourseId);
       setEditingLesson(null);
       setLessonForm({
         title: "", description: "", vimeo_id: "", duration_minutes: 0,
-        download_url: "", download_name: "", published: true, sort_order: chLessons.length + 1,
-        has_quiz: false, mandatory: false, chapter_id: chapterId || "",
+        download_url: "", download_name: "", is_published: true, sort_order: chLessons.length + 1,
+        has_quiz: false, is_mandatory: false, chapter_id: chapterId || "",
       });
     }
     setLessonDialog(true);
@@ -476,7 +476,7 @@ export default function Academy() {
     loadLessons();
   };
 
-  const bulkToggleLessons = async (lessonIds: string[], published: boolean) => {
+  const bulkToggleLessons = async (lessonIds: string[], is_published: boolean) => {
     for (const id of lessonIds) {
       await supabase.from("lessons").update({ published }).eq("id", id);
     }
@@ -909,8 +909,8 @@ export default function Academy() {
                           </div>
                         )}
                         <div className="absolute top-2 right-2 flex gap-1">
-                          <Badge variant={course.published ? "default" : "secondary"} className={course.published ? "bg-emerald-500 hover:bg-emerald-600 text-xs" : "text-xs"}>
-                            {course.published ? "Live" : "Entwurf"}
+                          <Badge variant={course.is_published ? "default" : "secondary"} className={course.is_published ? "bg-emerald-500 hover:bg-emerald-600 text-xs" : "text-xs"}>
+                            {course.is_published ? "Live" : "Entwurf"}
                           </Badge>
                         </div>
                         {course.category && (
@@ -927,7 +927,7 @@ export default function Academy() {
                           <span className="flex items-center gap-1"><Video className="h-3 w-3" />{courseLessonCount} Lektionen</span>
                         </div>
                         <div className="flex items-center gap-1 flex-wrap">
-                          {course.sequential && <Badge variant="outline" className="text-xs">Sequenziell</Badge>}
+                          {course.is_sequential && <Badge variant="outline" className="text-xs">Sequenziell</Badge>}
                           {course.drip_enabled && <Badge variant="outline" className="text-xs">Drip ({course.drip_interval_days}d)</Badge>}
                         </div>
                         <div className="flex gap-1.5 pt-1">
@@ -936,7 +936,7 @@ export default function Academy() {
                           </Button>
                           <Button variant="outline" size="sm" onClick={() => openCourseDialog(course)}><Pencil className="h-3.5 w-3.5" /></Button>
                           <Button variant="outline" size="sm" onClick={() => toggleCoursePublished(course)}>
-                            {course.published ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                            {course.is_published ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                           </Button>
                           <Button variant="outline" size="sm" onClick={() => deleteCourse(course.id)} className="text-destructive hover:text-destructive">
                             <Trash2 className="h-3.5 w-3.5" />
@@ -1013,11 +1013,11 @@ export default function Academy() {
                                 <span className="text-sm flex-1 truncate">{lesson.title}</span>
                                 <div className="flex items-center gap-1.5">
                                   {lesson.has_quiz && <Badge variant="outline" className="text-xs px-1.5">Quiz</Badge>}
-                                  {lesson.mandatory && <Badge variant="outline" className="text-xs px-1.5">Pflicht</Badge>}
+                                  {lesson.is_mandatory && <Badge variant="outline" className="text-xs px-1.5">Pflicht</Badge>}
                                   {lesson.download_url && <Download className="h-3 w-3 text-muted-foreground" />}
                                   {lesson.duration_minutes > 0 && <span className="text-xs text-muted-foreground">{lesson.duration_minutes}m</span>}
-                                  <Badge variant={lesson.published ? "default" : "secondary"} className={`text-xs ${lesson.published ? "bg-emerald-500 hover:bg-emerald-600" : ""}`}>
-                                    {lesson.published ? "Live" : "Entwurf"}
+                                  <Badge variant={lesson.is_published ? "default" : "secondary"} className={`text-xs ${lesson.is_published ? "bg-emerald-500 hover:bg-emerald-600" : ""}`}>
+                                    {lesson.is_published ? "Live" : "Entwurf"}
                                   </Badge>
                                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100" onClick={() => openLessonDialog(lesson)}>
                                     <Pencil className="h-3 w-3" />
@@ -1057,8 +1057,8 @@ export default function Academy() {
                                 <div className="flex items-center gap-1.5">
                                   {lesson.has_quiz && <Badge variant="outline" className="text-xs px-1.5">Quiz</Badge>}
                                   {lesson.download_url && <Download className="h-3 w-3 text-muted-foreground" />}
-                                  <Badge variant={lesson.published ? "default" : "secondary"} className={`text-xs ${lesson.published ? "bg-emerald-500 hover:bg-emerald-600" : ""}`}>
-                                    {lesson.published ? "Live" : "Entwurf"}
+                                  <Badge variant={lesson.is_published ? "default" : "secondary"} className={`text-xs ${lesson.is_published ? "bg-emerald-500 hover:bg-emerald-600" : ""}`}>
+                                    {lesson.is_published ? "Live" : "Entwurf"}
                                   </Badge>
                                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100" onClick={() => openLessonDialog(lesson)}>
                                     <Pencil className="h-3 w-3" />
@@ -1112,7 +1112,7 @@ export default function Academy() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  const unpublished = filteredAllLessons.filter((l) => !l.published).map((l) => l.id);
+                  const unpublished = filteredAllLessons.filter((l) => !l.is_published).map((l) => l.id);
                   if (unpublished.length > 0) bulkToggleLessons(unpublished, true);
                   else toast.info("Alle Lektionen sind bereits veroffentlicht");
                 }}
@@ -1123,7 +1123,7 @@ export default function Academy() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  const published = filteredAllLessons.filter((l) => l.published).map((l) => l.id);
+                  const published = filteredAllLessons.filter((l) => l.is_published).map((l) => l.id);
                   if (published.length > 0) bulkToggleLessons(published, false);
                   else toast.info("Alle Lektionen sind bereits Entwurfe");
                 }}
@@ -1158,7 +1158,7 @@ export default function Academy() {
                         <span className="font-medium text-sm">{lesson.title}</span>
                         <div className="flex gap-1 mt-0.5">
                           {lesson.has_quiz && <Badge variant="outline" className="text-xs px-1">Quiz</Badge>}
-                          {lesson.mandatory && <Badge variant="outline" className="text-xs px-1">Pflicht</Badge>}
+                          {lesson.is_mandatory && <Badge variant="outline" className="text-xs px-1">Pflicht</Badge>}
                           {lesson.download_url && <Badge variant="outline" className="text-xs px-1"><Download className="h-2.5 w-2.5 mr-0.5" />{lesson.download_name || "PDF"}</Badge>}
                         </div>
                       </div>
@@ -1169,11 +1169,11 @@ export default function Academy() {
                     <TableCell className="text-sm">{lesson.duration_minutes ? `${lesson.duration_minutes}m` : "-"}</TableCell>
                     <TableCell>
                       <button onClick={async () => {
-                        await supabase.from("lessons").update({ published: !lesson.published }).eq("id", lesson.id);
+                        await supabase.from("lessons").update({ is_published: !lesson.is_published }).eq("id", lesson.id);
                         loadLessons();
                       }}>
-                        <Badge variant={lesson.published ? "default" : "secondary"} className={`cursor-pointer text-xs ${lesson.published ? "bg-emerald-500 hover:bg-emerald-600" : ""}`}>
-                          {lesson.published ? "Live" : "Entwurf"}
+                        <Badge variant={lesson.is_published ? "default" : "secondary"} className={`cursor-pointer text-xs ${lesson.is_published ? "bg-emerald-500 hover:bg-emerald-600" : ""}`}>
+                          {lesson.is_published ? "Live" : "Entwurf"}
                         </Badge>
                       </button>
                     </TableCell>
@@ -1750,11 +1750,11 @@ export default function Academy() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="flex items-center gap-3">
-                <Switch checked={courseForm.sequential} onCheckedChange={(v) => setCourseForm({ ...courseForm, sequential: v })} />
+                <Switch checked={courseForm.is_sequential} onCheckedChange={(v) => setCourseForm({ ...courseForm, is_sequential: v })} />
                 <Label>Sequenzieller Modus</Label>
               </div>
               <div className="flex items-center gap-3">
-                <Switch checked={courseForm.published} onCheckedChange={(v) => setCourseForm({ ...courseForm, published: v })} />
+                <Switch checked={courseForm.is_published} onCheckedChange={(v) => setCourseForm({ ...courseForm, is_published: v })} />
                 <Label>Veroffentlicht</Label>
               </div>
             </div>
@@ -1830,7 +1830,7 @@ export default function Academy() {
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Reihenfolge</Label><Input type="number" value={lessonForm.sort_order} onChange={(e) => setLessonForm({ ...lessonForm, sort_order: parseInt(e.target.value) || 0 })} /></div>
               <div className="flex items-center gap-3 pt-6">
-                <Switch checked={lessonForm.published} onCheckedChange={(v) => setLessonForm({ ...lessonForm, published: v })} />
+                <Switch checked={lessonForm.is_published} onCheckedChange={(v) => setLessonForm({ ...lessonForm, is_published: v })} />
                 <Label>Veroffentlicht</Label>
               </div>
             </div>
@@ -1840,7 +1840,7 @@ export default function Academy() {
                 <Label>Quiz aktivieren</Label>
               </div>
               <div className="flex items-center gap-3">
-                <Switch checked={lessonForm.mandatory} onCheckedChange={(v) => setLessonForm({ ...lessonForm, mandatory: v })} />
+                <Switch checked={lessonForm.is_mandatory} onCheckedChange={(v) => setLessonForm({ ...lessonForm, is_mandatory: v })} />
                 <Label>Pflicht-Lektion</Label>
               </div>
             </div>

@@ -36,9 +36,9 @@ type Course = {
   title: string;
   description: string;
   thumbnail_url: string;
-  published: boolean;
+  is_published: boolean;
   category?: string;
-  sequential?: boolean;
+  is_sequential?: boolean;
 };
 
 type Chapter = {
@@ -58,7 +58,7 @@ type Lesson = {
   duration_minutes: number;
   download_url: string;
   download_name: string;
-  published: boolean;
+  is_published: boolean;
   sort_order: number;
   has_quiz?: boolean;
 };
@@ -260,9 +260,9 @@ export default function AcademyPortal() {
   const loadData = useCallback(async () => {
     if (!session) return;
     const [coursesRes, chaptersRes, lessonsRes, progressRes, quizzesRes, quizResultsRes, commentsRes, achievementsRes] = await Promise.all([
-      supabase.from("courses").select("*").eq("published", true).order("created_at", { ascending: false }),
+      supabase.from("courses").select("*").eq("is_published", true).order("created_at", { ascending: false }),
       supabase.from("chapters").select("*").order("sort_order", { ascending: true }),
-      supabase.from("lessons").select("*").eq("published", true).order("sort_order", { ascending: true }),
+      supabase.from("lessons").select("*").eq("is_published", true).order("sort_order", { ascending: true }),
       supabase.from("lesson_progress").select("*").eq("customer_id", session.customer_id),
       supabase.from("quizzes").select("*").order("sort_order", { ascending: true }),
       supabase.from("quiz_results").select("*").eq("customer_id", session.customer_id),
@@ -394,7 +394,7 @@ export default function AcademyPortal() {
 
   const isLessonLocked = useCallback((lesson: Lesson) => {
     const course = courses.find((c) => c.id === lesson.course_id);
-    if (!course?.sequential) return false;
+    if (!course?.is_sequential) return false;
     const courseLessons = lessons.filter((l) => l.course_id === lesson.course_id);
     const idx = courseLessons.findIndex((l) => l.id === lesson.id);
     if (idx <= 0) return false;
