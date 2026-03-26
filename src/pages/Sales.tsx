@@ -33,6 +33,13 @@ function pct(a: number, b: number) {
   return b === 0 ? 0 : Math.round((a / b) * 100);
 }
 
+// Parse date string without timezone issues (avoids UTC midnight → previous day in CET)
+function parseLocalDate(dateStr: string): Date {
+  if (dateStr.includes("T")) return new Date(dateStr);
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function getWeekLabel(date: Date) {
   const ws = startOfWeek(date, { weekStartsOn: 1 });
   const we = endOfWeek(date, { weekStartsOn: 1 });
@@ -95,7 +102,7 @@ export default function Sales() {
   }, [filterRange]);
 
   const filtered = useMemo(() => weeks.filter((e) => {
-    const ws = new Date(e.weekStart);
+    const ws = parseLocalDate(e.weekStart);
     const we = endOfWeek(ws, { weekStartsOn: 1 });
     return isWithinInterval(ws, filterRange) || isWithinInterval(we, filterRange);
   }), [weeks, filterRange]);
@@ -144,7 +151,7 @@ export default function Sales() {
     if (!selectedDate) { toast.error("Bitte Woche auswählen"); return; }
     const ws = startOfWeek(selectedDate, { weekStartsOn: 1 });
     await addSalesWeek({
-      weekStart: ws.toISOString(), kw: getISOWeek(ws), year: getYear(ws),
+      weekStart: format(ws, "yyyy-MM-dd"), kw: getISOWeek(ws), year: getYear(ws),
       newLeads: 0,
       closed: parseInt(form.closed) || 0, dealVolume: parseFloat(form.dealVolume) || 0,
     });
@@ -358,7 +365,7 @@ export default function Sales() {
             </TableHeader>
             <TableBody>
               {[...filtered].sort((a, b) => a.year !== b.year ? a.year - b.year : a.kw - b.kw).map((e, idx) => {
-                const calStats = getWeekCalendarStats(new Date(e.weekStart));
+                const calStats = getWeekCalendarStats(parseLocalDate(e.weekStart));
                 const isCurrentWeek = e.kw === currentKW && e.year === currentYear;
                 return (
                   <TableRow
@@ -375,7 +382,7 @@ export default function Sales() {
                         {isCurrentWeek && <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />}
                       </span>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{getWeekLabel(new Date(e.weekStart))}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{getWeekLabel(parseLocalDate(e.weekStart))}</TableCell>
                     <TableCell className="text-center font-medium">{e.newLeads}</TableCell>
                     <TableCell className="text-center font-medium">{calStats.scheduled} <span className="text-[9px] text-muted-foreground">(auto)</span></TableCell>
                     <TableCell className="text-center">{calStats.showed}</TableCell>
@@ -497,7 +504,7 @@ export default function Sales() {
           <div className="space-y-4 py-2">
             {editingWeek && (
               <div className="text-sm text-muted-foreground">
-                {getWeekLabel(new Date(editingWeek.weekStart))}
+                {getWeekLabel(parseLocalDate(editingWeek.weekStart))}
               </div>
             )}
 
