@@ -231,7 +231,7 @@ export default function Academy() {
     const totalWatchMinutes = Math.round(progressData.reduce((s, p) => s + (p.watched_seconds || 0), 0) / 60);
     const avgWatchMinutes = customers.length > 0 ? Math.round(totalWatchMinutes / customers.length) : 0;
     const totalQuizAttempts = quizResults.length;
-    const passedQuizzes = quizResults.filter((r) => r.correct).length;
+    const passedQuizzes = quizResults.filter((r) => r.passed).length;
     const quizPassRate = totalQuizAttempts > 0 ? Math.round((passedQuizzes / totalQuizAttempts) * 100) : 0;
     return { activeCustomers, totalCourses, totalLessons, completionRate, avgWatchMinutes, quizPassRate, totalWatchMinutes };
   }, [customers, courses, lessons, progressData, quizResults]);
@@ -252,10 +252,10 @@ export default function Academy() {
     });
     quizResults.forEach((r) => {
       const c = customers.find((cu) => cu.id === r.customer_id);
-      const q = quizzes.find((qz) => qz.id === r.quiz_id);
+      const q = quizzes.find((qz) => qz.lesson_id === r.lesson_id);
       entries.push({
-        type: r.correct ? "quiz_pass" : "quiz_fail",
-        text: `${c?.name || "Unbekannt"} — Quiz ${r.correct ? "bestanden" : "nicht bestanden"}${q ? ` (${q.question.substring(0, 40)}...)` : ""}`,
+        type: r.passed ? "quiz_pass" : "quiz_fail",
+        text: `${c?.name || "Unbekannt"} — Quiz ${r.passed ? "bestanden" : "nicht bestanden"}${q ? ` (${q.question.substring(0, 40)}...)` : ""}`,
         date: r.created_at,
       });
     });
@@ -569,7 +569,7 @@ export default function Academy() {
       return lesson ? { ...lesson, completedAt: p.updated_at } : null;
     }).filter(Boolean) as (Lesson & { completedAt: string })[];
     const qr = quizResults.filter((r) => r.customer_id === customerDetail.id).map((r) => {
-      const quiz = quizzes.find((q) => q.id === r.quiz_id);
+      const quiz = quizzes.find((q) => q.lesson_id === r.lesson_id);
       return { ...r, question: quiz?.question || "Unbekannt" };
     });
     const dl = downloadLogs.filter((d) => d.customer_id === customerDetail.id);
@@ -647,7 +647,7 @@ export default function Academy() {
     quizResults.forEach((r) => {
       if (!lessonQuizScores[r.lesson_id]) lessonQuizScores[r.lesson_id] = { correct: 0, total: 0 };
       lessonQuizScores[r.lesson_id].total++;
-      if (r.correct) lessonQuizScores[r.lesson_id].correct++;
+      if (r.passed) lessonQuizScores[r.lesson_id].correct++;
     });
     const avgQuizScores = Object.entries(lessonQuizScores).map(([id, v]) => ({
       title: lessons.find((l) => l.id === id)?.title || "Unbekannt",
@@ -1311,7 +1311,7 @@ export default function Academy() {
                 </Card>
                 <Card>
                   <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold">{customerProgressData.quizResultsList.filter((r) => r.correct).length}/{customerProgressData.quizResultsList.length}</p>
+                    <p className="text-2xl font-bold">{customerProgressData.quizResultsList.filter((r) => r.passed).length}/{customerProgressData.quizResultsList.length}</p>
                     <p className="text-xs text-muted-foreground">Quiz bestanden</p>
                   </CardContent>
                 </Card>
@@ -1384,7 +1384,7 @@ export default function Academy() {
                         <div className="space-y-1.5">
                           {customerProgressData.quizResultsList.map((r) => (
                             <div key={r.id} className="flex items-center gap-2 py-1 text-sm">
-                              {r.correct ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> : <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />}
+                              {r.passed ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> : <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />}
                               <span className="truncate">{r.question}</span>
                             </div>
                           ))}
@@ -1510,7 +1510,7 @@ export default function Academy() {
               {customers.map((customer) => {
                 const customerResults = quizResults.filter((r) => r.customer_id === customer.id);
                 if (customerResults.length === 0) return null;
-                const passed = customerResults.filter((r) => r.correct).length;
+                const passed = customerResults.filter((r) => r.passed).length;
                 return (
                   <Card key={customer.id}>
                     <CardContent className="p-4">
