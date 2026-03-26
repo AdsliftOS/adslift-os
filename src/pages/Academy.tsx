@@ -1746,7 +1746,15 @@ export default function Academy() {
                   </SelectContent>
                 </Select>
               </div>
-              <div><Label>Thumbnail URL (Google Drive)</Label><Input value={courseForm.thumbnail_url} onChange={(e) => setCourseForm({ ...courseForm, thumbnail_url: e.target.value })} placeholder="https://..." /></div>
+              <div>
+                <Label>Thumbnail URL</Label>
+                <Input value={courseForm.thumbnail_url} onChange={(e) => setCourseForm({ ...courseForm, thumbnail_url: e.target.value })} placeholder="https://..." />
+                {courseForm.thumbnail_url && courseForm.thumbnail_url.startsWith("http") && (
+                  <div className="mt-2 rounded-lg overflow-hidden border border-border h-32 w-full">
+                    <img src={courseForm.thumbnail_url} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="flex items-center gap-3">

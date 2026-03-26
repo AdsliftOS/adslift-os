@@ -878,9 +878,10 @@ export default function AcademyPortal() {
             <Button
               variant="ghost" size="sm"
               onClick={() => setView("downloads")}
-              className="text-white/40 hover:text-white hover:bg-white/[0.05] rounded-xl"
+              className="text-white/40 hover:text-white hover:bg-white/[0.05] rounded-xl gap-1.5"
             >
               <Download className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs">Skripte & Assets</span>
             </Button>
 
             {/* User avatar + dropdown */}
@@ -1245,6 +1246,14 @@ export default function AcademyPortal() {
               </div>
             </div>
           </div>
+
+          {/* Course description card */}
+          {selectedCourse.description && (
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 space-y-3">
+              <h2 className="text-lg font-bold flex items-center gap-2"><BookOpen className="h-5 w-5 text-violet-400" />Was dich erwartet</h2>
+              <p className="text-white/50 leading-relaxed">{selectedCourse.description}</p>
+            </div>
+          )}
 
           {/* Chapter accordion */}
           <div className="space-y-4">
