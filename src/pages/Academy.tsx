@@ -2011,13 +2011,32 @@ export default function Academy() {
                 </Select>
               </div>
               <div>
-                <Label>Thumbnail URL</Label>
-                <Input value={courseForm.thumbnail_url} onChange={(e) => setCourseForm({ ...courseForm, thumbnail_url: e.target.value })} placeholder="https://..." />
-                {courseForm.thumbnail_url && courseForm.thumbnail_url.startsWith("http") && (
-                  <div className="mt-2 rounded-lg overflow-hidden border border-border h-32 w-full">
+                <Label>Thumbnail</Label>
+                {courseForm.thumbnail_url && (
+                  <div className="mt-1 mb-2 rounded-lg overflow-hidden border border-border h-32 w-full relative group">
                     <img src={courseForm.thumbnail_url} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    <button onClick={() => setCourseForm({ ...courseForm, thumbnail_url: "" })} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-3 w-3" /></button>
                   </div>
                 )}
+                <div className="flex gap-2">
+                  <label className="flex-1 cursor-pointer">
+                    <div className="flex items-center justify-center gap-2 border border-dashed border-border rounded-lg py-3 px-4 hover:bg-accent/50 transition-colors text-sm text-muted-foreground">
+                      <Plus className="h-4 w-4" />
+                      {courseForm.thumbnail_url ? "Bild ersetzen" : "Bild hochladen"}
+                    </div>
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const ext = file.name.split(".").pop() || "jpg";
+                      const fileName = `course-${Date.now()}.${ext}`;
+                      const { error } = await supabase.storage.from("academy").upload(fileName, file, { upsert: true });
+                      if (error) { toast.error("Upload fehlgeschlagen: " + error.message); return; }
+                      const { data: urlData } = supabase.storage.from("academy").getPublicUrl(fileName);
+                      setCourseForm({ ...courseForm, thumbnail_url: urlData.publicUrl });
+                      toast.success("Bild hochgeladen");
+                    }} />
+                  </label>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
