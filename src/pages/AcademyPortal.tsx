@@ -1078,17 +1078,9 @@ export default function AcademyPortal() {
                         </div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-transparent to-transparent" />
-                      <div className="absolute bottom-3 right-3">
-                        <ProgressRing percent={pct} size={44} strokeWidth={3} />
-                      </div>
                       {course.category && (
                         <Badge className="absolute top-3 left-3 bg-white/10 backdrop-blur-md text-white border-white/20 text-xs">
                           {course.category}
-                        </Badge>
-                      )}
-                      {pct === 100 && lessonCount > 0 && (
-                        <Badge className="absolute top-3 right-3 bg-emerald-500/90 text-white border-0 shadow-lg text-xs">
-                          <CheckCircle2 className="h-3 w-3 mr-1" />Fertig
                         </Badge>
                       )}
                     </div>
@@ -1098,6 +1090,16 @@ export default function AcademyPortal() {
                       <div className="flex items-center gap-4 text-xs text-white/25 pt-1">
                         <span className="flex items-center gap-1.5"><PlayCircle className="h-3.5 w-3.5" />{lessonCount} Lektionen</span>
                         {totalMin > 0 && <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{formatMinutes(totalMin)}</span>}
+                      </div>
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="flex items-center gap-2">
+                          <ProgressRing percent={pct} size={32} strokeWidth={3} textClass="text-[10px]" />
+                          {pct === 100 && lessonCount > 0 && (
+                            <Badge className="bg-emerald-500/90 text-white border-0 shadow-lg text-xs">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />Fertig
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <Button
                         className="w-full mt-2 rounded-xl text-sm h-9 bg-white/[0.04] hover:bg-violet-600 border border-white/[0.06] hover:border-violet-500 text-white transition-all duration-300"
@@ -1142,9 +1144,6 @@ export default function AcademyPortal() {
                       </div>
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-transparent to-transparent" />
-                    <div className="absolute bottom-3 right-3">
-                      <ProgressRing percent={pct} size={44} strokeWidth={3} />
-                    </div>
                     {course.category && (
                       <Badge className="absolute top-3 left-3 bg-white/10 backdrop-blur-md text-white border-white/20 text-xs">{course.category}</Badge>
                     )}
@@ -1155,6 +1154,16 @@ export default function AcademyPortal() {
                     <div className="flex items-center gap-4 text-xs text-white/25 pt-1">
                       <span className="flex items-center gap-1.5"><PlayCircle className="h-3.5 w-3.5" />{lessonCount} Lektionen</span>
                       {totalMin > 0 && <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{formatMinutes(totalMin)}</span>}
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                      <div className="flex items-center gap-2">
+                        <ProgressRing percent={pct} size={32} strokeWidth={3} textClass="text-[10px]" />
+                        {pct === 100 && lessonCount > 0 && (
+                          <Badge className="bg-emerald-500/90 text-white border-0 shadow-lg text-xs">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />Fertig
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <Button
                       className="w-full mt-2 rounded-xl text-sm h-9 bg-white/[0.04] hover:bg-violet-600 border border-white/[0.06] hover:border-violet-500 text-white transition-all duration-300"
@@ -1238,8 +1247,8 @@ export default function AcademyPortal() {
                   )}
                 </div>
               </div>
-              <div className="shrink-0 hidden sm:block">
-                <ProgressRing percent={getCourseProgress(selectedCourse.id)} size={140} strokeWidth={10} textClass="text-2xl" />
+              <div className="shrink-0 hidden sm:flex items-center justify-center w-[120px] h-[120px] rounded-2xl bg-white/[0.04] border border-white/[0.06]">
+                <ProgressRing percent={getCourseProgress(selectedCourse.id)} size={80} strokeWidth={6} textClass="text-lg" />
               </div>
             </div>
           </div>
