@@ -558,7 +558,7 @@ export default function Academy() {
 
   // Customer detail data
   const customerProgressData = useMemo(() => {
-    if (!customerDetail) return { courseProgress: [] as { course: Course; progress: number; completed: number; total: number }[], completedLessons: [] as (Lesson & { completedAt: string })[], quizResultsList: [] as (QuizResult & { question: string })[], downloads: [] as DownloadLog[], watchMinutes: number };
+    if (!customerDetail) return { courseProgress: [] as { course: Course; progress: number; completed: number; total: number }[], completedLessons: [] as (Lesson & { completedAt: string })[], quizResultsList: [] as (QuizResult & { question: string })[], downloads: [] as DownloadLog[], watchMinutes: 0 };
     const cp = courses.map((course) => {
       const cls = lessons.filter((l) => l.course_id === course.id);
       const completed = cls.filter((l) => progressData.some((p) => p.customer_id === customerDetail.id && p.lesson_id === l.id && p.completed)).length;
