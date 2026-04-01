@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -65,7 +66,7 @@ export default function Tasks() {
   const [dragOverCol, setDragOverCol] = useState<Column | null>(null);
 
   const [form, setForm] = useState({
-    title: "", category: "admin" as Category, priority: "medium" as Priority,
+    title: "", description: "", category: "admin" as Category, priority: "medium" as Priority,
     dueDate: todayStr, recurrence: "none" as Recurrence,
   });
 
@@ -85,13 +86,13 @@ export default function Tasks() {
   };
 
   const openEdit = (task: Task) => {
-    setForm({ title: task.title, category: task.category, priority: task.priority, dueDate: task.dueDate || "", recurrence: task.recurrence });
+    setForm({ title: task.title, description: task.description || "", category: task.category, priority: task.priority, dueDate: task.dueDate || "", recurrence: task.recurrence });
     setEditingTask(task);
     setDialogOpen(true);
   };
 
   const openNew = () => {
-    setForm({ title: "", category: "admin", priority: "medium", dueDate: todayStr, recurrence: "none" });
+    setForm({ title: "", description: "", category: "admin", priority: "medium", dueDate: todayStr, recurrence: "none" });
     setEditingTask(null);
     setDialogOpen(true);
   };
@@ -101,6 +102,7 @@ export default function Tasks() {
     if (editingTask) {
       await updateTaskDB(editingTask.id, {
         title: form.title,
+        description: form.description,
         category: form.category as Category,
         priority: form.priority as Priority,
         recurrence: form.recurrence as Recurrence,
@@ -108,7 +110,7 @@ export default function Tasks() {
       });
       toast.success("Aufgabe aktualisiert");
     } else {
-      await addTaskDB({ title: form.title.trim(), category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, column: "todo" as Column, recurrence: form.recurrence, assignee: viewUser });
+      await addTaskDB({ title: form.title.trim(), description: form.description, category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, column: "todo" as Column, recurrence: form.recurrence, assignee: viewUser });
       toast.success("Aufgabe erstellt");
     }
     setDialogOpen(false);
@@ -303,6 +305,14 @@ export default function Tasks() {
                     <Plus className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 )}
+                {col.key === "done" && colTasks.length > 0 && (
+                  <button onClick={async () => {
+                    for (const t of colTasks) { await deleteTaskDB(t.id); }
+                    toast.success(`${colTasks.length} erledigte Aufgaben gelöscht`);
+                  }} className="ml-auto text-[10px] text-muted-foreground hover:text-red-500 transition-colors">
+                    Alle löschen
+                  </button>
+                )}
               </div>
 
               {/* Drop zone */}
@@ -348,6 +358,9 @@ export default function Tasks() {
                             <span className={`text-[13px] font-medium leading-snug ${col.key === "done" ? "line-through text-muted-foreground" : ""}`}>
                               {task.title}
                             </span>
+                            {task.description && (
+                              <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{task.description}</p>
+                            )}
                           </div>
                           <div className={`h-5 w-5 rounded-md flex items-center justify-center shrink-0 ${
                             task.priority === "high" ? "bg-red-500/10" : task.priority === "medium" ? "bg-amber-500/10" : "bg-muted"
@@ -428,6 +441,10 @@ export default function Tasks() {
             <div className="grid gap-2">
               <Label>Aufgabe *</Label>
               <Input placeholder="Was muss erledigt werden?" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Beschreibung</Label>
+              <Textarea placeholder="Details, Notizen..." value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
             </div>
             <div className="grid gap-2">
               <Label>Kategorie</Label>

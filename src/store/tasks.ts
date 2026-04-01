@@ -10,6 +10,7 @@ export type Column = "todo" | "in-progress" | "done";
 export type Task = {
   id: string;
   title: string;
+  description?: string;
   category: Category;
   priority: Priority;
   dueDate?: string;
@@ -29,6 +30,7 @@ function rowToTask(r: any): Task {
   return {
     id: r.id,
     title: r.title || "",
+    description: r.description || "",
     category: r.category || "admin",
     priority: r.priority || "medium",
     dueDate: r.due_date || undefined,
@@ -54,6 +56,7 @@ loadTasks();
 export async function addTask(task: Omit<Task, "id">) {
   const { data, error } = await supabase.from("tasks").insert({
     title: task.title,
+    description: task.description || "",
     category: task.category,
     priority: task.priority,
     due_date: task.dueDate || null,
@@ -81,6 +84,7 @@ export async function updateTask(id: string, updates: Partial<Task>) {
   if ("dueDate" in updates) dbUpdates.due_date = updates.dueDate || null;
   if (updates.column !== undefined) dbUpdates.col = updates.column;
   if (updates.recurrence !== undefined) dbUpdates.recurrence = updates.recurrence;
+  if (updates.description !== undefined) dbUpdates.description = updates.description;
   if (updates.assignee !== undefined) dbUpdates.assignee = updates.assignee;
 
   // Optimistic update
