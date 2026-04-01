@@ -53,3 +53,19 @@ export function getSalesPersonFromTitle(title: string): string | null {
     || title.match(/call mit (\w+) von adslift/i);
   return match ? match[1] : null;
 }
+
+// Get person name from event (for client meetings, sales calls etc.)
+export function getEventPerson(event: CalendarEvent): "alex" | "daniel" | null {
+  // Check account email first (most reliable)
+  if (event.accountEmail === "info@consulting-og.de") return "alex";
+  if (event.accountEmail === "office@consulting-og.de") return "daniel";
+  // Check title
+  const title = event.title.toLowerCase();
+  if (title.includes("alex")) return "alex";
+  if (title.includes("daniel")) return "daniel";
+  // Check description
+  const desc = (event.description || "").toLowerCase();
+  if (desc.includes("alex")) return "alex";
+  if (desc.includes("daniel")) return "daniel";
+  return null;
+}
