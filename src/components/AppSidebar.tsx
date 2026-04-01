@@ -1,9 +1,7 @@
 import { LayoutDashboard, FolderKanban, Users, DollarSign, Clock, BarChart3, Calendar, ListTodo, FolderOpen, GraduationCap, Settings, LogOut } from "lucide-react";
 
 const MetaIcon = () => (
-  <div className="h-4 w-4 overflow-hidden shrink-0">
-    <img src="/meta-logo.png" alt="" className="h-full" style={{ objectFit: "cover", objectPosition: "0% center", transform: "scale(2.5) translateX(-2px)" }} />
-  </div>
+  <img src="/meta-icon.png" alt="" className="h-4 w-4 shrink-0" />
 );
 import { supabase } from "@/lib/supabase";
 import { NavLink } from "@/components/NavLink";
