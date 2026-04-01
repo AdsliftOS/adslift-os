@@ -7,7 +7,7 @@ export type CalendarEvent = {
   date: string;
   startTime: string;
   endTime: string;
-  type: "call" | "meeting" | "deadline" | "internal" | "other";
+  type: "call" | "meeting" | "deadline" | "internal" | "other" | "sales-call" | "kundenmeeting" | "anruf" | "sonstiges";
   client?: string;
   description?: string;
   meetingLink?: string;
@@ -15,6 +15,8 @@ export type CalendarEvent = {
   projectId?: string;
   accountColor?: string;
   accountColorLight?: string;
+  googleEventId?: string;
+  accountEmail?: string;
 };
 
 let events: CalendarEvent[] = [];

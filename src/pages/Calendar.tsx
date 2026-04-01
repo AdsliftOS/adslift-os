@@ -18,14 +18,18 @@ import { useClients } from "@/store/clients";
 import { useProjects } from "@/store/projects";
 import { useNoShows, markNoShow, unmarkNoShow, isNoShow } from "@/store/noshows";
 import { isSalesMeeting, isClientMeeting, isLinkedInSetting } from "@/lib/sales-meetings";
-import { isGoogleConnected, getAccounts, listAllEvents, type GoogleCalendarEvent } from "@/lib/google-calendar";
+import { isGoogleConnected, getAccounts, getValidToken, listAllEvents, type GoogleCalendarEvent } from "@/lib/google-calendar";
 
 const eventTypes: { value: CalendarEvent["type"]; label: string; color: string; bgLight: string; icon: typeof Phone }[] = [
+  { value: "anruf", label: "Anruf", color: "bg-sky-500", bgLight: "bg-sky-500/20 text-white dark:text-white", icon: Phone },
   { value: "call", label: "Call", color: "bg-blue-500", bgLight: "bg-blue-500/20 text-white dark:text-white", icon: Phone },
   { value: "meeting", label: "Meeting", color: "bg-violet-500", bgLight: "bg-violet-500/20 text-white dark:text-white", icon: Users },
+  { value: "sales-call", label: "Sales Call", color: "bg-amber-500", bgLight: "bg-amber-500/20 text-white dark:text-white", icon: DollarSign },
+  { value: "kundenmeeting", label: "Kundenmeeting", color: "bg-teal-500", bgLight: "bg-teal-500/20 text-white dark:text-white", icon: Users },
   { value: "deadline", label: "Deadline", color: "bg-red-500", bgLight: "bg-red-500/20 text-white dark:text-white", icon: Flag },
   { value: "internal", label: "Intern", color: "bg-emerald-500", bgLight: "bg-emerald-500/20 text-white dark:text-white", icon: Briefcase },
-  { value: "other", label: "Sonstiges", color: "bg-gray-500", bgLight: "bg-gray-500/20 text-white dark:text-white", icon: CalendarIcon },
+  { value: "sonstiges", label: "Sonstiges", color: "bg-zinc-500", bgLight: "bg-zinc-500/20 text-white dark:text-white", icon: CalendarIcon },
+  { value: "other", label: "Andere", color: "bg-gray-500", bgLight: "bg-gray-500/20 text-white dark:text-white", icon: CalendarIcon },
 ];
 
 const eventTypeMap = Object.fromEntries(eventTypes.map((t) => [t.value, t]));
@@ -171,19 +175,29 @@ export default function Calendar() {
   // Calendly integration
   const [calendlyOpen, setCalendlyOpen] = useState(false);
   const [calendlyStep, setCalendlyStep] = useState<"select" | "book">("select");
-  const [calendlyTypes, setCalendlyTypes] = useState<{name: string; slug: string; duration: number; url: string; color: string}[]>([]);
+  const [calendlyTypes, setCalendlyTypes] = useState<{name: string; slug: string; duration: number; url: string; color: string; owner?: string}[]>([]);
   const [calendlySelectedUrl, setCalendlySelectedUrl] = useState("");
   const [calendlyClient, setCalendlyClient] = useState("");
   const [calendlyClientEmail, setCalendlyClientEmail] = useState("");
   const [calendlyClientPhone, setCalendlyClientPhone] = useState("");
   const [calendlyBookOpen, setCalendlyBookOpen] = useState(false);
 
+  // Calendly person selector
+  const [calendlyPerson, setCalendlyPerson] = useState<"all" | "alex" | "daniel">("all");
+
   useEffect(() => {
-    fetch("/api/calendly?action=event_types")
+    const userParam = calendlyPerson === "all" ? "" : `&user=${calendlyPerson}`;
+    fetch(`/api/calendly?action=event_types${userParam}`)
       .then(r => r.json())
       .then(d => { if (d.types) setCalendlyTypes(d.types); })
       .catch(() => {});
-  }, []);
+  }, [calendlyPerson]);
+
+  // Drag & Drop state
+  const [dragEvent, setDragEvent] = useState<CalendarEvent | null>(null);
+  const [dragConfirmOpen, setDragConfirmOpen] = useState(false);
+  const [dragTarget, setDragTarget] = useState<{ date: string; hour: number } | null>(null);
+  const [dragUpdating, setDragUpdating] = useState(false);
 
   const openCalendlyBooking = () => {
     if (!calendlySelectedUrl) { toast.error("Bitte Event-Typ auswählen"); return; }
@@ -230,6 +244,8 @@ export default function Calendar() {
             client: accounts.length > 1 ? email.split("@")[0] : undefined,
             accountColor: account?.color,
             accountColorLight: account?.colorLight,
+            googleEventId: ge.id,
+            accountEmail: email,
           };
         });
       });
@@ -302,10 +318,17 @@ export default function Calendar() {
       .slice(0, 5);
   }, [allEvents, today]);
 
-  const openNew = (date?: string, hour?: number) => {
+  const openNew = (date?: string, hour?: number, minute?: number) => {
     const d = date || format(today, "yyyy-MM-dd");
     const h = hour ?? 9;
-    setForm({ title: "", date: d, startTime: `${h.toString().padStart(2, "0")}:00`, endTime: `${(h + 1).toString().padStart(2, "0")}:00`, type: "call", client: "", description: "", meetingLink: "" });
+    const m = minute ?? 0;
+    const startH = h.toString().padStart(2, "0");
+    const startM = m.toString().padStart(2, "0");
+    // End time = start + 30 min
+    const endTotalMin = h * 60 + m + 30;
+    const endH = (Math.floor(endTotalMin / 60) % 24).toString().padStart(2, "0");
+    const endM = (endTotalMin % 60).toString().padStart(2, "0");
+    setForm({ title: "", date: d, startTime: `${startH}:${startM}`, endTime: `${endH}:${endM}`, type: "call", client: "", description: "", meetingLink: "" });
     setEditingEvent(null);
     setDialogOpen(true);
   };
@@ -341,6 +364,97 @@ export default function Calendar() {
   const deleteEvent = async (id: string) => {
     await deleteCalendarEvent(id);
     toast.success("Event gelöscht");
+  };
+
+  // Drag & Drop handlers
+  const handleDragStart = (e: React.DragEvent, event: CalendarEvent) => {
+    if (!event.googleEventId) return;
+    e.dataTransfer.setData("text/plain", event.id);
+    e.dataTransfer.effectAllowed = "move";
+    setDragEvent(event);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (e: React.DragEvent, dateStr: string, hour: number) => {
+    e.preventDefault();
+    if (!dragEvent || !dragEvent.googleEventId) return;
+    setDragTarget({ date: dateStr, hour });
+    setDragConfirmOpen(true);
+  };
+
+  const confirmDragMove = async () => {
+    if (!dragEvent || !dragTarget || !dragEvent.googleEventId || !dragEvent.accountEmail) {
+      setDragConfirmOpen(false);
+      setDragEvent(null);
+      setDragTarget(null);
+      return;
+    }
+
+    setDragUpdating(true);
+    try {
+      // Calculate new start and end times
+      const [origSH, origSM] = dragEvent.startTime.split(":").map(Number);
+      const [origEH, origEM] = dragEvent.endTime.split(":").map(Number);
+      const durationMin = (origEH * 60 + origEM) - (origSH * 60 + origSM);
+
+      const newStartH = dragTarget.hour;
+      const newStartM = origSM;
+      const newEndTotalMin = newStartH * 60 + newStartM + (durationMin > 0 ? durationMin : 30);
+      const newEndH = Math.floor(newEndTotalMin / 60) % 24;
+      const newEndM = newEndTotalMin % 60;
+
+      const newStart = `${dragTarget.date}T${newStartH.toString().padStart(2, "0")}:${newStartM.toString().padStart(2, "0")}:00`;
+      const newEnd = `${dragTarget.date}T${newEndH.toString().padStart(2, "0")}:${newEndM.toString().padStart(2, "0")}:00`;
+
+      // Get valid token for the account
+      const accounts = getAccounts();
+      const account = accounts.find(a => a.email === dragEvent.accountEmail);
+      if (!account) {
+        toast.error("Konto nicht gefunden");
+        setDragUpdating(false);
+        setDragConfirmOpen(false);
+        return;
+      }
+
+      const token = await getValidToken(account);
+
+      // Determine timezone from original event or default
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Berlin";
+
+      const res = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events/${dragEvent.googleEventId}?sendUpdates=all`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            start: { dateTime: newStart, timeZone: tz },
+            end: { dateTime: newEnd, timeZone: tz },
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `API error: ${res.status}`);
+      }
+
+      toast.success("Event verschoben & Teilnehmer benachrichtigt");
+      // Re-sync to pick up the change
+      await syncGoogleCalendar();
+    } catch (err: any) {
+      toast.error("Fehler beim Verschieben: " + err.message);
+    }
+    setDragUpdating(false);
+    setDragConfirmOpen(false);
+    setDragEvent(null);
+    setDragTarget(null);
   };
 
   // Now line
@@ -593,9 +707,16 @@ export default function Calendar() {
                       const dayEvents = allEvents.filter((e) => e.date === dateStr && !e.id.startsWith("proj-deadline-"));
 
                       return (
-                        <div key={dateStr} className={`border-l relative ${isToday ? "bg-primary/[0.02]" : ""}`} style={{ height: hours.length * SLOT_HEIGHT }} onDoubleClick={() => openNew(dateStr)}>
-                          {hours.map((_, hIdx) => (
-                            <div key={hIdx} className="absolute w-full border-t" style={{ top: hIdx * SLOT_HEIGHT }} />
+                        <div key={dateStr} className={`border-l relative ${isToday ? "bg-primary/[0.02]" : ""}`} style={{ height: hours.length * SLOT_HEIGHT }}>
+                          {hours.map((hour, hIdx) => (
+                            <div
+                              key={hIdx}
+                              className="absolute w-full border-t cursor-pointer hover:bg-primary/5 transition-colors"
+                              style={{ top: hIdx * SLOT_HEIGHT, height: SLOT_HEIGHT }}
+                              onClick={() => openNew(dateStr, hour, 0)}
+                              onDragOver={handleDragOver}
+                              onDrop={(e) => handleDrop(e, dateStr, hour)}
+                            />
                           ))}
 
                           {isToday && nowInRange && (
@@ -629,11 +750,15 @@ export default function Calendar() {
                             const noShowStyle = eventNoShow ? "bg-red-500/30 text-white border-l-[3px] border-red-600" : ec.bgLight;
                             const noShowBar = eventNoShow ? "bg-red-600" : ec.color;
 
+                            const isGoogleEvent = !!event.googleEventId;
+
                             return (
                               <div
                                 key={event.id}
                                 className={`absolute rounded-lg cursor-pointer hover:shadow-md transition-all overflow-hidden group ${noShowStyle}`}
-                                style={{ top: top + 1, height: height - 2, zIndex: 1, left: `calc(${leftPercent}% + 2px)`, width: `calc(${colWidth}% - 4px)` }}
+                                style={{ top: top + 1, height: height - 2, zIndex: 10, left: `calc(${leftPercent}% + 2px)`, width: `calc(${colWidth}% - 4px)` }}
+                                draggable={isGoogleEvent}
+                                onDragStart={(e) => isGoogleEvent && handleDragStart(e, event)}
                                 onClick={(e) => {
                                   if (salesMeeting) {
                                     e.stopPropagation();
@@ -999,16 +1124,74 @@ export default function Calendar() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Person selector */}
+            <div>
+              <Label className="text-xs mb-1.5 block">Person</Label>
+              <div className="flex items-center rounded-lg border bg-card p-0.5 gap-0.5">
+                {([
+                  { key: "all" as const, label: "Alle" },
+                  { key: "alex" as const, label: "Alex" },
+                  { key: "daniel" as const, label: "Daniel" },
+                ] as const).map((p) => (
+                  <button
+                    key={p.key}
+                    onClick={() => { setCalendlyPerson(p.key); setCalendlySelectedUrl(""); }}
+                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all text-center ${
+                      calendlyPerson === p.key ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div>
               <Label className="text-xs">Event-Typ</Label>
               <Select value={calendlySelectedUrl} onValueChange={setCalendlySelectedUrl}>
                 <SelectTrigger><SelectValue placeholder="Event-Typ wählen" /></SelectTrigger>
                 <SelectContent>
-                  {calendlyTypes.map((t) => (
-                    <SelectItem key={t.slug} value={t.url}>
-                      {t.name} ({t.duration} min)
-                    </SelectItem>
-                  ))}
+                  {(() => {
+                    const alexTypes = calendlyTypes.filter(t => t.owner === "Alex");
+                    const danielTypes = calendlyTypes.filter(t => t.owner === "Daniel");
+                    const ungrouped = calendlyTypes.filter(t => !t.owner);
+                    const showGroups = alexTypes.length > 0 && danielTypes.length > 0;
+                    if (!showGroups) {
+                      return calendlyTypes.map((t) => (
+                        <SelectItem key={t.slug + (t.owner || "")} value={t.url}>
+                          {t.owner ? `[${t.owner}] ` : ""}{t.name} ({t.duration} min)
+                        </SelectItem>
+                      ));
+                    }
+                    return (
+                      <>
+                        {alexTypes.length > 0 && (
+                          <>
+                            <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Alex</div>
+                            {alexTypes.map((t) => (
+                              <SelectItem key={t.slug + "alex"} value={t.url}>
+                                {t.name} ({t.duration} min)
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                        {danielTypes.length > 0 && (
+                          <>
+                            <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-1">Daniel</div>
+                            {danielTypes.map((t) => (
+                              <SelectItem key={t.slug + "daniel"} value={t.url}>
+                                {t.name} ({t.duration} min)
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                        {ungrouped.map((t) => (
+                          <SelectItem key={t.slug} value={t.url}>
+                            {t.name} ({t.duration} min)
+                          </SelectItem>
+                        ))}
+                      </>
+                    );
+                  })()}
                 </SelectContent>
               </Select>
             </div>
@@ -1034,6 +1217,36 @@ export default function Calendar() {
             </div>
             <Button onClick={openCalendlyBooking} className="w-full">Buchungsfenster öffnen</Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Drag & Drop Confirmation Dialog */}
+      <Dialog open={dragConfirmOpen} onOpenChange={(open) => { if (!open) { setDragConfirmOpen(false); setDragEvent(null); setDragTarget(null); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Meeting verschieben?</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            {dragEvent && dragTarget && (
+              <>
+                <p className="text-sm font-medium">{dragEvent.title}</p>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>{dragEvent.date} {dragEvent.startTime}</span>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                  <span className="font-medium text-foreground">{dragTarget.date} {dragTarget.hour.toString().padStart(2, "0")}:00</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Soll die Änderung an alle Teilnehmer gesendet werden?</p>
+              </>
+            )}
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => { setDragConfirmOpen(false); setDragEvent(null); setDragTarget(null); }} disabled={dragUpdating}>
+              Nein, abbrechen
+            </Button>
+            <Button onClick={confirmDragMove} disabled={dragUpdating}>
+              {dragUpdating ? "Aktualisiere..." : "Ja, aktualisieren"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Testing01 — Rebuild</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+  body{
+    background:#111;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+    padding:40px;
+  }
+
+  .creative{
+    width:480px;
+    height:600px;
+    background:#0b0b0b;
+    position:relative;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    font-family:Helvetica,Arial,sans-serif;
+    color:#ffffff;
+  }
+
+  /* ── Watermark ── */
+  .watermark{
+    position:absolute;
+    top:0;left:0;right:0;bottom:0;
+    display:flex;
+    flex-wrap:wrap;
+    align-content:flex-start;
+    gap:20px 28px;
+    padding:15px 25px;
+    opacity:0.05;
+    pointer-events:none;
+  }
+  .watermark span{
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:30px;
+    font-weight:700;
+    color:#fff;
+    letter-spacing:3px;
+  }
+
+  /* ── Photo ── */
+  .photo-area{
+    position:relative;
+    width:100%;
+    height:250px;
+    display:flex;
+    justify-content:center;
+    overflow:hidden;
+    flex-shrink:0;
+  }
+  .photo-gradient{
+    position:absolute;
+    bottom:0;left:0;right:0;
+    height:100px;
+    background:linear-gradient(to bottom,transparent,#0b0b0b);
+  }
+  .photo-placeholder{
+    width:220px;
+    height:270px;
+    border-radius:6px;
+    background:linear-gradient(180deg,#2a2a2a 0%,#1a1a1a 100%);
+    margin-top:-10px;
+  }
+
+  /* ── Content ── */
+  .content{
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    padding:0 28px;
+    gap:0;
+  }
+
+  .subline{
+    font-family:Helvetica,Arial,sans-serif;
+    font-style:italic;
+    font-weight:400;
+    font-size:16px;
+    color:#e8802a;
+    letter-spacing:0.3px;
+    margin-bottom:4px;
+  }
+
+  .main-headline{
+    font-family:Helvetica,Arial,sans-serif;
+    font-weight:700;
+    font-size:38px;
+    line-height:1.1;
+    color:#ffffff;
+    letter-spacing:-0.5px;
+    margin-bottom:0;
+  }
+
+  .italic-headline{
+    font-family:'Playfair Display',serif;
+    font-style:italic;
+    font-weight:600;
+    font-size:36px;
+    line-height:1.15;
+    color:#ffffff;
+    margin-bottom:8px;
+  }
+
+  .bullets{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+    margin-bottom:10px;
+  }
+  .bullet{
+    font-size:16px;
+    line-height:1.35;
+    display:flex;
+    align-items:baseline;
+    gap:5px;
+  }
+  .bullet .label{
+    font-family:Helvetica,Arial,sans-serif;
+    font-weight:700;
+    color:#ffffff;
+  }
+  .bullet .value{
+    font-family:'Playfair Display',serif;
+    font-style:italic;
+    font-weight:600;
+    color:#e8802a;
+  }
+
+  .badges{
+    display:flex;
+    gap:12px;
+    margin-bottom:14px;
+  }
+  .badge{
+    font-family:'Playfair Display',serif;
+    font-style:italic;
+    font-weight:400;
+    font-size:13px;
+    color:#e0d4c0;
+    padding:6px 18px;
+    border:1px solid rgba(160,120,60,.4);
+    border-radius:50px;
+    letter-spacing:0.2px;
+    background:transparent;
+  }
+
+  .cta-wrap{
+    width:420px;
+    padding:2px;
+    border-radius:10px;
+    background:linear-gradient(90deg,#2a1e0e,#8a6838 35%,#c4a060 50%,#8a6838 65%,#2a1e0e);
+    margin-bottom:12px;
+  }
+  .cta{
+    width:100%;
+    height:46px;
+    border-radius:8px;
+    background:linear-gradient(180deg,#5a4428 0%,#3a2a16 50%,#2a1c0e 100%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+  }
+  .cta-text{
+    font-family:'Playfair Display',serif;
+    font-style:italic;
+    font-weight:600;
+    font-size:20px;
+    color:#ffffff;
+    letter-spacing:0.5px;
+  }
+
+  .logo{
+    font-family:Helvetica,Arial,sans-serif;
+    font-weight:700;
+    font-size:18px;
+    color:rgba(255,255,255,.5);
+    letter-spacing:1px;
+  }
+</style>
+</head>
+<body>
+
+<div class="creative">
+  <div class="watermark">
+    <span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span>
+    <span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span>
+    <span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span>
+    <span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span>
+    <span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span>
+    <span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span>
+    <span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span>
+    <span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span><span>H</span>
+  </div>
+
+  <div class="photo-area">
+    <div class="photo-placeholder"></div>
+    <div class="photo-gradient"></div>
+  </div>
+
+  <div class="content">
+    <div class="subline">Junges &amp; dynamisches A-Player Team</div>
+    <div class="main-headline">Head of Sales gesucht</div>
+    <div class="italic-headline">F&uuml;r Setter &amp; Closer</div>
+    <div class="bullets">
+      <div class="bullet"><span class="label">4+ Jahre</span> <span class="value">Sales Erfahrung</span></div>
+      <div class="bullet"><span class="label">2+ Jahre</span> <span class="value">Closing Erfahrung</span></div>
+    </div>
+    <div class="badges">
+      <div class="badge">100% Remote</div>
+      <div class="badge">&euro;10-20K MTL.</div>
+    </div>
+    <div class="cta-wrap">
+      <div class="cta">
+        <span class="cta-text">Jetzt bewerben</span>
+      </div>
+    </div>
+    <div class="logo">FB</div>
+  </div>
+</div>
+
+</body>
+</html>

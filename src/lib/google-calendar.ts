@@ -78,7 +78,7 @@ async function refreshAccessToken(account: GoogleAccount): Promise<string | null
   }
 }
 
-async function getValidToken(account: GoogleAccount): Promise<string> {
+export async function getValidToken(account: GoogleAccount): Promise<string> {
   // Refresh if expires in less than 5 min
   if (account.refreshToken && account.expiresAt < Date.now() + 5 * 60 * 1000) {
     const newToken = await refreshAccessToken(account);

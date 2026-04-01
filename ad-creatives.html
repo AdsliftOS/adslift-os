@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ad Creative Variationen</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Montserrat:wght@400;700;800;900&family=Archivo+Black&family=Bebas+Neue&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+  body{
+    background:#0e0e0e;
+    color:#ccc;
+    font-family:'DM Sans',sans-serif;
+    min-height:100vh;
+    padding:60px 40px 80px;
+  }
+
+  .page-title{
+    text-align:center;
+    font-family:'Bebas Neue',sans-serif;
+    font-size:48px;
+    letter-spacing:6px;
+    color:#fff;
+    margin-bottom:12px;
+    text-transform:uppercase;
+  }
+  .page-sub{
+    text-align:center;
+    font-size:14px;
+    color:#666;
+    margin-bottom:56px;
+    letter-spacing:1px;
+  }
+
+  .grid{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:48px 36px;
+    max-width:1100px;
+    margin:0 auto;
+  }
+
+  .card-wrap{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:14px;
+  }
+  .card-label{
+    font-family:'DM Sans',sans-serif;
+    font-size:13px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:#777;
+  }
+
+  .creative{
+    width:270px;
+    height:480px;
+    overflow:hidden;
+    position:relative;
+    flex-shrink:0;
+    transition:transform .35s cubic-bezier(.22,1,.36,1),box-shadow .35s ease;
+    cursor:pointer;
+  }
+  .creative:hover{
+    transform:translateY(-6px) scale(1.01);
+    box-shadow:0 20px 50px rgba(0,0,0,.4);
+  }
+
+  /* gradient text chars inherit font from parent */
+  .grad-char{ display:inline; }
+
+  /* ═══════════════════════════════════════
+     1 — DARK PREMIUM
+     ═══════════════════════════════════════ */
+  .dark-premium{
+    background:#000;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:32px 20px;
+    text-align:center;
+  }
+  .dark-premium .glow{
+    position:absolute;
+    width:280px;height:280px;
+    border-radius:140px;
+    background:rgba(122,56,212,.14);
+    top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    filter:blur(60px);
+  }
+  .dark-premium .badge{
+    position:relative;
+    font-family:'DM Sans',sans-serif;
+    font-size:10px;
+    letter-spacing:1.5px;
+    padding:5px 16px;
+    border:1px solid rgba(122,56,212,.7);
+    border-radius:30px;
+    color:#d4b5ff;
+    margin-bottom:22px;
+    background:rgba(122,56,212,.08);
+    box-shadow:0 0 20px rgba(122,56,212,.15);
+  }
+  .dark-premium .dot{
+    display:inline-block;
+    width:6px;height:6px;
+    border-radius:3px;
+    background:#7a38d4;
+    margin-right:6px;
+    vertical-align:middle;
+  }
+  .dark-premium .headline{
+    position:relative;
+    font-family:'DM Sans',sans-serif;
+    font-size:16px;
+    line-height:1.45;
+    color:#e1e1e1;
+    margin-bottom:16px;
+  }
+  .dark-premium .headline .g{
+    font-family:'Playfair Display',serif;
+    font-style:italic;
+    font-weight:600;
+  }
+  .dark-premium .subtext{
+    position:relative;
+    font-size:7.5px;
+    line-height:1.45;
+    color:#aaa;
+  }
+  .dark-premium .subtext strong{
+    color:#7a38d4;
+    font-weight:700;
+  }
+
+  /* ═══════════════════════════════════════
+     2 — NEON CYBER
+     ═══════════════════════════════════════ */
+  .neon-cyber{
+    background:#050508;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:30px 18px;
+    text-align:center;
+  }
+  .neon-cyber .glow{
+    position:absolute;
+    bottom:-40px;left:50%;
+    transform:translateX(-50%);
+    width:200px;height:200px;
+    border-radius:100px;
+    background:rgba(0,240,255,.08);
+    filter:blur(40px);
+  }
+  .neon-cyber .grid-bg{
+    position:absolute;
+    inset:0;
+    opacity:0.04;
+    background:
+      linear-gradient(0deg,transparent 49%,#00f0ff 49%,#00f0ff 51%,transparent 51%) 0 0/100% 4px,
+      linear-gradient(90deg,transparent 49%,#39ff14 49%,#39ff14 51%,transparent 51%) 0 0/4px 100%;
+  }
+  .neon-cyber .badge{
+    position:relative;
+    font-family:'JetBrains Mono',monospace;
+    font-size:9px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    padding:5px 14px;
+    border:1px solid #00f0ff;
+    color:#00f0ff;
+    margin-bottom:24px;
+    background:rgba(0,240,255,.05);
+  }
+  .neon-cyber .headline{
+    position:relative;
+    font-family:'Space Mono',monospace;
+    font-size:15px;
+    line-height:1.45;
+    color:#e0e0e0;
+    margin-bottom:18px;
+  }
+  .neon-cyber .headline .g{
+    font-weight:700;
+  }
+  .neon-cyber .subtext{
+    position:relative;
+    font-family:'JetBrains Mono',monospace;
+    font-size:7px;
+    line-height:1.5;
+    color:#668888;
+    letter-spacing:.3px;
+  }
+  .neon-cyber .subtext strong{
+    color:#00f0ff;
+    font-weight:700;
+  }
+
+  /* ═══════════════════════════════════════
+     3 — CLEAN MINIMAL
+     ═══════════════════════════════════════ */
+  .clean-minimal{
+    background:#f8f8f8;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:40px 24px;
+  }
+  .clean-minimal .top-line{
+    position:absolute;
+    top:0;left:0;right:0;
+    height:3px;
+    background:#1a3a5c;
+  }
+  .clean-minimal .bottom-line{
+    position:absolute;
+    bottom:32px;left:24px;
+    width:40px;height:1px;
+    background:rgba(26,58,92,.4);
+  }
+  .clean-minimal .badge{
+    font-family:'DM Sans',sans-serif;
+    font-size:9px;
+    letter-spacing:2.5px;
+    text-transform:uppercase;
+    color:#1a3a5c;
+    border-bottom:1px solid rgba(26,58,92,.2);
+    padding-bottom:6px;
+    margin-bottom:28px;
+    display:inline-block;
+    align-self:flex-start;
+  }
+  .clean-minimal .headline{
+    font-family:'DM Sans',sans-serif;
+    font-size:17px;
+    line-height:1.45;
+    color:#1a1a1a;
+    font-weight:300;
+    margin-bottom:20px;
+  }
+  .clean-minimal .headline .g{
+    font-weight:700;
+  }
+  .clean-minimal .subtext{
+    font-family:'DM Sans',sans-serif;
+    font-size:8px;
+    line-height:1.55;
+    color:#888;
+    font-weight:300;
+  }
+  .clean-minimal .subtext strong{
+    color:#1a3a5c;
+    font-weight:600;
+  }
+
+  /* ═══════════════════════════════════════
+     4 — GOLD LUXURY
+     ═══════════════════════════════════════ */
+  .gold-luxury{
+    background:#0a0a0a;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:32px 22px;
+    text-align:center;
+    border:1px solid rgba(184,134,11,.25);
+  }
+  .gold-luxury .inner-border{
+    position:absolute;
+    top:6px;left:6px;right:6px;bottom:6px;
+    border:1px solid rgba(255,215,0,.1);
+  }
+  .gold-luxury .glow{
+    position:absolute;
+    top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    width:260px;height:260px;
+    border-radius:130px;
+    background:rgba(184,134,11,.06);
+    filter:blur(40px);
+  }
+  .gold-luxury .ornament{
+    position:absolute;
+    top:14px;left:105px;
+    width:60px;height:1px;
+    background:#b8860b;
+    opacity:0.5;
+  }
+  .gold-luxury .ornament-b{
+    position:absolute;
+    bottom:14px;left:105px;
+    width:60px;height:1px;
+    background:#b8860b;
+    opacity:0.5;
+  }
+  .gold-luxury .badge{
+    position:relative;
+    font-family:'Cormorant Garamond',serif;
+    font-size:10px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    padding:5px 18px;
+    border:1px solid rgba(184,134,11,.5);
+    color:#d4a84b;
+    margin-bottom:22px;
+    background:rgba(184,134,11,.04);
+  }
+  .gold-luxury .headline{
+    position:relative;
+    font-family:'Cormorant Garamond',serif;
+    font-size:17px;
+    line-height:1.45;
+    color:#e8e0d0;
+    font-weight:400;
+    margin-bottom:16px;
+  }
+  .gold-luxury .headline .g{
+    font-weight:700;
+    font-style:italic;
+  }
+  .gold-luxury .subtext{
+    position:relative;
+    font-family:'Cormorant Garamond',serif;
+    font-size:8.5px;
+    line-height:1.5;
+    color:#8a7e6b;
+    letter-spacing:.3px;
+  }
+  .gold-luxury .subtext strong{
+    color:#d4a84b;
+    font-weight:700;
+  }
+
+  /* ═══════════════════════════════════════
+     5 — BOLD GRADIENT
+     ═══════════════════════════════════════ */
+  .bold-gradient{
+    background:linear-gradient(135deg,#2d1b69 0%,#6b2fa0 40%,#e91e8c 100%);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:30px 20px;
+    text-align:center;
+  }
+  .bold-gradient .circle-tr{
+    position:absolute;
+    top:-60px;right:-60px;
+    width:180px;height:180px;
+    border-radius:90px;
+    border:30px solid rgba(255,255,255,.04);
+  }
+  .bold-gradient .circle-bl{
+    position:absolute;
+    bottom:-30px;left:-30px;
+    width:120px;height:120px;
+    border-radius:60px;
+    border:20px solid rgba(255,255,255,.03);
+  }
+  .bold-gradient .badge{
+    position:relative;
+    font-family:'Montserrat',sans-serif;
+    font-size:9px;
+    font-weight:800;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    padding:6px 18px;
+    border-radius:30px;
+    background:rgba(255,255,255,.2);
+    color:#fff;
+    margin-bottom:22px;
+  }
+  .bold-gradient .headline{
+    position:relative;
+    font-family:'Montserrat',sans-serif;
+    font-size:16px;
+    line-height:1.55;
+    color:#fff;
+    font-weight:700;
+    margin-bottom:16px;
+  }
+  .bold-gradient .headline em{
+    font-weight:900;
+    font-style:normal;
+    background:#fff;
+    color:#2d1b69;
+    padding:1px 5px;
+  }
+  .bold-gradient .subtext{
+    position:relative;
+    font-family:'Montserrat',sans-serif;
+    font-size:7.5px;
+    line-height:1.5;
+    color:rgba(255,255,255,.7);
+    font-weight:400;
+  }
+  .bold-gradient .subtext strong{
+    color:#fff;
+    font-weight:800;
+    text-decoration:underline;
+  }
+
+  /* ═══════════════════════════════════════
+     6 — BRUTALIST RED
+     ═══════════════════════════════════════ */
+  .brutalist-red{
+    background:#f5f0e8;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:32px 18px;
+    border:3px solid #1a1a1a;
+  }
+  .brutalist-red .corner-box{
+    position:absolute;
+    top:12px;right:12px;
+    width:50px;height:50px;
+    border:3px solid #e63946;
+  }
+  .brutalist-red .corner-fill{
+    position:absolute;
+    bottom:12px;left:12px;
+    width:30px;height:30px;
+    background:#e63946;
+  }
+  .brutalist-red .stripe{
+    position:absolute;
+    top:0;left:0;right:0;
+    height:6px;
+    background:repeating-linear-gradient(90deg,#e63946 0px,#e63946 10px,#1a1a1a 10px,#1a1a1a 20px);
+  }
+  .brutalist-red .badge{
+    font-family:'Archivo Black',sans-serif;
+    font-size:9px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:#1a1a1a;
+    border:2px solid #1a1a1a;
+    padding:4px 12px;
+    display:inline-block;
+    align-self:flex-start;
+    margin-bottom:22px;
+    background:#f5f0e8;
+  }
+  .brutalist-red .headline{
+    font-family:'Archivo Black',sans-serif;
+    font-size:16px;
+    line-height:1.35;
+    color:#1a1a1a;
+    text-transform:uppercase;
+    margin-bottom:18px;
+  }
+  .brutalist-red .headline .g{
+    font-style:normal;
+  }
+  .brutalist-red .subtext{
+    font-family:'DM Sans',sans-serif;
+    font-size:8px;
+    line-height:1.5;
+    color:#555;
+  }
+  .brutalist-red .subtext strong{
+    color:#e63946;
+    font-weight:700;
+    text-transform:uppercase;
+  }
+</style>
+</head>
+<body>
+
+<h1 class="page-title">Ad Creative Variationen</h1>
+<p class="page-sub">6 Styles &mdash; gleicher Inhalt, verschiedene Wirkung</p>
+
+<div class="grid">
+
+  <!-- 1 DARK PREMIUM -->
+  <div class="card-wrap">
+    <div class="creative dark-premium">
+      <div class="glow"></div>
+      <div class="badge"><span class="dot"></span>Webdesigner aufgepasst</div>
+      <div class="headline">Ich bringe dir 5+ <span class="g" data-grad="#e1e1e1,#7a38d4">Webdesign Kunden </span><span class="g" data-grad="#e1e1e1,#7a38d4">Garantiert</span> in den n&auml;chsten 30 Tagen oder du zahlst 0&euro;</div>
+      <div class="subtext">Die bereit sind zwischen <strong>3.000&euro; - 7.000&euro;</strong> f&uuml;r eine Landingpage/Website bei dir zu zahlen und dass ohne das du jeden Tag Kaltakquise machst oder um Empfehlungen bettelst</div>
+    </div>
+    <span class="card-label">Dark Premium</span>
+  </div>
+
+  <!-- 2 NEON CYBER -->
+  <div class="card-wrap">
+    <div class="creative neon-cyber">
+      <div class="glow"></div>
+      <div class="grid-bg"></div>
+      <div class="badge">Webdesigner aufgepasst</div>
+      <div class="headline">Ich bringe dir 5+ <span class="g" data-grad="#e0e0e0,#39ff14">Webdesign Kunden </span><span class="g" data-grad="#39ff14,#00f0ff">Garantiert</span> in den n&auml;chsten 30 Tagen oder du zahlst 0&euro;</div>
+      <div class="subtext">Die bereit sind zwischen <strong>3.000&euro; - 7.000&euro;</strong> f&uuml;r eine Landingpage/Website bei dir zu zahlen und dass ohne das du jeden Tag Kaltakquise machst oder um Empfehlungen bettelst</div>
+    </div>
+    <span class="card-label">Neon Cyber</span>
+  </div>
+
+  <!-- 3 CLEAN MINIMAL -->
+  <div class="card-wrap">
+    <div class="creative clean-minimal">
+      <div class="top-line"></div>
+      <div class="bottom-line"></div>
+      <div class="badge">Webdesigner aufgepasst</div>
+      <div class="headline">Ich bringe dir 5+ <span class="g" data-grad="#1a3a5c,#4a8abf">Webdesign Kunden </span><span class="g" data-grad="#4a8abf,#1a3a5c">Garantiert</span> in den n&auml;chsten 30 Tagen oder du zahlst 0&euro;</div>
+      <div class="subtext">Die bereit sind zwischen <strong>3.000&euro; - 7.000&euro;</strong> f&uuml;r eine Landingpage/Website bei dir zu zahlen und dass ohne das du jeden Tag Kaltakquise machst oder um Empfehlungen bettelst</div>
+    </div>
+    <span class="card-label">Clean Minimal</span>
+  </div>
+
+  <!-- 4 GOLD LUXURY -->
+  <div class="card-wrap">
+    <div class="creative gold-luxury">
+      <div class="inner-border"></div>
+      <div class="glow"></div>
+      <div class="ornament"></div>
+      <div class="ornament-b"></div>
+      <div class="badge">Webdesigner aufgepasst</div>
+      <div class="headline">Ich bringe dir 5+ <span class="g" data-grad="#b8860b,#ffd700">Webdesign Kunden </span><span class="g" data-grad="#ffd700,#b8860b">Garantiert</span> in den n&auml;chsten 30 Tagen oder du zahlst 0&euro;</div>
+      <div class="subtext">Die bereit sind zwischen <strong data-grad="#b8860b,#ffd700" class="g-sub">3.000&euro; - 7.000&euro;</strong> f&uuml;r eine Landingpage/Website bei dir zu zahlen und dass ohne das du jeden Tag Kaltakquise machst oder um Empfehlungen bettelst</div>
+    </div>
+    <span class="card-label">Gold Luxury</span>
+  </div>
+
+  <!-- 5 BOLD GRADIENT -->
+  <div class="card-wrap">
+    <div class="creative bold-gradient">
+      <div class="circle-tr"></div>
+      <div class="circle-bl"></div>
+      <div class="badge">Webdesigner aufgepasst</div>
+      <div class="headline">Ich bringe dir 5+ <em>Webdesign Kunden</em> <em>Garantiert</em> in den n&auml;chsten 30 Tagen oder du zahlst 0&euro;</div>
+      <div class="subtext">Die bereit sind zwischen <strong>3.000&euro; - 7.000&euro;</strong> f&uuml;r eine Landingpage/Website bei dir zu zahlen und dass ohne das du jeden Tag Kaltakquise machst oder um Empfehlungen bettelst</div>
+    </div>
+    <span class="card-label">Bold Gradient</span>
+  </div>
+
+  <!-- 6 BRUTALIST RED -->
+  <div class="card-wrap">
+    <div class="creative brutalist-red">
+      <div class="stripe"></div>
+      <div class="corner-box"></div>
+      <div class="corner-fill"></div>
+      <div class="badge">Webdesigner aufgepasst</div>
+      <div class="headline">Ich bringe dir 5+ <span class="g" data-grad="#1a1a1a,#e63946">Webdesign Kunden </span><span class="g" data-grad="#e63946,#1a1a1a">Garantiert</span> in den n&auml;chsten 30 Tagen oder du zahlst 0&euro;</div>
+      <div class="subtext">Die bereit sind zwischen <strong>3.000&euro; - 7.000&euro;</strong> f&uuml;r eine Landingpage/Website bei dir zu zahlen und dass ohne das du jeden Tag Kaltakquise machst oder um Empfehlungen bettelst</div>
+    </div>
+    <span class="card-label">Brutalist Red</span>
+  </div>
+
+</div>
+
+<script>
+// Gradient text engine — splits text into per-character spans with interpolated colors
+// Figma capture sees individual colored spans = gradient effect with only solid colors
+function hexToRgb(hex) {
+  hex = hex.replace('#','');
+  return [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
+}
+function rgbToHex(r,g,b) {
+  return '#' + [r,g,b].map(v => Math.round(v).toString(16).padStart(2,'0')).join('');
+}
+function lerp(a,b,t) { return a + (b - a) * t; }
+
+document.querySelectorAll('[data-grad]').forEach(el => {
+  const [fromHex, toHex] = el.dataset.grad.split(',');
+  const from = hexToRgb(fromHex);
+  const to = hexToRgb(toHex);
+  const text = el.textContent;
+  const len = text.length;
+
+  el.textContent = '';
+  for (let i = 0; i < len; i++) {
+    const t = len === 1 ? 0 : i / (len - 1);
+    const color = rgbToHex(lerp(from[0],to[0],t), lerp(from[1],to[1],t), lerp(from[2],to[2],t));
+    const span = document.createElement('span');
+    span.textContent = text[i];
+    span.style.color = color;
+    span.className = 'grad-char';
+    el.appendChild(span);
+  }
+});
+</script>
+</body>
+</html>
