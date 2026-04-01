@@ -369,7 +369,8 @@ export default function Calendar() {
 
   // Drag & Drop handlers
   const handleDragStart = (e: React.DragEvent, event: CalendarEvent) => {
-    if (!event.googleEventId) return;
+    // Don't allow dragging deadline events
+    if (event.id.startsWith("proj-deadline-")) return;
     e.dataTransfer.setData("text/plain", event.id);
     e.dataTransfer.effectAllowed = "move";
     setDragEvent(event);
