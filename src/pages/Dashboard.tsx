@@ -38,6 +38,16 @@ export default function Dashboard() {
     });
   }, []);
 
+  const [monthlyClosed, setMonthlyClosed] = useState(0);
+  useEffect(() => {
+    const now = new Date();
+    const monthStart = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-01`;
+    const nextMonth = now.getMonth() === 11 ? `${now.getFullYear() + 1}-01-01` : `${now.getFullYear()}-${(now.getMonth() + 2).toString().padStart(2, "0")}-01`;
+    supabase.from("sales_weeks").select("deal_volume,week_start").gte("week_start", monthStart).lt("week_start", nextMonth).then(({ data }) => {
+      if (data) setMonthlyClosed(data.reduce((s, w) => s + (w.deal_volume || 0), 0));
+    });
+  }, []);
+
   const today = new Date();
   const activeClients = clients.filter((c) => c.status === "Active").length;
   const totalRevenue = clients.reduce((s, c) => s + c.revenue, 0);
@@ -96,7 +106,7 @@ export default function Dashboard() {
             {[
               { value: String(clients.length), label: "Kunden", icon: Users, color: "bg-blue-500/15 text-blue-500" },
               { value: String(projects.length), label: "Projekte", icon: FolderKanban, color: "bg-violet-500/15 text-violet-500" },
-              { value: fmt(totalRevenue), label: "Umsatz", icon: DollarSign, color: "bg-emerald-500/15 text-emerald-500" },
+              { value: fmt(monthlyClosed), label: `Closed ${today.toLocaleString("de-DE", { month: "short" })}`, icon: DollarSign, color: "bg-emerald-500/15 text-emerald-500" },
             ].map((s) => (
               <div key={s.label} className="flex items-center gap-2.5 rounded-xl bg-card/50 border px-4 py-2.5">
                 <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${s.color}`}>
