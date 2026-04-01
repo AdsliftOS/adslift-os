@@ -27,7 +27,7 @@ const navItems = [
   { title: "Sales", url: "/sales", icon: (() => <span className="text-base leading-none">💰</span>) as any },
   { title: "Meta Ads", url: "/meta-ads", icon: MetaIcon },
   { title: "Kalender", url: "/calendar", icon: (() => <img src="/gcal-icon.png" alt="" className="h-5 w-5 shrink-0" />) as any },
-  { title: "Aufgaben", url: "/tasks", icon: (() => <span className="text-base leading-none">✅</span>) as any },
+  { title: "Aufgaben", url: "/tasks", icon: (() => <span className="text-base leading-none">🎯</span>) as any },
   { title: "Dateien", url: "/files", icon: (() => <img src="/gdrive-icon.png" alt="" className="h-5 w-5 shrink-0" />) as any },
   { title: "Time Tracking", url: "/time", icon: (() => <span className="text-base leading-none">⏱️</span>) as any },
   { title: "Academy", url: "/academy-admin", icon: (() => <span className="text-base leading-none">🎓</span>) as any },
