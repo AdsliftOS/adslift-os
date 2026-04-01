@@ -36,7 +36,7 @@ const creatableEventTypes = eventTypes.filter((t) => t.creatable);
 
 const eventTypeMap = Object.fromEntries(eventTypes.map((t) => [t.value, t]));
 
-const SLOT_HEIGHT = 60;
+const SLOT_HEIGHT = 56;
 const DAY_START = 5;
 const TOTAL_HOURS = 24;
 const hours = Array.from({ length: TOTAL_HOURS }, (_, i) => (i + DAY_START) % 24);
