@@ -333,8 +333,9 @@ export default function Tasks() {
                       onDragStart={() => handleDragStart(task.id)}
                       onDragEnd={() => { setDragTaskId(null); setDragOverCol(null); setTimeout(() => { wasDragged.current = false; }, 100); }}
                       onClick={() => { if (!wasDragged.current) openEdit(task); }}
-                      className={`relative rounded-xl bg-card border cursor-grab active:cursor-grabbing transition-all group overflow-hidden ${
-                        isDragging ? "opacity-30 scale-95 ring-2 ring-primary" : "hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/20"
+                      className={`relative rounded-xl border cursor-grab active:cursor-grabbing transition-all group overflow-hidden ${
+                        task.priority === "high" && col.key !== "done" ? "bg-red-500/[0.06] border-red-500/20" : "bg-card"
+                      } ${isDragging ? "opacity-30 scale-95 ring-2 ring-primary" : "hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/20"
                       } ${col.key === "done" ? "opacity-60 hover:opacity-80" : ""}`}
                     >
                       {/* Color stripe */}
