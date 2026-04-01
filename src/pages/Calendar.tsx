@@ -382,9 +382,31 @@ export default function Calendar() {
 
   const handleDrop = (e: React.DragEvent, dateStr: string, hour: number) => {
     e.preventDefault();
-    if (!dragEvent || !dragEvent.googleEventId) return;
+    if (!dragEvent) return;
     setDragTarget({ date: dateStr, hour });
-    setDragConfirmOpen(true);
+    // For local events, move directly without confirmation
+    if (!dragEvent.googleEventId) {
+      moveLocalEvent(dateStr, hour);
+    } else {
+      setDragConfirmOpen(true);
+    }
+  };
+
+  const moveLocalEvent = (dateStr: string, hour: number) => {
+    if (!dragEvent) return;
+    const [origSH, origSM] = dragEvent.startTime.split(":").map(Number);
+    const [origEH, origEM] = dragEvent.endTime.split(":").map(Number);
+    const durationMin = (origEH * 60 + origEM) - (origSH * 60 + origSM);
+    const newStartM = origSM;
+    const newEndTotalMin = hour * 60 + newStartM + (durationMin > 0 ? durationMin : 30);
+    const newEndH = Math.floor(newEndTotalMin / 60) % 24;
+    const newEndM = newEndTotalMin % 60;
+    const newStart = `${hour.toString().padStart(2, "0")}:${newStartM.toString().padStart(2, "0")}`;
+    const newEnd = `${newEndH.toString().padStart(2, "0")}:${newEndM.toString().padStart(2, "0")}`;
+    updateCalendarEvent(dragEvent.id, { date: dateStr, startTime: newStart, endTime: newEnd });
+    toast.success("Event verschoben");
+    setDragEvent(null);
+    setDragTarget(null);
   };
 
   const confirmDragMove = async () => {
@@ -758,8 +780,8 @@ export default function Calendar() {
                                 key={event.id}
                                 className={`absolute rounded-lg cursor-pointer hover:shadow-md transition-all overflow-hidden group ${noShowStyle}`}
                                 style={{ top: top + 1, height: height - 2, zIndex: 10, left: `calc(${leftPercent}% + 2px)`, width: `calc(${colWidth}% - 4px)` }}
-                                draggable={isGoogleEvent}
-                                onDragStart={(e) => isGoogleEvent && handleDragStart(e, event)}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, event)}
                                 onClick={(e) => {
                                   if (salesMeeting) {
                                     e.stopPropagation();

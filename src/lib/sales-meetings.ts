@@ -34,8 +34,17 @@ export function isClientMeeting(event: CalendarEvent): boolean {
   return CLIENT_PATTERNS.some((p) => p.test(event.title));
 }
 
+// Description patterns for Claude-booked LinkedIn calls
+const LINKEDIN_DESC_PATTERNS = [
+  /claude via linkedin/i,
+  /linkedin.*outreach/i,
+  /via linkedin/i,
+];
+
 export function isLinkedInSetting(event: CalendarEvent): boolean {
-  return LINKEDIN_SETTING_PATTERNS.some((p) => p.test(event.title));
+  const titleMatch = LINKEDIN_SETTING_PATTERNS.some((p) => p.test(event.title));
+  const descMatch = event.description ? LINKEDIN_DESC_PATTERNS.some((p) => p.test(event.description!)) : false;
+  return titleMatch || descMatch;
 }
 
 export function getSalesPersonFromTitle(title: string): string | null {
