@@ -107,7 +107,7 @@ const App = () => {
                       <Route path="/time" element={<TimeTracking />} />
                       <Route path="/sales" element={<Sales />} />
                       <Route path="/meta-ads" element={<MetaAds />} />
-                      <Route path="/calendar" element={<Calendar />} />
+                      <Route path="/calendar" element={<ErrorBoundary><Calendar /></ErrorBoundary>} />
                       <Route path="/tasks" element={<Tasks />} />
                   <Route path="/files" element={<Files />} />
                       <Route path="/academy-admin" element={<ErrorBoundary><Academy /></ErrorBoundary>} />
