@@ -221,8 +221,10 @@ export default function Calendar() {
   // Drag & Drop state
   const [dragEvent, setDragEvent] = useState<CalendarEvent | null>(null);
   const [dragConfirmOpen, setDragConfirmOpen] = useState(false);
-  const [dragTarget, setDragTarget] = useState<{ date: string; hour: number } | null>(null);
+  const [dragTarget, setDragTarget] = useState<{ date: string; hour: number; minute: number } | null>(null);
   const [dragUpdating, setDragUpdating] = useState(false);
+  const [dragStartTime, setDragStartTime] = useState("");
+  const [dragEndTime, setDragEndTime] = useState("");
 
   const openCalendlyBooking = () => {
     if (!calendlySelectedUrl) { toast.error("Bitte Event-Typ auswählen"); return; }
@@ -409,31 +411,31 @@ export default function Calendar() {
     e.dataTransfer.dropEffect = "move";
   };
 
-  const handleDrop = (e: React.DragEvent, dateStr: string, hour: number) => {
+  const handleDrop = (e: React.DragEvent, dateStr: string, hour: number, minute?: number) => {
     e.preventDefault();
     if (!dragEvent) return;
-    setDragTarget({ date: dateStr, hour });
-    // For local events, move directly without confirmation
-    if (!dragEvent.googleEventId) {
-      moveLocalEvent(dateStr, hour);
-    } else {
-      setDragConfirmOpen(true);
-    }
-  };
-
-  const moveLocalEvent = (dateStr: string, hour: number) => {
-    if (!dragEvent) return;
+    const dropMinute = minute ?? 0;
+    setDragTarget({ date: dateStr, hour, minute: dropMinute });
+    // Pre-calculate new start/end for the dialog
     const [origSH, origSM] = dragEvent.startTime.split(":").map(Number);
     const [origEH, origEM] = dragEvent.endTime.split(":").map(Number);
     const durationMin = (origEH * 60 + origEM) - (origSH * 60 + origSM);
-    const newStartM = origSM;
-    const newEndTotalMin = hour * 60 + newStartM + (durationMin > 0 ? durationMin : 30);
-    const newEndH = Math.floor(newEndTotalMin / 60) % 24;
-    const newEndM = newEndTotalMin % 60;
-    const newStart = `${hour.toString().padStart(2, "0")}:${newStartM.toString().padStart(2, "0")}`;
-    const newEnd = `${newEndH.toString().padStart(2, "0")}:${newEndM.toString().padStart(2, "0")}`;
-    updateCalendarEvent(dragEvent.id, { date: dateStr, startTime: newStart, endTime: newEnd });
+    const newStartTotal = hour * 60 + dropMinute;
+    const newEndTotal = newStartTotal + (durationMin > 0 ? durationMin : 30);
+    const newSH = Math.floor(newStartTotal / 60) % 24;
+    const newSM = newStartTotal % 60;
+    const newEH = Math.floor(newEndTotal / 60) % 24;
+    const newEM = newEndTotal % 60;
+    setDragStartTime(`${newSH.toString().padStart(2, "0")}:${newSM.toString().padStart(2, "0")}`);
+    setDragEndTime(`${newEH.toString().padStart(2, "0")}:${newEM.toString().padStart(2, "0")}`);
+    setDragConfirmOpen(true);
+  };
+
+  const moveLocalEvent = () => {
+    if (!dragEvent || !dragTarget) return;
+    updateCalendarEvent(dragEvent.id, { date: dragTarget.date, startTime: dragStartTime, endTime: dragEndTime });
     toast.success("Event verschoben");
+    setDragConfirmOpen(false);
     setDragEvent(null);
     setDragTarget(null);
   };
@@ -454,7 +456,7 @@ export default function Calendar() {
       const durationMin = (origEH * 60 + origEM) - (origSH * 60 + origSM);
 
       const newStartH = dragTarget.hour;
-      const newStartM = origSM;
+      const newStartM = dragTarget.minute ?? 0;
       const newEndTotalMin = newStartH * 60 + newStartM + (durationMin > 0 ? durationMin : 30);
       const newEndH = Math.floor(newEndTotalMin / 60) % 24;
       const newEndM = newEndTotalMin % 60;
@@ -782,9 +784,21 @@ export default function Calendar() {
                               key={hIdx}
                               className="absolute w-full border-t cursor-pointer hover:bg-primary/5 transition-colors"
                               style={{ top: hIdx * SLOT_HEIGHT, height: SLOT_HEIGHT }}
-                              onClick={() => openNew(dateStr, hour, 0)}
+                              onClick={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const relY = e.clientY - rect.top;
+                                const quarter = Math.floor((relY / SLOT_HEIGHT) * 4);
+                                const minute = Math.min(quarter, 3) * 15;
+                                openNew(dateStr, hour, minute);
+                              }}
                               onDragOver={handleDragOver}
-                              onDrop={(e) => handleDrop(e, dateStr, hour)}
+                              onDrop={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const relY = e.clientY - rect.top;
+                                const quarter = Math.floor((relY / SLOT_HEIGHT) * 4);
+                                const minute = Math.min(quarter, 3) * 15;
+                                handleDrop(e, dateStr, hour, minute);
+                              }}
                             />
                           ))}
 
@@ -1281,7 +1295,20 @@ export default function Calendar() {
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>{dragEvent.date} {dragEvent.startTime}</span>
                   <ChevronRight className="h-3.5 w-3.5" />
-                  <span className="font-medium text-foreground">{dragTarget.date} {dragTarget.hour.toString().padStart(2, "0")}:00</span>
+                  <span className="font-medium text-foreground">{dragTarget.date}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Neue Startzeit</Label>
+                    <Input type="time" value={`${dragTarget.hour.toString().padStart(2, "0")}:${(dragTarget.minute ?? 0).toString().padStart(2, "0")}`} onChange={(e) => {
+                      const [h, m] = e.target.value.split(":").map(Number);
+                      setDragTarget({ ...dragTarget, hour: h, minute: m });
+                    }} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Neues Datum</Label>
+                    <Input type="date" value={dragTarget.date} onChange={(e) => setDragTarget({ ...dragTarget, date: e.target.value })} className="mt-1" />
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">Soll die Änderung an alle Teilnehmer gesendet werden?</p>
               </>
@@ -1289,10 +1316,10 @@ export default function Calendar() {
           </div>
           <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => { setDragConfirmOpen(false); setDragEvent(null); setDragTarget(null); }} disabled={dragUpdating}>
-              Nein, abbrechen
+              Abbrechen
             </Button>
             <Button onClick={confirmDragMove} disabled={dragUpdating}>
-              {dragUpdating ? "Aktualisiere..." : "Ja, aktualisieren"}
+              {dragUpdating ? "Aktualisiere..." : "Ja, verschieben"}
             </Button>
           </DialogFooter>
         </DialogContent>
