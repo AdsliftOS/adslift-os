@@ -248,13 +248,18 @@ export default function MetaAds() {
       .finally(() => setLoading(false));
   }, [preset, selectedAccount]);
 
-  // Fetch ROAS from Supabase
+  // Fetch ROAS from Supabase — current month only
   useEffect(() => {
     async function fetchRoas() {
       try {
+        const now = new Date();
+        const monthStart = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-01`;
+        const nextMonth = now.getMonth() === 11 ? `${now.getFullYear() + 1}-01-01` : `${now.getFullYear()}-${(now.getMonth() + 2).toString().padStart(2, "0")}-01`;
         const { data: salesData, error: salesErr } = await supabase
           .from("sales_weeks")
-          .select("deal_volume, week_start");
+          .select("deal_volume, week_start")
+          .gte("week_start", monthStart)
+          .lt("week_start", nextMonth);
         if (salesErr || !salesData) {
           setRoas(null);
           return;
