@@ -20,17 +20,17 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Projects", url: "/projects", icon: FolderKanban },
-  { title: "Clients", url: "/clients", icon: Users },
-  { title: "Finances", url: "/finances", icon: DollarSign },
-  { title: "Sales", url: "/sales", icon: BarChart3 },
+  { title: "Dashboard", url: "/", icon: (() => <span className="text-base leading-none">🏠</span>) as any },
+  { title: "Projects", url: "/projects", icon: (() => <span className="text-base leading-none">📋</span>) as any },
+  { title: "Clients", url: "/clients", icon: (() => <span className="text-base leading-none">👥</span>) as any },
+  { title: "Finances", url: "/finances", icon: (() => <span className="text-base leading-none">💳</span>) as any },
+  { title: "Sales", url: "/sales", icon: (() => <span className="text-base leading-none">💰</span>) as any },
   { title: "Meta Ads", url: "/meta-ads", icon: MetaIcon },
   { title: "Kalender", url: "/calendar", icon: (() => <img src="/gcal-icon.png" alt="" className="h-5 w-5 shrink-0" />) as any },
-  { title: "Aufgaben", url: "/tasks", icon: ListTodo },
-  { title: "Dateien", url: "/files", icon: FolderOpen },
-  { title: "Time Tracking", url: "/time", icon: Clock },
-  { title: "Academy", url: "/academy-admin", icon: GraduationCap },
+  { title: "Aufgaben", url: "/tasks", icon: (() => <span className="text-base leading-none">✅</span>) as any },
+  { title: "Dateien", url: "/files", icon: (() => <img src="/gdrive-icon.png" alt="" className="h-5 w-5 shrink-0" />) as any },
+  { title: "Time Tracking", url: "/time", icon: (() => <span className="text-base leading-none">⏱️</span>) as any },
+  { title: "Academy", url: "/academy-admin", icon: (() => <span className="text-base leading-none">🎓</span>) as any },
 ];
 
 export function AppSidebar() {
