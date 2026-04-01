@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Plus, Phone, Users, Flag, Briefcase, Calendar as CalendarIcon, Trash2, LayoutGrid, List, Video, ExternalLink, FolderKanban, RefreshCw, DollarSign, Link2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Phone, PhoneForwarded, Users, Flag, Briefcase, Calendar as CalendarIcon, Trash2, LayoutGrid, List, Video, ExternalLink, FolderKanban, RefreshCw, DollarSign, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCalendar, setGoogleEvents as setGlobalGoogleEvents, addCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/store/calendar";
 import type { CalendarEvent } from "@/store/calendar";
@@ -20,9 +20,9 @@ import { useNoShows, markNoShow, unmarkNoShow, isNoShow } from "@/store/noshows"
 import { isSalesMeeting, isClientMeeting, isLinkedInSetting } from "@/lib/sales-meetings";
 import { isGoogleConnected, getAccounts, getValidToken, listAllEvents, type GoogleCalendarEvent } from "@/lib/google-calendar";
 
-const eventTypes: { value: CalendarEvent["type"]; label: string; color: string; bgLight: string; icon: typeof Phone }[] = [
-  { value: "anruf", label: "Anruf", color: "bg-sky-500", bgLight: "bg-sky-500/20 text-white dark:text-white", icon: Phone },
-  { value: "call", label: "Call", color: "bg-blue-500", bgLight: "bg-blue-500/20 text-white dark:text-white", icon: Phone },
+const eventTypes: { value: CalendarEvent["type"]; label: string; color: string; bgLight: string; icon: typeof Phone; creatable?: boolean }[] = [
+  { value: "anruf", label: "Anruf", color: "bg-sky-500", bgLight: "bg-sky-500/20 text-white dark:text-white", icon: Phone, creatable: true },
+  { value: "call", label: "Rückruf", color: "bg-blue-500", bgLight: "bg-blue-500/20 text-white dark:text-white", icon: PhoneForwarded, creatable: true },
   { value: "meeting", label: "Meeting", color: "bg-violet-500", bgLight: "bg-violet-500/20 text-white dark:text-white", icon: Users },
   { value: "sales-call", label: "Sales Call", color: "bg-amber-500", bgLight: "bg-amber-500/20 text-white dark:text-white", icon: DollarSign },
   { value: "kundenmeeting", label: "Kundenmeeting", color: "bg-teal-500", bgLight: "bg-teal-500/20 text-white dark:text-white", icon: Users },
@@ -31,6 +31,7 @@ const eventTypes: { value: CalendarEvent["type"]; label: string; color: string; 
   { value: "sonstiges", label: "Sonstiges", color: "bg-zinc-500", bgLight: "bg-zinc-500/20 text-white dark:text-white", icon: CalendarIcon },
   { value: "other", label: "Andere", color: "bg-gray-500", bgLight: "bg-gray-500/20 text-white dark:text-white", icon: CalendarIcon },
 ];
+const creatableEventTypes = eventTypes.filter((t) => t.creatable);
 
 const eventTypeMap = Object.fromEntries(eventTypes.map((t) => [t.value, t]));
 
@@ -980,7 +981,7 @@ export default function Calendar() {
             <div className="grid gap-2">
               <Label>Typ</Label>
               <div className="flex flex-wrap gap-2">
-                {eventTypes.map((et) => (
+                {creatableEventTypes.map((et) => (
                   <button key={et.value} onClick={() => setForm({ ...form, type: et.value })}
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-all ${
                       form.type === et.value ? `${et.bgLight} ring-1 ring-current/20` : "border-border hover:border-primary/30"

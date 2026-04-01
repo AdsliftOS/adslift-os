@@ -5,6 +5,12 @@ const REDIRECT_URI = window.location.origin + "/auth/callback";
 const ACCOUNT_COLORS = ["bg-blue-500", "bg-orange-500", "bg-emerald-500", "bg-pink-500", "bg-violet-500"];
 const ACCOUNT_COLORS_LIGHT = ["bg-blue-500/25 text-white", "bg-orange-500/25 text-white", "bg-emerald-500/25 text-white", "bg-pink-500/25 text-white", "bg-violet-500/25 text-white"];
 
+// Fixed colors per person (Alex = blue, Daniel = orange)
+const EMAIL_COLORS: Record<string, { color: string; colorLight: string }> = {
+  "info@consulting-og.de": { color: "bg-blue-500", colorLight: "bg-blue-500/25 text-white" },
+  "office@consulting-og.de": { color: "bg-orange-500", colorLight: "bg-orange-500/25 text-white" },
+};
+
 const ACCOUNTS_KEY = "google-calendar-accounts-v4";
 
 export type GoogleAccount = {
@@ -20,14 +26,17 @@ export function getAccounts(): GoogleAccount[] {
   try {
     const stored = localStorage.getItem(ACCOUNTS_KEY);
     if (stored) {
-      return JSON.parse(stored).map((a: any, idx: number) => ({
-        email: a.email || "Unknown",
-        accessToken: a.accessToken || a.token || "",
-        refreshToken: a.refreshToken || "",
-        expiresAt: a.expiresAt || 0,
-        color: ACCOUNT_COLORS[idx % ACCOUNT_COLORS.length],
-        colorLight: ACCOUNT_COLORS_LIGHT[idx % ACCOUNT_COLORS_LIGHT.length],
-      }));
+      return JSON.parse(stored).map((a: any, idx: number) => {
+        const emailColors = EMAIL_COLORS[a.email];
+        return {
+          email: a.email || "Unknown",
+          accessToken: a.accessToken || a.token || "",
+          refreshToken: a.refreshToken || "",
+          expiresAt: a.expiresAt || 0,
+          color: emailColors?.color || ACCOUNT_COLORS[idx % ACCOUNT_COLORS.length],
+          colorLight: emailColors?.colorLight || ACCOUNT_COLORS_LIGHT[idx % ACCOUNT_COLORS_LIGHT.length],
+        };
+      });
     }
   } catch {}
   return [];
@@ -40,11 +49,12 @@ function saveAccounts(accounts: GoogleAccount[]) {
 export function addAccount(email: string, accessToken: string, refreshToken: string, expiresIn: number) {
   const accounts = getAccounts().filter((a) => a.email !== email);
   const idx = accounts.length;
+  const emailColors = EMAIL_COLORS[email];
   accounts.push({
     email, accessToken, refreshToken,
     expiresAt: Date.now() + expiresIn * 1000,
-    color: ACCOUNT_COLORS[idx % ACCOUNT_COLORS.length],
-    colorLight: ACCOUNT_COLORS_LIGHT[idx % ACCOUNT_COLORS_LIGHT.length],
+    color: emailColors?.color || ACCOUNT_COLORS[idx % ACCOUNT_COLORS.length],
+    colorLight: emailColors?.colorLight || ACCOUNT_COLORS_LIGHT[idx % ACCOUNT_COLORS_LIGHT.length],
   });
   saveAccounts(accounts);
 }
