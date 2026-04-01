@@ -21,8 +21,8 @@ import { isSalesMeeting, isClientMeeting, isLinkedInSetting, getEventPerson } fr
 import { isGoogleConnected, getAccounts, getValidToken, listAllEvents, type GoogleCalendarEvent } from "@/lib/google-calendar";
 
 const eventTypes: { value: CalendarEvent["type"]; label: string; color: string; bgLight: string; icon: typeof Phone; creatable?: boolean }[] = [
-  { value: "anruf", label: "Anruf", color: "bg-sky-500", bgLight: "bg-sky-500/20 text-white dark:text-white", icon: Phone, creatable: true },
-  { value: "call", label: "Rückruf", color: "bg-blue-500", bgLight: "bg-blue-500/20 text-white dark:text-white", icon: PhoneForwarded, creatable: true },
+  { value: "anruf", label: "Anruf", color: "bg-emerald-500", bgLight: "bg-emerald-500/25 text-white dark:text-white", icon: Phone, creatable: true },
+  { value: "call", label: "Rückruf", color: "bg-emerald-500", bgLight: "bg-emerald-500/25 text-white dark:text-white", icon: PhoneForwarded, creatable: true },
   { value: "meeting", label: "Meeting", color: "bg-violet-500", bgLight: "bg-violet-500/20 text-white dark:text-white", icon: Users },
   { value: "sales-call", label: "Sales Call", color: "bg-amber-500", bgLight: "bg-amber-500/20 text-white dark:text-white", icon: DollarSign },
   { value: "kundenmeeting", label: "Kundenmeeting", color: "bg-teal-500", bgLight: "bg-teal-500/20 text-white dark:text-white", icon: Users },
@@ -494,7 +494,7 @@ export default function Calendar() {
     const person = getEventPerson(event);
     // LinkedIn Setting Calls → türkis
     if (isLinkedInSetting(event)) {
-      return { color: "bg-teal-500", bgLight: "bg-teal-500/25 text-white border-l-[3px] border-teal-400" };
+      return { color: "bg-violet-500", bgLight: "bg-violet-500/25 text-white border-l-[3px] border-violet-400" };
     }
     // Client meetings → Alex=blau, Daniel=orange (mit Kunden-Badge)
     if (isClientMeeting(event)) {
