@@ -922,40 +922,6 @@ export default function Calendar() {
             </CardContent>
           </Card>
 
-          {/* Upcoming */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Kommende Events</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {upcomingEvents.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-3 text-center">Keine Events in den nächsten 7 Tagen.</p>
-              ) : (
-                <div className="space-y-2">
-                  {upcomingEvents.map((event) => {
-                    const ec = getEventColors(event); const et = eventTypeMap[event.type];
-                    const eventDate = new Date(event.date + "T00:00:00");
-                    return (
-                      <div key={event.id} className="flex items-start gap-2.5 py-1.5 cursor-pointer hover:bg-accent/50 rounded-md px-1 -mx-1" onClick={() => openEdit(event)}>
-                        <div className="text-center shrink-0 w-10">
-                          <div className="text-[10px] text-muted-foreground uppercase">{format(eventDate, "EEE", { locale: de })}</div>
-                          <div className="text-sm font-bold">{format(eventDate, "d")}</div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1">
-                            <span className={`h-1.5 w-1.5 rounded-full ${ec.color} shrink-0`} />
-                            <span className="text-xs font-medium truncate">{event.title}</span>
-                          </div>
-                          <div className="text-[10px] text-muted-foreground ml-3">{event.startTime} – {event.endTime}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Project Deadlines */}
           <Card>
             <CardHeader className="pb-2">
