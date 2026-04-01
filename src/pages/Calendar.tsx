@@ -450,19 +450,8 @@ export default function Calendar() {
 
     setDragUpdating(true);
     try {
-      // Calculate new start and end times
-      const [origSH, origSM] = dragEvent.startTime.split(":").map(Number);
-      const [origEH, origEM] = dragEvent.endTime.split(":").map(Number);
-      const durationMin = (origEH * 60 + origEM) - (origSH * 60 + origSM);
-
-      const newStartH = dragTarget.hour;
-      const newStartM = dragTarget.minute ?? 0;
-      const newEndTotalMin = newStartH * 60 + newStartM + (durationMin > 0 ? durationMin : 30);
-      const newEndH = Math.floor(newEndTotalMin / 60) % 24;
-      const newEndM = newEndTotalMin % 60;
-
-      const newStart = `${dragTarget.date}T${newStartH.toString().padStart(2, "0")}:${newStartM.toString().padStart(2, "0")}:00`;
-      const newEnd = `${dragTarget.date}T${newEndH.toString().padStart(2, "0")}:${newEndM.toString().padStart(2, "0")}:00`;
+      const newStart = `${dragTarget.date}T${dragStartTime}:00`;
+      const newEnd = `${dragTarget.date}T${dragEndTime}:00`;
 
       // Get valid token for the account
       const accounts = getAccounts();
@@ -799,7 +788,12 @@ export default function Calendar() {
                                 const minute = Math.min(quarter, 3) * 15;
                                 handleDrop(e, dateStr, hour, minute);
                               }}
-                            />
+                            >
+                              {/* 15-min guide lines */}
+                              <div className="absolute w-full border-t border-dashed border-muted-foreground/[0.04] pointer-events-none" style={{ top: `${SLOT_HEIGHT * 0.25}px` }} />
+                              <div className="absolute w-full border-t border-muted-foreground/[0.07] pointer-events-none" style={{ top: `${SLOT_HEIGHT * 0.5}px` }} />
+                              <div className="absolute w-full border-t border-dashed border-muted-foreground/[0.04] pointer-events-none" style={{ top: `${SLOT_HEIGHT * 0.75}px` }} />
+                            </div>
                           ))}
 
                           {isToday && nowInRange && (
@@ -1286,31 +1280,38 @@ export default function Calendar() {
       <Dialog open={dragConfirmOpen} onOpenChange={(open) => { if (!open) { setDragConfirmOpen(false); setDragEvent(null); setDragTarget(null); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Meeting verschieben?</DialogTitle>
+            <DialogTitle>Event verschieben</DialogTitle>
           </DialogHeader>
           <div className="py-2 space-y-3">
             {dragEvent && dragTarget && (
               <>
                 <p className="text-sm font-medium">{dragEvent.title}</p>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>{dragEvent.date} {dragEvent.startTime}</span>
-                  <ChevronRight className="h-3.5 w-3.5" />
-                  <span className="font-medium text-foreground">{dragTarget.date}</span>
+                  <span>{dragEvent.date} {dragEvent.startTime}–{dragEvent.endTime}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Neue Startzeit</Label>
-                    <Input type="time" value={`${dragTarget.hour.toString().padStart(2, "0")}:${(dragTarget.minute ?? 0).toString().padStart(2, "0")}`} onChange={(e) => {
-                      const [h, m] = e.target.value.split(":").map(Number);
-                      setDragTarget({ ...dragTarget, hour: h, minute: m });
-                    }} className="mt-1" />
+                    <Label className="text-xs text-muted-foreground">Von</Label>
+                    <Select value={dragStartTime} onValueChange={(v) => setDragStartTime(v)}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent className="max-h-[200px]">
+                        {timeOptions.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Neues Datum</Label>
-                    <Input type="date" value={dragTarget.date} onChange={(e) => setDragTarget({ ...dragTarget, date: e.target.value })} className="mt-1" />
+                    <Label className="text-xs text-muted-foreground">Bis</Label>
+                    <Select value={dragEndTime} onValueChange={(v) => setDragEndTime(v)}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent className="max-h-[200px]">
+                        {timeOptions.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Soll die Änderung an alle Teilnehmer gesendet werden?</p>
+                {dragEvent.googleEventId && (
+                  <p className="text-xs text-muted-foreground">Änderung wird an alle Teilnehmer gesendet.</p>
+                )}
               </>
             )}
           </div>
@@ -1318,8 +1319,8 @@ export default function Calendar() {
             <Button variant="outline" onClick={() => { setDragConfirmOpen(false); setDragEvent(null); setDragTarget(null); }} disabled={dragUpdating}>
               Abbrechen
             </Button>
-            <Button onClick={confirmDragMove} disabled={dragUpdating}>
-              {dragUpdating ? "Aktualisiere..." : "Ja, verschieben"}
+            <Button onClick={dragEvent?.googleEventId ? confirmDragMove : moveLocalEvent} disabled={dragUpdating}>
+              {dragUpdating ? "Aktualisiere..." : "Verschieben"}
             </Button>
           </DialogFooter>
         </DialogContent>
