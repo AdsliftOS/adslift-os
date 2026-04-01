@@ -194,6 +194,29 @@ export default function Calendar() {
       .catch(() => {});
   }, [calendlyPerson]);
 
+  // Category overrides for Google events
+  const [categoryOverrides, setCategoryOverrides] = useState<Record<string, string>>({});
+  useEffect(() => {
+    supabase.from("event_category_overrides").select("*").then(({ data }) => {
+      if (data) {
+        const map: Record<string, string> = {};
+        data.forEach((r: any) => { map[r.event_id] = r.category; });
+        setCategoryOverrides(map);
+      }
+    });
+  }, []);
+
+  const setCategoryOverride = async (eventId: string, category: string) => {
+    const existing = categoryOverrides[eventId];
+    if (existing) {
+      await supabase.from("event_category_overrides").update({ category }).eq("event_id", eventId);
+    } else {
+      await supabase.from("event_category_overrides").insert({ event_id: eventId, category });
+    }
+    setCategoryOverrides((prev) => ({ ...prev, [eventId]: category }));
+    toast.success("Kategorie gespeichert");
+  };
+
   // Drag & Drop state
   const [dragEvent, setDragEvent] = useState<CalendarEvent | null>(null);
   const [dragConfirmOpen, setDragConfirmOpen] = useState(false);
@@ -335,8 +358,12 @@ export default function Calendar() {
   };
 
   const openEdit = (event: CalendarEvent) => {
-    if (event.id.startsWith("proj-deadline-") || event.id.startsWith("gcal-")) {
-      // Read-only events: show detail dialog
+    if (event.id.startsWith("proj-deadline-")) {
+      setDetailEvent(event);
+      return;
+    }
+    if (event.id.startsWith("gcal-")) {
+      // Google events: show detail dialog with category override
       setDetailEvent(event);
       return;
     }
@@ -492,7 +519,13 @@ export default function Calendar() {
   const getEventColors = (event: CalendarEvent) => {
     const et = eventTypeMap[event.type] || eventTypes[4];
     const person = getEventPerson(event);
-    // LinkedIn Setting Calls → türkis
+    // Category override from user
+    const override = categoryOverrides[event.id];
+    if (override) {
+      const ot = eventTypeMap[override];
+      if (ot) return { color: ot.color, bgLight: ot.bgLight };
+    }
+    // LinkedIn Setting Calls → violett
     if (isLinkedInSetting(event)) {
       return { color: "bg-violet-500", bgLight: "bg-violet-500/25 text-white border-l-[3px] border-violet-400" };
     }
@@ -1096,10 +1129,23 @@ export default function Calendar() {
                 </div>
               )}
               {detailEvent.id.startsWith("gcal-") && (
-                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
-                  Google Calendar Event
-                </p>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Kategorie zuweisen</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {eventTypes.map((et) => {
+                      const currentCat = categoryOverrides[detailEvent.id];
+                      const isActive = currentCat === et.value;
+                      return (
+                        <button key={et.value} onClick={() => setCategoryOverride(detailEvent.id, et.value)}
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium border transition-all ${
+                            isActive ? `${et.bgLight} ring-1 ring-current/20 border-transparent` : "border-border hover:border-primary/30"
+                          }`}>
+                          <span className={`h-2 w-2 rounded-full ${et.color}`} />{et.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
               {detailEvent.id.startsWith("proj-deadline-") && (
                 <p className="text-[10px] text-muted-foreground flex items-center gap-1">
