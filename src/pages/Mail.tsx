@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -274,209 +275,219 @@ export default function MailPage() {
     || activeLabel;
 
   return (
-    <div className="flex-1 flex h-[calc(100vh-2rem)] overflow-hidden">
+    <ResizablePanelGroup direction="horizontal" className="flex-1 h-[calc(100vh-2rem)] overflow-hidden">
       {/* --- LEFT: Label Sidebar --- */}
-      <div className="w-52 shrink-0 border-r bg-muted/30 flex flex-col">
-        <div className="p-3">
-          <Button onClick={() => setComposeOpen(true)} className="w-full" size="sm">
-            <Plus className="h-4 w-4 mr-1" /> Verfassen
-          </Button>
-        </div>
-        <ScrollArea className="flex-1">
-          <div className="px-2 space-y-0.5">
-            {SYSTEM_LABELS.map((label) => {
-              const Icon = LABEL_ICONS[label.icon] || Tag;
-              const isActive = activeLabel === label.id && !searchActive;
-              const unread = unreadCounts[label.id];
-              return (
-                <button
-                  key={label.id}
-                  onClick={() => switchLabel(label.id)}
-                  className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                    isActive ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  }`}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span className="truncate flex-1 text-left">{label.name}</span>
-                  {unread ? <span className="text-xs font-medium tabular-nums">{unread}</span> : null}
-                </button>
-              );
-            })}
-            {labels.length > 0 && (
-              <>
-                <Separator className="my-2" />
-                <p className="px-3 py-1 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Labels</p>
-                {labels.map((label) => (
+      <ResizablePanel defaultSize={15} minSize={10} maxSize={25}>
+        <div className="flex flex-col h-full bg-muted/30">
+          <div className="p-3">
+            <Button onClick={() => setComposeOpen(true)} className="w-full" size="sm">
+              <Plus className="h-4 w-4 mr-1" /> Verfassen
+            </Button>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="px-2 space-y-0.5">
+              {SYSTEM_LABELS.map((label) => {
+                const Icon = LABEL_ICONS[label.icon] || Tag;
+                const isActive = activeLabel === label.id && !searchActive;
+                const unread = unreadCounts[label.id];
+                return (
                   <button
                     key={label.id}
                     onClick={() => switchLabel(label.id)}
                     className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                      activeLabel === label.id && !searchActive ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                      isActive ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                     }`}
                   >
-                    <Tag className="h-3.5 w-3.5 shrink-0" />
+                    <Icon className="h-4 w-4 shrink-0" />
                     <span className="truncate flex-1 text-left">{label.name}</span>
+                    {unread ? <span className="text-xs font-medium tabular-nums">{unread}</span> : null}
                   </button>
-                ))}
-              </>
-            )}
-          </div>
-        </ScrollArea>
-      </div>
+                );
+              })}
+              {labels.length > 0 && (
+                <>
+                  <Separator className="my-2" />
+                  <p className="px-3 py-1 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Labels</p>
+                  {labels.map((label) => (
+                    <button
+                      key={label.id}
+                      onClick={() => switchLabel(label.id)}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                        activeLabel === label.id && !searchActive ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                      }`}
+                    >
+                      <Tag className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate flex-1 text-left">{label.name}</span>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      </ResizablePanel>
+
+      <ResizableHandle withHandle />
 
       {/* --- MIDDLE: Message List --- */}
-      <div className={`flex flex-col border-r ${selectedMessage ? "w-80 shrink-0" : "flex-1"}`}>
-        {/* Search + Actions bar */}
-        <div className="flex items-center gap-2 p-2 border-b">
-          <div className="flex-1 flex items-center gap-1">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="E-Mails durchsuchen..."
-                className="pl-8 h-8 text-sm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              />
-              {searchActive && (
-                <button
-                  onClick={() => { setSearchActive(false); setSearchQuery(""); loadMessages(activeLabel); }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2"
-                >
-                  <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                </button>
-              )}
+      <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
+        <div className="flex flex-col h-full">
+          {/* Search + Actions bar */}
+          <div className="flex items-center gap-2 p-2 border-b">
+            <div className="flex-1 flex items-center gap-1">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="E-Mails durchsuchen..."
+                  className="pl-8 h-8 text-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                />
+                {searchActive && (
+                  <button
+                    onClick={() => { setSearchActive(false); setSearchQuery(""); loadMessages(activeLabel); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2"
+                  >
+                    <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRefresh}>
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Aktualisieren</TooltipContent>
-          </Tooltip>
-        </div>
-
-        {/* Header */}
-        <div className="px-3 py-2 border-b">
-          <h2 className="font-semibold text-sm">
-            {searchActive ? `Suche: "${searchQuery}"` : activeLabelName}
-          </h2>
-          <p className="text-xs text-muted-foreground">{messages.length} E-Mails</p>
-        </div>
-
-        {/* Messages */}
-        <ScrollArea className="flex-1">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : error ? (
-            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-              <AlertTriangle className="h-8 w-8 mb-3 text-destructive/60" />
-              <p className="text-sm font-medium mb-1">Gmail konnte nicht geladen werden</p>
-              <p className="text-xs text-muted-foreground mb-4 max-w-xs">{error}</p>
-              {error.toLowerCase().includes("403") || error.toLowerCase().includes("insufficient") || error.toLowerCase().includes("scope") ? (
-                <div className="space-y-2 text-center">
-                  <p className="text-xs text-muted-foreground">Gmail-Berechtigung fehlt. Bitte Account neu verbinden.</p>
-                  <Button size="sm" onClick={() => connectGmail()}>
-                    <img src="/gmail-icon.svg" alt="" className="h-4 w-4 mr-1.5" /> Gmail neu verbinden
-                  </Button>
-                </div>
-              ) : (
-                <Button variant="outline" size="sm" onClick={handleRefresh}>
-                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Nochmal versuchen
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRefresh}>
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                 </Button>
-              )}
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <Inbox className="h-8 w-8 mb-2 opacity-40" />
-              <p className="text-sm">Keine E-Mails</p>
-            </div>
-          ) : (
-            <div>
-              {messages.map((msg) => (
-                <button
-                  key={msg.id}
-                  onClick={() => openMessage(msg)}
-                  className={`w-full text-left px-3 py-2.5 border-b transition-colors ${
-                    selectedId === msg.id
-                      ? "bg-accent"
-                      : msg.isUnread
-                      ? "bg-primary/[0.03] hover:bg-accent/60"
-                      : "hover:bg-accent/40"
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleToggleStar(msg.id, msg.isStarred); }}
-                      className="mt-0.5 shrink-0"
-                    >
-                      <Star className={`h-3.5 w-3.5 ${msg.isStarred ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40 hover:text-amber-400"}`} />
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className={`text-sm truncate ${msg.isUnread ? "font-semibold" : ""}`}>
-                          {msg.from.name || msg.from.email}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
-                          {formatMailDate(msg.date)}
-                        </span>
-                      </div>
-                      <p className={`text-sm truncate ${msg.isUnread ? "font-medium text-foreground" : "text-foreground/80"}`}>
-                        {msg.subject}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">{msg.snippet}</p>
-                    </div>
-                    {msg.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground shrink-0 mt-1.5" />}
+              </TooltipTrigger>
+              <TooltipContent>Aktualisieren</TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* Header */}
+          <div className="px-3 py-2 border-b">
+            <h2 className="font-semibold text-sm">
+              {searchActive ? `Suche: "${searchQuery}"` : activeLabelName}
+            </h2>
+            <p className="text-xs text-muted-foreground">{messages.length} E-Mails</p>
+          </div>
+
+          {/* Messages */}
+          <ScrollArea className="flex-1">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                <AlertTriangle className="h-8 w-8 mb-3 text-destructive/60" />
+                <p className="text-sm font-medium mb-1">Gmail konnte nicht geladen werden</p>
+                <p className="text-xs text-muted-foreground mb-4 max-w-xs">{error}</p>
+                {error.toLowerCase().includes("403") || error.toLowerCase().includes("insufficient") || error.toLowerCase().includes("scope") ? (
+                  <div className="space-y-2 text-center">
+                    <p className="text-xs text-muted-foreground">Gmail-Berechtigung fehlt. Bitte Account neu verbinden.</p>
+                    <Button size="sm" onClick={() => connectGmail()}>
+                      <img src="/gmail-icon.svg" alt="" className="h-4 w-4 mr-1.5" /> Gmail neu verbinden
+                    </Button>
                   </div>
-                </button>
-              ))}
-              {nextPageToken && (
-                <div className="p-3 text-center">
-                  <Button variant="ghost" size="sm" onClick={() => loadMessages(activeLabel, searchActive ? searchQuery : undefined, nextPageToken)} disabled={loadingMore}>
-                    {loadingMore ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                    Mehr laden
+                ) : (
+                  <Button variant="outline" size="sm" onClick={handleRefresh}>
+                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Nochmal versuchen
                   </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </ScrollArea>
-      </div>
+                )}
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <Inbox className="h-8 w-8 mb-2 opacity-40" />
+                <p className="text-sm">Keine E-Mails</p>
+              </div>
+            ) : (
+              <div>
+                {messages.map((msg) => (
+                  <button
+                    key={msg.id}
+                    onClick={() => openMessage(msg)}
+                    className={`w-full text-left px-3 py-2.5 border-b transition-colors ${
+                      selectedId === msg.id
+                        ? "bg-accent"
+                        : msg.isUnread
+                        ? "bg-primary/[0.03] hover:bg-accent/60"
+                        : "hover:bg-accent/40"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleToggleStar(msg.id, msg.isStarred); }}
+                        className="mt-0.5 shrink-0"
+                      >
+                        <Star className={`h-3.5 w-3.5 ${msg.isStarred ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40 hover:text-amber-400"}`} />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className={`text-sm truncate ${msg.isUnread ? "font-semibold" : ""}`}>
+                            {msg.from.name || msg.from.email}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
+                            {formatMailDate(msg.date)}
+                          </span>
+                        </div>
+                        <p className={`text-sm truncate ${msg.isUnread ? "font-medium text-foreground" : "text-foreground/80"}`}>
+                          {msg.subject}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">{msg.snippet}</p>
+                      </div>
+                      {msg.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground shrink-0 mt-1.5" />}
+                    </div>
+                  </button>
+                ))}
+                {nextPageToken && (
+                  <div className="p-3 text-center">
+                    <Button variant="ghost" size="sm" onClick={() => loadMessages(activeLabel, searchActive ? searchQuery : undefined, nextPageToken)} disabled={loadingMore}>
+                      {loadingMore ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                      Mehr laden
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </ScrollArea>
+        </div>
+      </ResizablePanel>
+
+      <ResizableHandle withHandle />
 
       {/* --- RIGHT: Message Detail / Empty State --- */}
-      {selectedMessage ? (
-        <MessageDetail
-          message={selectedMessage}
-          onClose={() => { setSelectedId(null); setSelectedMessage(null); }}
-          onArchive={() => handleArchive(selectedMessage.id)}
-          onTrash={() => handleTrash(selectedMessage.id)}
-          onToggleRead={() => {
-            const isUnread = selectedMessage.labelIds?.includes("UNREAD");
-            handleToggleRead(selectedMessage.id, !!isUnread);
-          }}
-          onReply={() => setReplyMode("reply")}
-          onReplyAll={() => setReplyMode("replyAll")}
-          onForward={() => setReplyMode("forward")}
-          replyMode={replyMode}
-          onCloseReply={() => setReplyMode(null)}
-          onSent={() => { setReplyMode(null); handleRefresh(); }}
-        />
-      ) : (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          <div className="text-center">
-            <MailIcon className="h-12 w-12 mx-auto mb-3 opacity-20" />
-            <p className="text-sm">Wähle eine E-Mail aus</p>
+      <ResizablePanel defaultSize={55} minSize={30}>
+        {selectedMessage ? (
+          <MessageDetail
+            message={selectedMessage}
+            onClose={() => { setSelectedId(null); setSelectedMessage(null); }}
+            onArchive={() => handleArchive(selectedMessage.id)}
+            onTrash={() => handleTrash(selectedMessage.id)}
+            onToggleRead={() => {
+              const isUnread = selectedMessage.labelIds?.includes("UNREAD");
+              handleToggleRead(selectedMessage.id, !!isUnread);
+            }}
+            onReply={() => setReplyMode("reply")}
+            onReplyAll={() => setReplyMode("replyAll")}
+            onForward={() => setReplyMode("forward")}
+            replyMode={replyMode}
+            onCloseReply={() => setReplyMode(null)}
+            onSent={() => { setReplyMode(null); handleRefresh(); }}
+          />
+        ) : (
+          <div className="flex-1 h-full flex items-center justify-center text-muted-foreground">
+            <div className="text-center">
+              <MailIcon className="h-12 w-12 mx-auto mb-3 opacity-20" />
+              <p className="text-sm">Wähle eine E-Mail aus</p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </ResizablePanel>
 
       {/* --- Compose Dialog --- */}
       <ComposeDialog open={composeOpen} onClose={() => setComposeOpen(false)} onSent={() => { setComposeOpen(false); handleRefresh(); }} />
-    </div>
+    </ResizablePanelGroup>
   );
 }
 
