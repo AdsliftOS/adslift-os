@@ -75,7 +75,7 @@ function parseListMessage(msg: GmailMessage): ParsedMessage {
 // ============================================================
 
 export default function MailPage() {
-  const accounts = getGmailAccounts();
+  const [accounts, setAccounts] = useState(getGmailAccounts);
   const [connected, setConnected] = useState(isGmailConnected());
   const [activeAccountIdx, setActiveAccountIdx] = useState(0);
   const [activeLabel, setActiveLabel] = useState("INBOX");
@@ -165,9 +165,20 @@ export default function MailPage() {
     }
   }, [getActiveToken]);
 
+  // Refresh accounts when window gets focus (after OAuth redirect)
+  useEffect(() => {
+    const onFocus = () => {
+      const fresh = getGmailAccounts();
+      setAccounts(fresh);
+      setConnected(fresh.length > 0);
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
   // Initial load + account switch
   useEffect(() => {
-    if (connected) {
+    if (connected && accounts.length > 0) {
       setMessages([]);
       setSelectedId(null);
       setSelectedMessage(null);
@@ -177,7 +188,7 @@ export default function MailPage() {
       loadMessages("INBOX");
       loadLabels();
     }
-  }, [connected, activeAccountIdx]);
+  }, [connected, activeAccountIdx, accounts.length]);
 
   // Label change
   const switchLabel = (labelId: string) => {
