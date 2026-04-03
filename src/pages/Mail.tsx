@@ -89,6 +89,7 @@ export default function MailPage() {
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
   const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // --- Load labels + unread counts ---
   const loadLabels = useCallback(async () => {
@@ -113,7 +114,7 @@ export default function MailPage() {
   const loadMessages = useCallback(async (labelId: string, query?: string, pageToken?: string) => {
     const accounts = getAccounts();
     if (accounts.length === 0) return;
-    if (pageToken) setLoadingMore(true); else setLoading(true);
+    if (pageToken) setLoadingMore(true); else { setLoading(true); setError(null); }
 
     try {
       const token = await getValidToken(accounts[0]);
@@ -142,7 +143,9 @@ export default function MailPage() {
         setMessages(parsed);
       }
     } catch (e: any) {
-      toast.error("Fehler beim Laden: " + e.message);
+      const msg = e.message || "Unbekannter Fehler";
+      setError(msg);
+      console.error("Gmail load error:", e);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -368,6 +371,24 @@ export default function MailPage() {
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+              <AlertTriangle className="h-8 w-8 mb-3 text-destructive/60" />
+              <p className="text-sm font-medium mb-1">Gmail konnte nicht geladen werden</p>
+              <p className="text-xs text-muted-foreground mb-4 max-w-xs">{error}</p>
+              {error.toLowerCase().includes("403") || error.toLowerCase().includes("insufficient") || error.toLowerCase().includes("scope") ? (
+                <div className="space-y-2 text-center">
+                  <p className="text-xs text-muted-foreground">Gmail-Berechtigung fehlt. Bitte Account neu verbinden.</p>
+                  <Button size="sm" onClick={() => connectGoogleCalendar()}>
+                    <img src="/gmail-icon.svg" alt="" className="h-4 w-4 mr-1.5" /> Gmail neu verbinden
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="outline" size="sm" onClick={handleRefresh}>
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Nochmal versuchen
+                </Button>
+              )}
             </div>
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
