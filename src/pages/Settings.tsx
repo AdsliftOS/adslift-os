@@ -479,31 +479,28 @@ export default function Settings() {
                 const connected = accounts.length > 0;
                 return (
                   <>
-                    {connected ? (
-                      <div className="space-y-2">
-                        {accounts.map((acc) => (
-                          <div key={acc.email} className="flex items-center justify-between rounded-lg border p-3">
-                            <div className="flex items-center gap-3">
-                              <div className={`h-3 w-3 rounded-full ${acc.color}`} />
-                              <div>
-                                <div className="text-sm font-medium">{acc.email}</div>
-                                <div className="text-[10px] text-muted-foreground">Gmail verbunden</div>
-                              </div>
+                    <div className="space-y-3">
+                      {connected && accounts.map((acc) => (
+                        <div key={acc.email} className="flex items-center justify-between rounded-lg border p-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`h-3 w-3 rounded-full ${acc.color}`} />
+                            <div>
+                              <div className="text-sm font-medium">{acc.email}</div>
+                              <div className="text-[10px] text-muted-foreground">Google Account vorhanden — Gmail-Zugriff muss aktiviert werden</div>
                             </div>
-                            <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-600">Verbunden</Badge>
                           </div>
-                        ))}
-                        <p className="text-xs text-muted-foreground">Gmail nutzt dieselben Google Accounts wie der Kalender. Um Gmail-Zugriff zu aktivieren, trenne den Account oben und verbinde ihn neu.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <p className="text-sm text-muted-foreground">Noch kein Google Account verbunden. Verbinde einen Account um Gmail in Adslift zu nutzen.</p>
-                        <Button variant="outline" size="sm" onClick={() => connectGoogleCalendar()}>
-                          <Plus className="mr-2 h-4 w-4" />
-                          Google Account verbinden
-                        </Button>
-                      </div>
-                    )}
+                        </div>
+                      ))}
+                      <p className="text-xs text-muted-foreground">
+                        {connected
+                          ? "Klicke unten um Gmail-Zugriff zu aktivieren. Du wirst zu Google weitergeleitet um die E-Mail-Berechtigung zu erteilen."
+                          : "Verbinde einen Google Account um Gmail in Adslift zu nutzen."}
+                      </p>
+                      <Button variant="outline" size="sm" onClick={() => connectGoogleCalendar()}>
+                        <img src="/gmail-icon.svg" alt="" className="mr-2 h-4 w-4" />
+                        {connected ? "Gmail verbinden" : "Google Account verbinden"}
+                      </Button>
+                    </div>
                   </>
                 );
               })()}
