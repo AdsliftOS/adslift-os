@@ -576,9 +576,17 @@ function MessageDetail({
 
           <Separator className="mb-4" />
 
-          <div
-            className="prose prose-sm max-w-none dark:prose-invert [&_img]:max-w-full [&_table]:text-xs"
-            dangerouslySetInnerHTML={{ __html: body }}
+          <iframe
+            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.5;color:#222;margin:0;padding:0;word-break:break-word;}img{max-width:100%!important;height:auto!important;}table{max-width:100%!important;}a{color:#2563eb;}</style></head><body>${body}</body></html>`}
+            sandbox="allow-same-origin"
+            className="w-full border-0 min-h-[200px]"
+            style={{ colorScheme: "light" }}
+            onLoad={(e) => {
+              const iframe = e.target as HTMLIFrameElement;
+              if (iframe.contentDocument?.body) {
+                iframe.style.height = iframe.contentDocument.body.scrollHeight + 32 + "px";
+              }
+            }}
           />
 
           {/* Reply actions */}
