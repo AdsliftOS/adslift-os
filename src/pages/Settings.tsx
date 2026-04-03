@@ -464,6 +464,51 @@ export default function Settings() {
               })()}
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <img src="/gmail-icon.svg" alt="" className="h-5 w-5" />
+                Gmail
+              </CardTitle>
+              <CardDescription>E-Mails direkt in Adslift lesen, schreiben und organisieren.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(() => {
+                const accounts = getAccounts();
+                const connected = accounts.length > 0;
+                return (
+                  <>
+                    {connected ? (
+                      <div className="space-y-2">
+                        {accounts.map((acc) => (
+                          <div key={acc.email} className="flex items-center justify-between rounded-lg border p-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`h-3 w-3 rounded-full ${acc.color}`} />
+                              <div>
+                                <div className="text-sm font-medium">{acc.email}</div>
+                                <div className="text-[10px] text-muted-foreground">Gmail verbunden</div>
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-600">Verbunden</Badge>
+                          </div>
+                        ))}
+                        <p className="text-xs text-muted-foreground">Gmail nutzt dieselben Google Accounts wie der Kalender. Um Gmail-Zugriff zu aktivieren, trenne den Account oben und verbinde ihn neu.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground">Noch kein Google Account verbunden. Verbinde einen Account um Gmail in Adslift zu nutzen.</p>
+                        <Button variant="outline" size="sm" onClick={() => connectGoogleCalendar()}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Google Account verbinden
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* BENACHRICHTIGUNGEN */}
