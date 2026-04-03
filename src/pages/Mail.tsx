@@ -397,26 +397,26 @@ export default function MailPage() {
                         : "hover:bg-accent/40"
                     }`}
                   >
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-2 overflow-hidden">
                       <button
                         onClick={(e) => { e.stopPropagation(); handleToggleStar(msg.id, msg.isStarred); }}
                         className="mt-0.5 shrink-0"
                       >
                         <Star className={`h-3.5 w-3.5 ${msg.isStarred ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40 hover:text-amber-400"}`} />
                       </button>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <span className={`text-sm truncate ${msg.isUnread ? "font-semibold" : ""}`}>
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="flex items-baseline justify-between gap-1">
+                          <span className={`text-sm truncate min-w-0 ${msg.isUnread ? "font-semibold" : ""}`}>
                             {msg.from.name || msg.from.email}
                           </span>
                           <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
                             {formatMailDate(msg.date)}
                           </span>
                         </div>
-                        <p className={`text-sm truncate ${msg.isUnread ? "font-medium text-foreground" : "text-foreground/80"}`}>
+                        <p className={`text-sm break-words line-clamp-1 ${msg.isUnread ? "font-medium text-foreground" : "text-foreground/80"}`}>
                           {msg.subject}
                         </p>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">{msg.snippet}</p>
+                        <p className="text-xs text-muted-foreground break-words line-clamp-1 mt-0.5">{msg.snippet}</p>
                       </div>
                       {msg.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground shrink-0 mt-1.5" />}
                     </div>
