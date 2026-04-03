@@ -1,6 +1,6 @@
 const CLIENT_ID = "468650314215-le2sfqid627e1acprplf2fdg1jk0cfj3.apps.googleusercontent.com";
 const SCOPES = "https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email";
-const REDIRECT_URI = window.location.origin + "/auth/callback?source=gmail";
+const REDIRECT_URI = window.location.origin + "/auth/callback";
 
 const ACCOUNTS_KEY = "gmail-accounts-v1";
 
@@ -84,6 +84,7 @@ export function connectGmail() {
     scope: SCOPES,
     access_type: "offline",
     prompt: "consent",
+    state: "gmail",
   });
   window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }

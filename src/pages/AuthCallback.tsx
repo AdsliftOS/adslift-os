@@ -14,11 +14,11 @@ export default function AuthCallback() {
     const searchParams = new URLSearchParams(window.location.search);
     const code = searchParams.get("code");
     const error = searchParams.get("error");
-    const source = searchParams.get("source");
-    const isGmail = source === "gmail";
+    const state = searchParams.get("state");
+    const isGmail = state === "gmail";
 
     setStatus(isGmail ? "Verbinde Gmail..." : "Verbinde Google Calendar...");
-    setDebug(`URL: ${fullUrl}\nCode: ${code ? "vorhanden" : "fehlt"}\nError: ${error || "keine"}\nSource: ${source || "calendar"}`);
+    setDebug(`URL: ${fullUrl}\nCode: ${code ? "vorhanden" : "fehlt"}\nError: ${error || "keine"}\nSource: ${state || "calendar"}`);
 
     if (error) {
       setStatus(`Fehler von Google: ${error}`);
