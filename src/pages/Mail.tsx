@@ -540,6 +540,7 @@ export default function MailPage() {
       {/* --- Compose Dialog --- */}
       <ComposeDialog open={composeOpen} onClose={() => setComposeOpen(false)} onSent={() => { setComposeOpen(false); handleRefresh(); }} accountIdx={activeAccountIdx} />
     </ResizablePanelGroup>
+    </div>
   );
 }
 
