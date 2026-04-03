@@ -36,6 +36,7 @@ import Academy from "./pages/Academy";
 import AcademyPortal from "./pages/AcademyPortal";
 import AuthCallback from "./pages/AuthCallback";
 import Login from "./pages/Login";
+import Mail from "./pages/Mail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -109,6 +110,7 @@ const App = () => {
                       <Route path="/meta-ads" element={<MetaAds />} />
                       <Route path="/calendar" element={<ErrorBoundary><Calendar /></ErrorBoundary>} />
                       <Route path="/tasks" element={<Tasks />} />
+                      <Route path="/mail" element={<ErrorBoundary><Mail /></ErrorBoundary>} />
                   <Route path="/files" element={<Files />} />
                       <Route path="/academy-admin" element={<ErrorBoundary><Academy /></ErrorBoundary>} />
                       <Route path="*" element={<NotFound />} />
