@@ -1,8 +1,4 @@
-import { LayoutDashboard, FolderKanban, Users, DollarSign, Clock, BarChart3, Calendar, ListTodo, FolderOpen, GraduationCap, Settings, LogOut } from "lucide-react";
-
-const MetaIcon = () => (
-  <img src="/meta-icon.png" alt="" className="h-4 w-4 shrink-0" />
-);
+import { LayoutDashboard, FolderKanban, Users, Wallet, TrendingUp, Megaphone, Mail, Calendar, CircleCheckBig, FolderOpen, Clock, GraduationCap, Settings, LogOut } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -20,18 +16,18 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { title: "Dashboard", url: "/", icon: (() => <span className="text-base leading-none">🏠</span>) as any },
-  { title: "Projects", url: "/projects", icon: (() => <span className="text-base leading-none">📋</span>) as any },
-  { title: "Clients", url: "/clients", icon: (() => <span className="text-base leading-none">👥</span>) as any },
-  { title: "Finances", url: "/finances", icon: (() => <span className="text-base leading-none">💳</span>) as any },
-  { title: "Sales", url: "/sales", icon: (() => <span className="text-base leading-none">💰</span>) as any },
-  { title: "Meta Ads", url: "/meta-ads", icon: MetaIcon },
-  { title: "E-Mail", url: "/mail", icon: (() => <img src="/gmail-icon.svg" alt="" className="h-3.5 w-3.5 shrink-0" />) as any },
-  { title: "Kalender", url: "/calendar", icon: (() => <img src="/gcal-icon.png" alt="" className="h-5 w-5 shrink-0" />) as any },
-  { title: "Aufgaben", url: "/tasks", icon: (() => <span className="text-base leading-none">🎯</span>) as any },
-  { title: "Dateien", url: "/files", icon: (() => <img src="/gdrive-icon.png" alt="" className="h-5 w-5 shrink-0" />) as any },
-  { title: "Time Tracking", url: "/time", icon: (() => <span className="text-base leading-none">⏱️</span>) as any },
-  { title: "Academy", url: "/academy-admin", icon: (() => <span className="text-base leading-none">🎓</span>) as any },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Projects", url: "/projects", icon: FolderKanban },
+  { title: "Clients", url: "/clients", icon: Users },
+  { title: "Finances", url: "/finances", icon: Wallet },
+  { title: "Sales", url: "/sales", icon: TrendingUp },
+  { title: "Meta Ads", url: "/meta-ads", icon: Megaphone },
+  { title: "E-Mail", url: "/mail", icon: Mail },
+  { title: "Kalender", url: "/calendar", icon: Calendar },
+  { title: "Aufgaben", url: "/tasks", icon: CircleCheckBig },
+  { title: "Dateien", url: "/files", icon: FolderOpen },
+  { title: "Time Tracking", url: "/time", icon: Clock },
+  { title: "Academy", url: "/academy-admin", icon: GraduationCap },
 ];
 
 export function AppSidebar() {
