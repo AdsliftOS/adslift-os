@@ -15,6 +15,7 @@ import { Sun, Moon, Palette, Users, Building2, Bell, Trash2, Eclipse, Target, Ca
 import { toast } from "sonner";
 import { useSettings } from "@/store/settings";
 import { getAccounts, removeAccount, connectGoogleCalendar } from "@/lib/google-calendar";
+import { getGmailAccounts, removeGmailAccount, connectGmail } from "@/lib/gmail-auth";
 import { supabase } from "@/lib/supabase";
 import type { NotificationType } from "@/store/notifications";
 
@@ -475,32 +476,39 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-4">
               {(() => {
-                const accounts = getAccounts();
-                const connected = accounts.length > 0;
+                const gmailAccs = getGmailAccounts();
+                const connected = gmailAccs.length > 0;
                 return (
                   <>
-                    <div className="space-y-3">
-                      {connected && accounts.map((acc) => (
-                        <div key={acc.email} className="flex items-center justify-between rounded-lg border p-3">
-                          <div className="flex items-center gap-3">
-                            <div className={`h-3 w-3 rounded-full ${acc.color}`} />
-                            <div>
-                              <div className="text-sm font-medium">{acc.email}</div>
-                              <div className="text-[10px] text-muted-foreground">Google Account vorhanden — Gmail-Zugriff muss aktiviert werden</div>
+                    {connected ? (
+                      <div className="space-y-2">
+                        {gmailAccs.map((acc) => (
+                          <div key={acc.email} className="flex items-center justify-between rounded-lg border p-3">
+                            <div className="flex items-center gap-3">
+                              <img src="/gmail-icon.svg" alt="" className="h-4 w-4" />
+                              <div>
+                                <div className="text-sm font-medium">{acc.email}</div>
+                                <div className="text-[10px] text-muted-foreground">Gmail verbunden</div>
+                              </div>
                             </div>
+                            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive gap-1.5"
+                              onClick={() => {
+                                removeGmailAccount(acc.email);
+                                toast.success(`${acc.email} getrennt`);
+                                window.location.reload();
+                              }}>
+                              <Unplug className="h-3.5 w-3.5" />Trennen
+                            </Button>
                           </div>
-                        </div>
-                      ))}
-                      <p className="text-xs text-muted-foreground">
-                        {connected
-                          ? "Klicke unten um Gmail-Zugriff zu aktivieren. Du wirst zu Google weitergeleitet um die E-Mail-Berechtigung zu erteilen."
-                          : "Verbinde einen Google Account um Gmail in Adslift zu nutzen."}
-                      </p>
-                      <Button variant="outline" size="sm" onClick={() => connectGoogleCalendar()}>
-                        <img src="/gmail-icon.svg" alt="" className="mr-2 h-4 w-4" />
-                        {connected ? "Gmail verbinden" : "Google Account verbinden"}
-                      </Button>
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Noch kein Gmail Account verbunden.</p>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => connectGmail()}>
+                      <img src="/gmail-icon.svg" alt="" className="mr-2 h-4 w-4" />
+                      {connected ? "Weiteren Account verbinden" : "Gmail verbinden"}
+                    </Button>
                   </>
                 );
               })()}

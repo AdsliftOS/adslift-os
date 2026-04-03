@@ -1,4 +1,4 @@
-import { getAccounts, getValidToken, type GoogleAccount } from "@/lib/google-calendar";
+import { getGmailAccounts, getValidGmailToken, type GmailAccount } from "@/lib/gmail-auth";
 
 const API = "https://gmail.googleapis.com/gmail/v1/users/me";
 
@@ -287,15 +287,15 @@ export async function sendEmail(
 // --- Multi-account helpers ---
 
 export async function getGmailToken(): Promise<{ token: string; email: string } | null> {
-  const accounts = getAccounts();
+  const accounts = getGmailAccounts();
   if (accounts.length === 0) return null;
   const account = accounts[0];
-  const token = await getValidToken(account);
+  const token = await getValidGmailToken(account);
   return { token, email: account.email };
 }
 
-export async function getGmailTokenForAccount(account: GoogleAccount): Promise<string> {
-  return getValidToken(account);
+export async function getGmailTokenForAccount(account: GmailAccount): Promise<string> {
+  return getValidGmailToken(account);
 }
 
 // System labels we show in the sidebar

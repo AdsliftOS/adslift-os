@@ -14,7 +14,7 @@ import {
   Reply, ReplyAll, Forward, ChevronLeft, Paperclip, MoreHorizontal, Tag, X, Loader2, ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
-import { isGoogleConnected, connectGoogleCalendar, getAccounts, getValidToken } from "@/lib/google-calendar";
+import { isGmailConnected, connectGmail, getGmailAccounts, getValidGmailToken } from "@/lib/gmail-auth";
 import {
   listMessages, getMessage, getThread, sendEmail, markAsRead, markAsUnread,
   archiveMessage, trashMessage, starMessage, unstarMessage, listLabels,
@@ -74,7 +74,7 @@ function parseListMessage(msg: GmailMessage): ParsedMessage {
 // ============================================================
 
 export default function MailPage() {
-  const [connected, setConnected] = useState(isGoogleConnected());
+  const [connected, setConnected] = useState(isGmailConnected());
   const [activeLabel, setActiveLabel] = useState("INBOX");
   const [messages, setMessages] = useState<ParsedMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -93,10 +93,10 @@ export default function MailPage() {
 
   // --- Load labels + unread counts ---
   const loadLabels = useCallback(async () => {
-    const accounts = getAccounts();
+    const accounts = getGmailAccounts();
     if (accounts.length === 0) return;
     try {
-      const token = await getValidToken(accounts[0]);
+      const token = await getValidGmailToken(accounts[0]);
       const all = await listLabels(token);
       setLabels(all.filter((l) => l.type === "user"));
       // Get unread counts for system labels
@@ -112,12 +112,12 @@ export default function MailPage() {
 
   // --- Load messages ---
   const loadMessages = useCallback(async (labelId: string, query?: string, pageToken?: string) => {
-    const accounts = getAccounts();
+    const accounts = getGmailAccounts();
     if (accounts.length === 0) return;
     if (pageToken) setLoadingMore(true); else { setLoading(true); setError(null); }
 
     try {
-      const token = await getValidToken(accounts[0]);
+      const token = await getValidGmailToken(accounts[0]);
       const opts: any = { maxResults: 30, pageToken };
       if (query) {
         opts.q = query;
@@ -195,8 +195,8 @@ export default function MailPage() {
     setLoadingMessage(true);
     setReplyMode(null);
     try {
-      const accounts = getAccounts();
-      const token = await getValidToken(accounts[0]);
+      const accounts = getGmailAccounts();
+      const token = await getValidGmailToken(accounts[0]);
       const full = await getMessage(token, msg.id);
       setSelectedMessage(full);
       // Mark as read
@@ -214,7 +214,7 @@ export default function MailPage() {
   // Actions
   const handleArchive = async (id: string) => {
     try {
-      const token = await getValidToken(getAccounts()[0]);
+      const token = await getValidGmailToken(getGmailAccounts()[0]);
       await archiveMessage(token, id);
       setMessages((prev) => prev.filter((m) => m.id !== id));
       if (selectedId === id) { setSelectedId(null); setSelectedMessage(null); }
@@ -224,7 +224,7 @@ export default function MailPage() {
 
   const handleTrash = async (id: string) => {
     try {
-      const token = await getValidToken(getAccounts()[0]);
+      const token = await getValidGmailToken(getGmailAccounts()[0]);
       await trashMessage(token, id);
       setMessages((prev) => prev.filter((m) => m.id !== id));
       if (selectedId === id) { setSelectedId(null); setSelectedMessage(null); }
@@ -234,7 +234,7 @@ export default function MailPage() {
 
   const handleToggleRead = async (id: string, isUnread: boolean) => {
     try {
-      const token = await getValidToken(getAccounts()[0]);
+      const token = await getValidGmailToken(getGmailAccounts()[0]);
       if (isUnread) await markAsRead(token, id); else await markAsUnread(token, id);
       setMessages((prev) => prev.map((m) => m.id === id ? { ...m, isUnread: !isUnread } : m));
     } catch (e: any) { toast.error(e.message); }
@@ -242,7 +242,7 @@ export default function MailPage() {
 
   const handleToggleStar = async (id: string, isStarred: boolean) => {
     try {
-      const token = await getValidToken(getAccounts()[0]);
+      const token = await getValidGmailToken(getGmailAccounts()[0]);
       if (isStarred) await unstarMessage(token, id); else await starMessage(token, id);
       setMessages((prev) => prev.map((m) => m.id === id ? { ...m, isStarred: !isStarred } : m));
     } catch (e: any) { toast.error(e.message); }
@@ -260,7 +260,7 @@ export default function MailPage() {
           <p className="text-muted-foreground">
             Verbinde dein Google-Konto, um E-Mails direkt in Adslift zu lesen, schreiben und organisieren.
           </p>
-          <Button onClick={() => connectGoogleCalendar()} size="lg">
+          <Button onClick={() => connectGmail()} size="lg">
             <img src="/gcal-icon.png" alt="" className="h-5 w-5 mr-2" />
             Google-Konto verbinden
           </Button>
@@ -380,7 +380,7 @@ export default function MailPage() {
               {error.toLowerCase().includes("403") || error.toLowerCase().includes("insufficient") || error.toLowerCase().includes("scope") ? (
                 <div className="space-y-2 text-center">
                   <p className="text-xs text-muted-foreground">Gmail-Berechtigung fehlt. Bitte Account neu verbinden.</p>
-                  <Button size="sm" onClick={() => connectGoogleCalendar()}>
+                  <Button size="sm" onClick={() => connectGmail()}>
                     <img src="/gmail-icon.svg" alt="" className="h-4 w-4 mr-1.5" /> Gmail neu verbinden
                   </Button>
                 </div>
@@ -654,8 +654,8 @@ function InlineReply({
     if (!toField.trim()) { toast.error("Empfänger fehlt"); return; }
     setSending(true);
     try {
-      const accounts = getAccounts();
-      const token = await getValidToken(accounts[0]);
+      const accounts = getGmailAccounts();
+      const token = await getValidGmailToken(accounts[0]);
       const messageId = originalMessage.payload?.headers?.find((h) => h.name === "Message-ID" || h.name === "Message-Id")?.value;
       await sendEmail(token, toField, subjectField, body.replace(/\n/g, "<br>"), {
         cc: ccField || undefined,
@@ -735,8 +735,8 @@ function ComposeDialog({ open, onClose, onSent }: { open: boolean; onClose: () =
     if (!subject.trim()) { toast.error("Betreff fehlt"); return; }
     setSending(true);
     try {
-      const accounts = getAccounts();
-      const token = await getValidToken(accounts[0]);
+      const accounts = getGmailAccounts();
+      const token = await getValidGmailToken(accounts[0]);
       await sendEmail(token, to, subject, body.replace(/\n/g, "<br>"), {
         cc: cc || undefined,
         bcc: bcc || undefined,
