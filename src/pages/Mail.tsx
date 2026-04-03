@@ -75,7 +75,9 @@ function parseListMessage(msg: GmailMessage): ParsedMessage {
 // ============================================================
 
 export default function MailPage() {
+  const accounts = getGmailAccounts();
   const [connected, setConnected] = useState(isGmailConnected());
+  const [activeAccountIdx, setActiveAccountIdx] = useState(0);
   const [activeLabel, setActiveLabel] = useState("INBOX");
   const [messages, setMessages] = useState<ParsedMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -92,15 +94,27 @@ export default function MailPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Active account helper
+  const getActiveToken = useCallback(async () => {
+    const accs = getGmailAccounts();
+    if (accs.length === 0) return null;
+    const idx = Math.min(activeAccountIdx, accs.length - 1);
+    return getValidGmailToken(accs[idx]);
+  }, [activeAccountIdx]);
+
+  const getActiveAccount = useCallback(() => {
+    const accs = getGmailAccounts();
+    if (accs.length === 0) return null;
+    return accs[Math.min(activeAccountIdx, accs.length - 1)];
+  }, [activeAccountIdx]);
+
   // --- Load labels + unread counts ---
   const loadLabels = useCallback(async () => {
-    const accounts = getGmailAccounts();
-    if (accounts.length === 0) return;
+    const token = await getActiveToken();
+    if (!token) return;
     try {
-      const token = await getValidGmailToken(accounts[0]);
       const all = await listLabels(token);
       setLabels(all.filter((l) => l.type === "user"));
-      // Get unread counts for system labels
       const counts: Record<string, number> = {};
       for (const l of all) {
         if (l.messagesUnread) counts[l.id] = l.messagesUnread;
@@ -109,16 +123,15 @@ export default function MailPage() {
     } catch (e: any) {
       console.error("Failed to load labels:", e);
     }
-  }, []);
+  }, [getActiveToken]);
 
   // --- Load messages ---
   const loadMessages = useCallback(async (labelId: string, query?: string, pageToken?: string) => {
-    const accounts = getGmailAccounts();
-    if (accounts.length === 0) return;
+    const token = await getActiveToken();
+    if (!token) return;
     if (pageToken) setLoadingMore(true); else { setLoading(true); setError(null); }
 
     try {
-      const token = await getValidGmailToken(accounts[0]);
       const opts: any = { maxResults: 30, pageToken };
       if (query) {
         opts.q = query;
@@ -128,7 +141,6 @@ export default function MailPage() {
       const list = await listMessages(token, opts);
       setNextPageToken(list.nextPageToken);
 
-      // Fetch full message data in parallel (batches of 10)
       const fullMessages: GmailMessage[] = [];
       const ids = list.messages.map((m) => m.id);
       for (let i = 0; i < ids.length; i += 10) {
@@ -151,15 +163,21 @@ export default function MailPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, []);
+  }, [getActiveToken]);
 
-  // Initial load
+  // Initial load + account switch
   useEffect(() => {
     if (connected) {
-      loadMessages(activeLabel);
+      setMessages([]);
+      setSelectedId(null);
+      setSelectedMessage(null);
+      setActiveLabel("INBOX");
+      setSearchActive(false);
+      setSearchQuery("");
+      loadMessages("INBOX");
       loadLabels();
     }
-  }, [connected]);
+  }, [connected, activeAccountIdx]);
 
   // Label change
   const switchLabel = (labelId: string) => {
@@ -196,11 +214,10 @@ export default function MailPage() {
     setLoadingMessage(true);
     setReplyMode(null);
     try {
-      const accounts = getGmailAccounts();
-      const token = await getValidGmailToken(accounts[0]);
+      const token = await getActiveToken();
+      if (!token) return;
       const full = await getMessage(token, msg.id);
       setSelectedMessage(full);
-      // Mark as read
       if (msg.isUnread) {
         await markAsRead(token, msg.id);
         setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, isUnread: false } : m));
@@ -215,7 +232,8 @@ export default function MailPage() {
   // Actions
   const handleArchive = async (id: string) => {
     try {
-      const token = await getValidGmailToken(getGmailAccounts()[0]);
+      const token = await getActiveToken();
+      if (!token) return;
       await archiveMessage(token, id);
       setMessages((prev) => prev.filter((m) => m.id !== id));
       if (selectedId === id) { setSelectedId(null); setSelectedMessage(null); }
@@ -225,7 +243,8 @@ export default function MailPage() {
 
   const handleTrash = async (id: string) => {
     try {
-      const token = await getValidGmailToken(getGmailAccounts()[0]);
+      const token = await getActiveToken();
+      if (!token) return;
       await trashMessage(token, id);
       setMessages((prev) => prev.filter((m) => m.id !== id));
       if (selectedId === id) { setSelectedId(null); setSelectedMessage(null); }
@@ -235,7 +254,8 @@ export default function MailPage() {
 
   const handleToggleRead = async (id: string, isUnread: boolean) => {
     try {
-      const token = await getValidGmailToken(getGmailAccounts()[0]);
+      const token = await getActiveToken();
+      if (!token) return;
       if (isUnread) await markAsRead(token, id); else await markAsUnread(token, id);
       setMessages((prev) => prev.map((m) => m.id === id ? { ...m, isUnread: !isUnread } : m));
     } catch (e: any) { toast.error(e.message); }
@@ -243,10 +263,16 @@ export default function MailPage() {
 
   const handleToggleStar = async (id: string, isStarred: boolean) => {
     try {
-      const token = await getValidGmailToken(getGmailAccounts()[0]);
+      const token = await getActiveToken();
+      if (!token) return;
       if (isStarred) await unstarMessage(token, id); else await starMessage(token, id);
       setMessages((prev) => prev.map((m) => m.id === id ? { ...m, isStarred: !isStarred } : m));
     } catch (e: any) { toast.error(e.message); }
+  };
+
+  // Switch account
+  const switchAccount = (idx: number) => {
+    setActiveAccountIdx(idx);
   };
 
   // --- Not connected ---
@@ -262,7 +288,7 @@ export default function MailPage() {
             Verbinde dein Google-Konto, um E-Mails direkt in Adslift zu lesen, schreiben und organisieren.
           </p>
           <Button onClick={() => connectGmail()} size="lg">
-            <img src="/gcal-icon.png" alt="" className="h-5 w-5 mr-2" />
+            <MailIcon className="h-5 w-5 mr-2" />
             Google-Konto verbinden
           </Button>
         </div>
@@ -274,16 +300,42 @@ export default function MailPage() {
     || labels.find((l) => l.id === activeLabel)?.name
     || activeLabel;
 
+  const activeAccount = getActiveAccount();
+
   return (
-    <ResizablePanelGroup direction="horizontal" className="flex-1 h-[calc(100vh-2rem)] overflow-hidden">
-      {/* --- LEFT: Label Sidebar --- */}
-      <ResizablePanel defaultSize={15} minSize={10} maxSize={25}>
-        <div className="flex flex-col h-full bg-muted/30">
-          <div className="p-3">
-            <Button onClick={() => setComposeOpen(true)} className="w-full" size="sm">
-              <Plus className="h-4 w-4 mr-1" /> Verfassen
-            </Button>
-          </div>
+    <div className="flex-1 flex flex-col h-[calc(100vh-2rem)] overflow-hidden">
+      {/* --- ACCOUNT SWITCHER --- */}
+      {accounts.length > 0 && (
+        <div className="flex items-center gap-1 px-3 py-1.5 border-b bg-muted/20">
+          {accounts.map((acc, idx) => (
+            <button
+              key={acc.email}
+              onClick={() => switchAccount(idx)}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                activeAccountIdx === idx
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              {idx === 0 ? "Main" : "Office"}{" "}
+              <span className="opacity-60">({acc.email.split("@")[0]})</span>
+            </button>
+          ))}
+          <Button variant="ghost" size="sm" className="h-6 px-2 ml-1 text-xs text-muted-foreground" onClick={() => connectGmail()}>
+            <Plus className="h-3 w-3 mr-1" /> Account
+          </Button>
+        </div>
+      )}
+
+      <ResizablePanelGroup direction="horizontal" className="flex-1 overflow-hidden">
+        {/* --- LEFT: Label Sidebar --- */}
+        <ResizablePanel defaultSize={15} minSize={10} maxSize={25}>
+          <div className="flex flex-col h-full bg-muted/30">
+            <div className="p-3">
+              <Button onClick={() => setComposeOpen(true)} className="w-full" size="sm">
+                <Plus className="h-4 w-4 mr-1" /> Verfassen
+              </Button>
+            </div>
           <ScrollArea className="flex-1">
             <div className="px-2 space-y-0.5">
               {SYSTEM_LABELS.map((label) => {
@@ -462,6 +514,7 @@ export default function MailPage() {
             replyMode={replyMode}
             onCloseReply={() => setReplyMode(null)}
             onSent={() => { setReplyMode(null); handleRefresh(); }}
+            accountIdx={activeAccountIdx}
           />
         ) : (
           <div className="flex-1 h-full flex items-center justify-center text-muted-foreground">
@@ -474,7 +527,7 @@ export default function MailPage() {
       </ResizablePanel>
 
       {/* --- Compose Dialog --- */}
-      <ComposeDialog open={composeOpen} onClose={() => setComposeOpen(false)} onSent={() => { setComposeOpen(false); handleRefresh(); }} />
+      <ComposeDialog open={composeOpen} onClose={() => setComposeOpen(false)} onSent={() => { setComposeOpen(false); handleRefresh(); }} accountIdx={activeAccountIdx} />
     </ResizablePanelGroup>
   );
 }
@@ -485,7 +538,7 @@ export default function MailPage() {
 
 function MessageDetail({
   message, onClose, onArchive, onTrash, onToggleRead, onReply, onReplyAll, onForward,
-  replyMode, onCloseReply, onSent,
+  replyMode, onCloseReply, onSent, accountIdx,
 }: {
   message: GmailMessage;
   onClose: () => void;
@@ -498,6 +551,7 @@ function MessageDetail({
   replyMode: "reply" | "replyAll" | "forward" | null;
   onCloseReply: () => void;
   onSent: () => void;
+  accountIdx: number;
 }) {
   const from = getMessageFrom(message);
   const to = getMessageTo(message);
@@ -617,6 +671,7 @@ function MessageDetail({
               originalMessage={message}
               onClose={onCloseReply}
               onSent={onSent}
+              accountIdx={accountIdx}
             />
           )}
         </div>
@@ -630,9 +685,10 @@ function MessageDetail({
 // ============================================================
 
 function InlineReply({
-  mode, originalMessage, onClose, onSent,
+  mode, originalMessage, onClose, onSent, accountIdx,
 }: {
   mode: "reply" | "replyAll" | "forward";
+  accountIdx: number;
   originalMessage: GmailMessage;
   onClose: () => void;
   onSent: () => void;
@@ -661,15 +717,16 @@ function InlineReply({
     if (!toField.trim()) { toast.error("Empfänger fehlt"); return; }
     setSending(true);
     try {
-      const accounts = getGmailAccounts();
-      const token = await getValidGmailToken(accounts[0]);
+      const accs = getGmailAccounts();
+      const acc = accs[Math.min(accountIdx, accs.length - 1)];
+      const token = await getValidGmailToken(acc);
       const messageId = originalMessage.payload?.headers?.find((h) => h.name === "Message-ID" || h.name === "Message-Id")?.value;
       await sendEmail(token, toField, subjectField, body.replace(/\n/g, "<br>"), {
         cc: ccField || undefined,
         threadId: mode !== "forward" ? originalMessage.threadId : undefined,
         inReplyTo: mode !== "forward" ? messageId : undefined,
         references: mode !== "forward" ? messageId : undefined,
-        from: accounts[0].email,
+        from: acc.email,
       });
       toast.success("Gesendet!");
       onSent();
@@ -724,7 +781,7 @@ function InlineReply({
 // COMPOSE DIALOG
 // ============================================================
 
-function ComposeDialog({ open, onClose, onSent }: { open: boolean; onClose: () => void; onSent: () => void }) {
+function ComposeDialog({ open, onClose, onSent, accountIdx }: { open: boolean; onClose: () => void; onSent: () => void; accountIdx: number }) {
   const [to, setTo] = useState("");
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
@@ -742,12 +799,13 @@ function ComposeDialog({ open, onClose, onSent }: { open: boolean; onClose: () =
     if (!subject.trim()) { toast.error("Betreff fehlt"); return; }
     setSending(true);
     try {
-      const accounts = getGmailAccounts();
-      const token = await getValidGmailToken(accounts[0]);
+      const accs = getGmailAccounts();
+      const acc = accs[Math.min(accountIdx, accs.length - 1)];
+      const token = await getValidGmailToken(acc);
       await sendEmail(token, to, subject, body.replace(/\n/g, "<br>"), {
         cc: cc || undefined,
         bcc: bcc || undefined,
-        from: accounts[0].email,
+        from: acc.email,
       });
       toast.success("E-Mail gesendet!");
       resetForm();
