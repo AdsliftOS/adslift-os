@@ -304,24 +304,6 @@ export default function MailPage() {
                   </button>
                 );
               })}
-              {labels.length > 0 && (
-                <>
-                  <Separator className="my-2" />
-                  <p className="px-3 py-1 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Labels</p>
-                  {labels.map((label) => (
-                    <button
-                      key={label.id}
-                      onClick={() => switchLabel(label.id)}
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                        activeLabel === label.id && !searchActive ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                      }`}
-                    >
-                      <Tag className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate flex-1 text-left">{label.name}</span>
-                    </button>
-                  ))}
-                </>
-              )}
             </div>
           </ScrollArea>
         </div>
