@@ -423,11 +423,17 @@ export default function MailPage() {
                   </button>
                 ))}
                 {nextPageToken && (
-                  <div className="p-3 text-center">
-                    <Button variant="ghost" size="sm" onClick={() => loadMessages(activeLabel, searchActive ? searchQuery : undefined, nextPageToken)} disabled={loadingMore}>
-                      {loadingMore ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                      Mehr laden
-                    </Button>
+                  <div className="py-4 flex justify-center" ref={(el) => {
+                    if (!el) return;
+                    const observer = new IntersectionObserver(([entry]) => {
+                      if (entry.isIntersecting && !loadingMore) {
+                        loadMessages(activeLabel, searchActive ? searchQuery : undefined, nextPageToken);
+                      }
+                    }, { threshold: 0.1 });
+                    observer.observe(el);
+                    return () => observer.disconnect();
+                  }}>
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   </div>
                 )}
               </div>
@@ -502,7 +508,7 @@ function MessageDetail({
   const attachments = getMessageAttachments(message);
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex flex-col h-full min-w-0 overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center gap-1 p-2 border-b">
         <Tooltip>
@@ -541,8 +547,8 @@ function MessageDetail({
       </div>
 
       {/* Message content */}
-      <ScrollArea className="flex-1">
-        <div className="p-5 max-w-3xl">
+      <ScrollArea className="flex-1 overflow-hidden">
+        <div className="p-5 max-w-3xl overflow-hidden">
           <h1 className="text-xl font-semibold mb-4">{subject}</h1>
 
           <div className="flex items-start gap-3 mb-4">
