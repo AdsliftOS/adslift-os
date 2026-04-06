@@ -17,6 +17,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import { supabase } from "@/lib/supabase";
 import { generateAutoTasks } from "@/lib/autoTasks";
+import { generateCloseAutoTasks } from "@/lib/closeAutoTasks";
 import { generateNotifications } from "@/lib/notificationGenerator";
 import { loadNotifications } from "@/store/notifications";
 import Dashboard from "./pages/Dashboard";
@@ -62,6 +63,7 @@ const App = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         generateAutoTasks();
+        generateCloseAutoTasks();
         generateNotifications(session.user?.email || "").then(() => loadNotifications());
       }
     });
