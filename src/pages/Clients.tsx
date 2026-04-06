@@ -8,7 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Users, CheckCircle2, PauseCircle, Trash2, Link2, Copy, Pencil, MessageSquare, Send } from "lucide-react";
+import { Plus, Search, Users, CheckCircle2, PauseCircle, Trash2, Link2, Copy, Pencil, MessageSquare, Send, Phone, Mail, Video, DollarSign, Loader2, ExternalLink, Clock, FileText } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { searchLeadByName, getLeadActivities, getLeadOpportunities, type CloseActivity, type CloseOpportunity } from "@/lib/close-api-client";
 import { toast } from "sonner";
 import { useClients, addClient as addClientDB, updateClient as updateClientDB, deleteClient as deleteClientDB } from "@/store/clients";
 import type { Client, ClientStatus } from "@/store/clients";
@@ -55,6 +59,46 @@ export default function Clients() {
   const [newComment, setNewComment] = useState("");
   const [commentAuthor, setCommentAuthor] = useState<"Alex" | "Daniel">("Alex");
   const [loadingComments, setLoadingComments] = useState(false);
+
+  // Close CRM detail panel
+  const [closeDetailOpen, setCloseDetailOpen] = useState(false);
+  const [closeDetailClient, setCloseDetailClient] = useState<Client | null>(null);
+  const [closeLeadId, setCloseLeadId] = useState<string | null>(null);
+  const [closeLeadStatus, setCloseLeadStatus] = useState("");
+  const [closeActivities, setCloseActivities] = useState<CloseActivity[]>([]);
+  const [closeOpportunities, setCloseOpportunities] = useState<CloseOpportunity[]>([]);
+  const [closeLoading, setCloseLoading] = useState(false);
+
+  const openCloseDetail = async (client: Client) => {
+    setCloseDetailClient(client);
+    setCloseDetailOpen(true);
+    setCloseLoading(true);
+    setCloseActivities([]);
+    setCloseOpportunities([]);
+    setCloseLeadId(null);
+    setCloseLeadStatus("");
+
+    try {
+      // Search by client name, then by contact name
+      let lead = await searchLeadByName(client.name);
+      if (!lead && client.contact) lead = await searchLeadByName(client.contact);
+      if (!lead && client.company && client.company !== client.name) lead = await searchLeadByName(client.company);
+
+      if (lead) {
+        setCloseLeadId(lead.id);
+        setCloseLeadStatus(lead.status);
+        const [activities, opportunities] = await Promise.all([
+          getLeadActivities(lead.id),
+          getLeadOpportunities(lead.id),
+        ]);
+        setCloseActivities(activities);
+        setCloseOpportunities(opportunities);
+      }
+    } catch (e) {
+      console.error("Close detail error:", e);
+    }
+    setCloseLoading(false);
+  };
 
   const filteredClients = useMemo(() => {
     if (!searchQuery) return clients;
@@ -312,12 +356,12 @@ export default function Clients() {
               {filteredClients.map((c, idx) => (
                 <TableRow key={c.id} className={`group ${idx % 2 === 1 ? "bg-muted/[0.03]" : ""}`}>
                   <TableCell>
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => openCloseDetail(c)}>
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                         <span className="text-xs font-bold text-primary">{c.name.slice(0, 2).toUpperCase()}</span>
                       </div>
                       <div>
-                        <span className="font-medium text-sm">{c.name}</span>
+                        <span className="font-medium text-sm hover:text-primary transition-colors">{c.name}</span>
                         <div className="text-[10px] text-muted-foreground">{c.company}</div>
                       </div>
                     </div>
@@ -444,6 +488,130 @@ export default function Clients() {
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Abbrechen</Button>
             <Button onClick={handleEditSave}>Speichern</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Close CRM Detail Dialog */}
+      <Dialog open={closeDetailOpen} onOpenChange={setCloseDetailOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <span className="text-sm font-bold text-primary">{closeDetailClient?.name.slice(0, 2).toUpperCase()}</span>
+              </div>
+              <div>
+                <div>{closeDetailClient?.name}</div>
+                <div className="text-xs text-muted-foreground font-normal flex items-center gap-2">
+                  {closeDetailClient?.company}
+                  {closeLeadStatus && <Badge variant="secondary" className="text-[9px]">{closeLeadStatus}</Badge>}
+                  {closeLeadId && (
+                    <a href={`https://app.close.com/lead/${closeLeadId}/`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-0.5">
+                      Close <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+
+          {closeLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <span className="text-sm text-muted-foreground ml-2">Lade Close-Daten...</span>
+            </div>
+          ) : !closeLeadId ? (
+            <div className="text-center py-12">
+              <Users className="h-8 w-8 mx-auto mb-2 text-muted-foreground/20" />
+              <p className="text-sm text-muted-foreground">Kein Lead in Close gefunden</p>
+              <p className="text-xs text-muted-foreground mt-1">Suche nach: {closeDetailClient?.name}, {closeDetailClient?.contact}</p>
+            </div>
+          ) : (
+            <Tabs defaultValue="activities" className="flex-1 min-h-0 flex flex-col">
+              <TabsList className="shrink-0">
+                <TabsTrigger value="activities" className="gap-1 text-xs">
+                  <Clock className="h-3 w-3" /> Aktivitäten ({closeActivities.length})
+                </TabsTrigger>
+                <TabsTrigger value="opportunities" className="gap-1 text-xs">
+                  <DollarSign className="h-3 w-3" /> Deals ({closeOpportunities.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="activities" className="flex-1 min-h-0 mt-2">
+                <ScrollArea className="h-[400px]">
+                  {closeActivities.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Keine Aktivitäten</p>
+                  ) : (
+                    <div className="space-y-2 pr-3">
+                      {closeActivities.map((a) => {
+                        const isCall = a._type?.toLowerCase().includes("call");
+                        const isEmail = a._type?.toLowerCase().includes("email");
+                        const isMeeting = a._type?.toLowerCase().includes("meeting");
+                        const isNote = a._type?.toLowerCase().includes("note");
+                        const Icon = isCall ? Phone : isEmail ? Mail : isMeeting ? Video : isNote ? FileText : Clock;
+                        const iconColor = isCall ? "text-emerald-500 bg-emerald-500/10" : isEmail ? "text-blue-500 bg-blue-500/10" : isMeeting ? "text-violet-500 bg-violet-500/10" : "text-muted-foreground bg-muted";
+                        const typeLabel = isCall ? "Call" : isEmail ? "E-Mail" : isMeeting ? "Meeting" : isNote ? "Notiz" : a._type || "Aktivität";
+
+                        return (
+                          <div key={a.id} className="flex gap-3 p-2.5 rounded-lg border hover:bg-accent/30 transition-colors">
+                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${iconColor}`}>
+                              <Icon className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-medium">{typeLabel}</span>
+                                  {isCall && a.direction && <Badge variant="secondary" className="text-[8px] px-1 py-0">{a.direction === "outbound" ? "Ausgehend" : "Eingehend"}</Badge>}
+                                  {isCall && a.duration && <span className="text-[10px] text-muted-foreground">{Math.round(a.duration / 60)}min</span>}
+                                </div>
+                                <span className="text-[10px] text-muted-foreground shrink-0">
+                                  {a.date_created ? new Date(a.date_created).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}
+                                </span>
+                              </div>
+                              {a.subject && <p className="text-xs font-medium mt-0.5 truncate">{a.subject}</p>}
+                              {a.title && <p className="text-xs font-medium mt-0.5 truncate">{a.title}</p>}
+                              {a.note && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{a.note}</p>}
+                              <span className="text-[9px] text-muted-foreground">{a.user_name}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="opportunities" className="flex-1 min-h-0 mt-2">
+                <ScrollArea className="h-[400px]">
+                  {closeOpportunities.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Keine Deals</p>
+                  ) : (
+                    <div className="space-y-2 pr-3">
+                      {closeOpportunities.map((o) => (
+                        <div key={o.id} className="rounded-lg border p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <Badge variant={o.status_type === "won" ? "default" : o.status_type === "lost" ? "destructive" : "secondary"} className="text-[10px]">
+                              {o.status_label}
+                            </Badge>
+                            <span className="text-sm font-bold tabular-nums">
+                              {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(o.value / 100)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between mt-1.5">
+                            <span className="text-xs text-muted-foreground">{o.user_name}</span>
+                            <div className="flex items-center gap-2">
+                              {o.confidence > 0 && <span className="text-[10px] text-muted-foreground">{o.confidence}% Confidence</span>}
+                              {o.close_at && <span className="text-[10px] text-muted-foreground">Close: {new Date(o.close_at).toLocaleDateString("de-DE")}</span>}
+                            </div>
+                          </div>
+                          {o.note && <p className="text-xs text-muted-foreground mt-1.5 border-t pt-1.5">{o.note}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </TabsContent>
+            </Tabs>
+          )}
         </DialogContent>
       </Dialog>
 

@@ -224,6 +224,42 @@ export async function getWeightedForecast(): Promise<{
   };
 }
 
+export async function searchLeadByName(name: string): Promise<{ id: string; name: string; status: string; contacts: any[] } | null> {
+  try {
+    const data = await closeGet("lead", { query: `name:"${name}"`, _limit: "1", _fields: "id,display_name,status_label,contacts" });
+    if (data.data && data.data.length > 0) {
+      const l = data.data[0];
+      return { id: l.id, name: l.display_name, status: l.status_label, contacts: l.contacts || [] };
+    }
+  } catch {}
+  return null;
+}
+
+export async function getLeadActivities(leadId: string): Promise<CloseActivity[]> {
+  const data = await closeGet("activity", { lead_id: leadId, _limit: "30" });
+  return (data.data || []).map((a: any) => ({
+    id: a.id,
+    _type: a._type,
+    lead_id: a.lead_id,
+    user_id: a.user_id,
+    user_name: a.user_name || a._user_name || "",
+    date_created: a.date_created,
+    lead_name: a.lead_name || a._lead_name || "",
+    duration: a.duration,
+    direction: a.direction,
+    disposition: a.disposition,
+    note: a.note_plain || a.note,
+    subject: a.subject,
+    title: a.title,
+    starts_at: a.starts_at,
+  }));
+}
+
+export async function getLeadOpportunities(leadId: string): Promise<CloseOpportunity[]> {
+  const data = await closeGet("opportunity", { lead_id: leadId, _limit: "20" });
+  return (data.data || []).map(mapOpportunity);
+}
+
 export async function getTodayActivities(): Promise<{
   calls: CloseActivity[];
   emails: CloseActivity[];
