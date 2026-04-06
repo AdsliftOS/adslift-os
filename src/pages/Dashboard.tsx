@@ -1,16 +1,24 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useClients } from "@/store/clients";
 import { useProjects } from "@/store/projects";
 import { useAllCalendarEvents } from "@/store/calendar";
-import { FolderKanban, Users, DollarSign, TrendingUp, Clock, ArrowRight, Sparkles, BarChart3, ArrowUpRight, Flag, AlertTriangle, CalendarDays, CheckCircle2, ListTodo, Phone, Video } from "lucide-react";
+import { useTasks } from "@/store/tasks";
+import { useDeals } from "@/store/deals";
+import {
+  FolderKanban, Users, DollarSign, TrendingUp, Clock, ArrowRight, BarChart3, ArrowUpRight,
+  Flag, CalendarDays, CheckCircle2, ListTodo, Video, Mail, Megaphone, CircleCheckBig,
+  Inbox, Eye, MousePointerClick, Euro, Wallet,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { format, isSameDay, isPast, addDays, isToday as isDateToday } from "date-fns";
+import { format, isSameDay, isPast } from "date-fns";
 import { de } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
 import { isSalesMeeting } from "@/lib/sales-meetings";
+import { isGmailConnected, getGmailAccounts, getValidGmailToken } from "@/lib/gmail-auth";
+import { listMessages } from "@/lib/gmail";
 
 const emailToName: Record<string, string> = {
   "info@consulting-og.de": "Alex",
@@ -29,6 +37,8 @@ export default function Dashboard() {
   const [clients] = useClients();
   const [projects] = useProjects();
   const calendarEvents = useAllCalendarEvents();
+  const [tasks] = useTasks();
+  const [deals] = useDeals();
   const [userName, setUserName] = useState("Alex");
 
   useEffect(() => {
@@ -38,6 +48,7 @@ export default function Dashboard() {
     });
   }, []);
 
+  // Sales closed this month
   const [monthlyClosed, setMonthlyClosed] = useState(0);
   useEffect(() => {
     const now = new Date();
@@ -48,13 +59,59 @@ export default function Dashboard() {
     });
   }, []);
 
+  // Unread mail count
+  const [unreadCount, setUnreadCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!isGmailConnected()) return;
+    const accs = getGmailAccounts();
+    if (accs.length === 0) return;
+    (async () => {
+      try {
+        const token = await getValidGmailToken(accs[0]);
+        const res = await listMessages(token, { labelIds: ["INBOX", "UNREAD"], maxResults: 1 });
+        setUnreadCount(res.resultSizeEstimate || 0);
+      } catch { setUnreadCount(null); }
+    })();
+  }, []);
+
+  // Meta Ads summary
+  const [adsSummary, setAdsSummary] = useState<{ spend: number; impressions: number; clicks: number; ctr: number } | null>(null);
+  useEffect(() => {
+    supabase.from("meta_campaign_insights").select("spend,impressions,clicks,ctr").then(({ data }) => {
+      if (data && data.length > 0) {
+        const spend = data.reduce((s, r) => s + parseFloat(r.spend || "0"), 0);
+        const impressions = data.reduce((s, r) => s + parseInt(r.impressions || "0"), 0);
+        const clicks = data.reduce((s, r) => s + parseInt(r.clicks || "0"), 0);
+        const ctr = clicks > 0 && impressions > 0 ? (clicks / impressions) * 100 : 0;
+        setAdsSummary({ spend, impressions, clicks, ctr });
+      }
+    });
+  }, []);
+
   const today = new Date();
   const activeClients = clients.filter((c) => c.status === "Active").length;
-  const totalRevenue = clients.reduce((s, c) => s + c.revenue, 0);
-  const fmt = (n: number) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n);
+  const fmt = (n: number) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
+  const fmtFull = (n: number) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n);
 
   const hour = today.getHours();
   const greeting = hour < 12 ? "Guten Morgen" : hour < 18 ? "Guten Nachmittag" : "Guten Abend";
+
+  // Tasks
+  const openTasks = useMemo(() => tasks.filter((t) => t.column !== "done"), [tasks]);
+  const todayTasks = useMemo(() => openTasks.filter((t) => t.dueDate && t.dueDate === format(today, "yyyy-MM-dd")).slice(0, 5), [openTasks, today]);
+  const highPrioTasks = useMemo(() => openTasks.filter((t) => t.priority === "high").slice(0, 5), [openTasks]);
+
+  // Monthly recurring revenue from deals
+  const mrr = useMemo(() => {
+    const currentMonth = format(today, "yyyy-MM");
+    return deals.reduce((sum, d) => {
+      const payment = d.monthlyPayments?.[currentMonth];
+      if (payment && (payment.status === "paid" || payment.status === "planned")) {
+        return sum + payment.amount;
+      }
+      return sum + d.netAmount;
+    }, 0);
+  }, [deals, today]);
 
   // Projects with progress
   const activeProjects = useMemo(() => {
@@ -102,133 +159,181 @@ export default function Dashboard() {
               {format(today, "EEEE, d. MMMM yyyy", { locale: de })}
             </p>
           </div>
-          <div className="hidden sm:flex items-center gap-3">
-            {[
-              { value: String(clients.length), label: "Kunden", icon: Users, color: "bg-blue-500/15 text-blue-500" },
-              { value: String(projects.length), label: "Projekte", icon: FolderKanban, color: "bg-violet-500/15 text-violet-500" },
-              { value: fmt(monthlyClosed), label: `Closed ${today.toLocaleString("de-DE", { month: "short" })}`, icon: DollarSign, color: "bg-emerald-500/15 text-emerald-500" },
-            ].map((s) => (
-              <div key={s.label} className="flex items-center gap-2.5 rounded-xl bg-card/50 border px-4 py-2.5">
-                <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${s.color}`}>
-                  <s.icon className="h-4 w-4" />
-                </div>
-                <div>
-                  <div className="text-lg font-bold leading-tight">{s.value}</div>
-                  <div className="text-[9px] text-muted-foreground uppercase tracking-wider">{s.label}</div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
-      {/* Quick Nav */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {[
-          { title: "Projekte", value: `${projects.length}`, path: "/projects", icon: FolderKanban, color: "bg-violet-500/15 text-violet-500" },
-          { title: "Kunden", value: `${activeClients} aktiv`, path: "/clients", icon: Users, color: "bg-blue-500/15 text-blue-500" },
-          { title: "Finanzen", value: "Cash-In/Out", path: "/finances", icon: DollarSign, color: "bg-emerald-500/15 text-emerald-500" },
-          { title: "Sales", value: "Funnel", path: "/sales", icon: BarChart3, color: "bg-pink-500/15 text-pink-500" },
-          { title: "Kalender", value: `${todayEvents.length} heute`, path: "/calendar", icon: CalendarDays, color: "bg-amber-500/15 text-amber-500" },
-        ].map((item) => (
-          <Card key={item.path} className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all group" onClick={() => navigate(item.path)}>
-            <CardContent className="p-3 flex items-center gap-3">
-              <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${item.color}`}>
-                <item.icon className="h-4 w-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold group-hover:text-primary transition-colors">{item.title}</div>
-                <div className="text-[10px] text-muted-foreground">{item.value}</div>
-              </div>
-              <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/20 group-hover:text-primary transition-all" />
-            </CardContent>
-          </Card>
-        ))}
+      {/* KPI Cards */}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
+        <Card className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all" onClick={() => navigate("/clients")}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Users className="h-4 w-4 text-blue-500" />
+              <span className="text-[10px] text-muted-foreground">{activeClients} aktiv</span>
+            </div>
+            <div className="text-2xl font-bold">{clients.length}</div>
+            <div className="text-[10px] text-muted-foreground">Kunden</div>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all" onClick={() => navigate("/projects")}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <FolderKanban className="h-4 w-4 text-violet-500" />
+              <span className="text-[10px] text-muted-foreground">{activeProjects.length} aktiv</span>
+            </div>
+            <div className="text-2xl font-bold">{projects.length}</div>
+            <div className="text-[10px] text-muted-foreground">Projekte</div>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all" onClick={() => navigate("/sales")}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <TrendingUp className="h-4 w-4 text-emerald-500" />
+              <span className="text-[10px] text-muted-foreground">{today.toLocaleString("de-DE", { month: "short" })}</span>
+            </div>
+            <div className="text-2xl font-bold">{fmt(monthlyClosed)}</div>
+            <div className="text-[10px] text-muted-foreground">Closed</div>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all" onClick={() => navigate("/mail")}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Mail className="h-4 w-4 text-red-500" />
+              {unreadCount !== null && unreadCount > 0 && <Badge variant="destructive" className="text-[9px] px-1.5 py-0">{unreadCount}</Badge>}
+            </div>
+            <div className="text-2xl font-bold">{unreadCount !== null ? unreadCount : "—"}</div>
+            <div className="text-[10px] text-muted-foreground">Ungelesene Mails</div>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all" onClick={() => navigate("/tasks")}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <CircleCheckBig className="h-4 w-4 text-amber-500" />
+              <span className="text-[10px] text-muted-foreground">{highPrioTasks.length} prio</span>
+            </div>
+            <div className="text-2xl font-bold">{openTasks.length}</div>
+            <div className="text-[10px] text-muted-foreground">Offene Aufgaben</div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Main Grid — 3 columns */}
       <div className="grid gap-5 lg:grid-cols-3">
 
-        {/* Today's Events */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-              Heute — {format(today, "d. MMM", { locale: de })}
-            </CardTitle>
-            <button onClick={() => navigate("/calendar")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
-              Kalender <ArrowRight className="h-2.5 w-2.5" />
-            </button>
-          </CardHeader>
-          <CardContent>
-            {todayEvents.length === 0 ? (
-              <div className="text-center py-6">
-                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground/15" />
-                <p className="text-xs text-muted-foreground">Keine Events heute.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {todayEvents.map((event) => {
-                  const isSales = isSalesMeeting(event);
-                  return (
-                    <div key={event.id} className={`rounded-lg p-2 cursor-pointer hover:bg-accent/50 transition-colors ${event.accountColorLight || "bg-muted/30"}`} onClick={() => navigate("/calendar")}>
-                      <div className="flex items-center gap-2">
-                        {isSales && <DollarSign className="h-3 w-3 text-emerald-500 shrink-0" />}
-                        <span className="text-xs font-medium truncate">{event.title}</span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-muted-foreground">{event.startTime} – {event.endTime}</span>
-                        {event.meetingLink && (
-                          <a href={event.meetingLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-0.5 text-[9px] font-medium text-primary hover:underline">
-                            <Video className="h-2.5 w-2.5" />{getMeetingPlatform(event.meetingLink)}
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Active Projects */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm">Aktive Projekte</CardTitle>
-            <button onClick={() => navigate("/projects")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
-              Alle <ArrowRight className="h-2.5 w-2.5" />
-            </button>
-          </CardHeader>
-          <CardContent>
-            {activeProjects.length === 0 ? (
-              <div className="text-center py-6">
-                <FolderKanban className="h-8 w-8 mx-auto mb-2 text-muted-foreground/15" />
-                <p className="text-xs text-muted-foreground">Keine Projekte.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {activeProjects.map((p) => (
-                  <div key={p.id} className="cursor-pointer hover:bg-accent/50 rounded-lg p-2 -mx-2 transition-colors" onClick={() => navigate("/projects")}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium truncate">{p.name}</span>
-                      <span className="text-[10px] font-bold tabular-nums ml-2">{p.progress}%</span>
-                    </div>
-                    <Progress value={p.progress} className="h-1.5" />
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-[9px] text-muted-foreground">{p.client}</span>
-                      <span className="text-[9px] text-primary">{p.currentPhase}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Deadlines + Top Clients */}
+        {/* Column 1: Today + Tasks */}
         <div className="space-y-5">
+          {/* Today's Events */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                Heute — {format(today, "d. MMM", { locale: de })}
+              </CardTitle>
+              <button onClick={() => navigate("/calendar")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                Kalender <ArrowRight className="h-2.5 w-2.5" />
+              </button>
+            </CardHeader>
+            <CardContent>
+              {todayEvents.length === 0 ? (
+                <div className="text-center py-6">
+                  <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground/15" />
+                  <p className="text-xs text-muted-foreground">Keine Events heute.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {todayEvents.map((event) => {
+                    const isSales = isSalesMeeting(event);
+                    return (
+                      <div key={event.id} className={`rounded-lg p-2 cursor-pointer hover:bg-accent/50 transition-colors ${event.accountColorLight || "bg-muted/30"}`} onClick={() => navigate("/calendar")}>
+                        <div className="flex items-center gap-2">
+                          {isSales && <DollarSign className="h-3 w-3 text-emerald-500 shrink-0" />}
+                          <span className="text-xs font-medium truncate">{event.title}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-muted-foreground">{event.startTime} – {event.endTime}</span>
+                          {event.meetingLink && (
+                            <a href={event.meetingLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-0.5 text-[9px] font-medium text-primary hover:underline">
+                              <Video className="h-2.5 w-2.5" />{getMeetingPlatform(event.meetingLink)}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Open Tasks */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm flex items-center gap-1.5">
+                <CircleCheckBig className="h-3.5 w-3.5 text-amber-500" /> Aufgaben
+              </CardTitle>
+              <button onClick={() => navigate("/tasks")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                Alle <ArrowRight className="h-2.5 w-2.5" />
+              </button>
+            </CardHeader>
+            <CardContent>
+              {openTasks.length === 0 ? (
+                <div className="text-center py-6">
+                  <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground/15" />
+                  <p className="text-xs text-muted-foreground">Alles erledigt!</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {(todayTasks.length > 0 ? todayTasks : highPrioTasks.length > 0 ? highPrioTasks : openTasks.slice(0, 5)).map((t) => (
+                    <div key={t.id} className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-accent/50 cursor-pointer transition-colors" onClick={() => navigate("/tasks")}>
+                      <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${t.priority === "high" ? "bg-red-500" : t.priority === "medium" ? "bg-amber-500" : "bg-muted-foreground/30"}`} />
+                      <span className="text-xs truncate flex-1">{t.title}</span>
+                      <Badge variant="secondary" className="text-[8px] px-1.5 py-0 shrink-0">
+                        {t.column === "in-progress" ? "In Arbeit" : "To-Do"}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Column 2: Projects + Deadlines */}
+        <div className="space-y-5">
+          {/* Active Projects */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm">Aktive Projekte</CardTitle>
+              <button onClick={() => navigate("/projects")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                Alle <ArrowRight className="h-2.5 w-2.5" />
+              </button>
+            </CardHeader>
+            <CardContent>
+              {activeProjects.length === 0 ? (
+                <div className="text-center py-6">
+                  <FolderKanban className="h-8 w-8 mx-auto mb-2 text-muted-foreground/15" />
+                  <p className="text-xs text-muted-foreground">Keine Projekte.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {activeProjects.map((p) => (
+                    <div key={p.id} className="cursor-pointer hover:bg-accent/50 rounded-lg p-2 -mx-2 transition-colors" onClick={() => navigate("/projects")}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium truncate">{p.name}</span>
+                        <span className="text-[10px] font-bold tabular-nums ml-2">{p.progress}%</span>
+                      </div>
+                      <Progress value={p.progress} className="h-1.5" />
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[9px] text-muted-foreground">{p.client}</span>
+                        <span className="text-[9px] text-primary">{p.currentPhase}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Deadlines */}
           {deadlines.length > 0 && (
             <Card>
@@ -255,6 +360,88 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           )}
+        </div>
+
+        {/* Column 3: Meta Ads + Top Kunden + Revenue */}
+        <div className="space-y-5">
+          {/* Meta Ads */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm flex items-center gap-1.5">
+                <Megaphone className="h-3.5 w-3.5 text-blue-500" /> Meta Ads
+              </CardTitle>
+              <button onClick={() => navigate("/meta-ads")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                Details <ArrowRight className="h-2.5 w-2.5" />
+              </button>
+            </CardHeader>
+            <CardContent>
+              {adsSummary ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg bg-muted/30 p-2.5">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Euro className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-[9px] text-muted-foreground uppercase">Spend</span>
+                    </div>
+                    <div className="text-sm font-bold">{fmtFull(adsSummary.spend)}</div>
+                  </div>
+                  <div className="rounded-lg bg-muted/30 p-2.5">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Eye className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-[9px] text-muted-foreground uppercase">Impressions</span>
+                    </div>
+                    <div className="text-sm font-bold">{new Intl.NumberFormat("de-DE").format(adsSummary.impressions)}</div>
+                  </div>
+                  <div className="rounded-lg bg-muted/30 p-2.5">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <MousePointerClick className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-[9px] text-muted-foreground uppercase">Clicks</span>
+                    </div>
+                    <div className="text-sm font-bold">{new Intl.NumberFormat("de-DE").format(adsSummary.clicks)}</div>
+                  </div>
+                  <div className="rounded-lg bg-muted/30 p-2.5">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-[9px] text-muted-foreground uppercase">CTR</span>
+                    </div>
+                    <div className="text-sm font-bold">{adsSummary.ctr.toFixed(2)}%</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <Megaphone className="h-8 w-8 mx-auto mb-2 text-muted-foreground/15" />
+                  <p className="text-xs text-muted-foreground">Keine Ads-Daten.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Revenue / MRR */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm flex items-center gap-1.5">
+                <Wallet className="h-3.5 w-3.5 text-emerald-500" /> Revenue
+              </CardTitle>
+              <button onClick={() => navigate("/finances")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                Finanzen <ArrowRight className="h-2.5 w-2.5" />
+              </button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">MRR</span>
+                  <span className="text-sm font-bold">{fmt(mrr)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Deals aktiv</span>
+                  <span className="text-sm font-bold">{deals.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Closed {today.toLocaleString("de-DE", { month: "short" })}</span>
+                  <span className="text-sm font-bold">{fmt(monthlyClosed)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Top Clients */}
           <Card>
@@ -285,23 +472,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
-      </div>
-
-      {/* Bottom Quick Actions */}
-      <div className="grid gap-3 sm:grid-cols-4">
-        {[
-          { title: "Neuer Kunde", path: "/clients", icon: Users, color: "text-blue-500" },
-          { title: "Neues Projekt", path: "/projects", icon: FolderKanban, color: "text-violet-500" },
-          { title: "Aufgaben", path: "/tasks", icon: ListTodo, color: "text-amber-500" },
-          { title: "Zeiterfassung", path: "/time", icon: Clock, color: "text-emerald-500" },
-        ].map((item) => (
-          <button key={item.path} onClick={() => navigate(item.path)}
-            className="rounded-xl border p-3 text-left hover:bg-accent/50 hover:shadow-sm transition-all group flex items-center gap-2.5">
-            <item.icon className={`h-4 w-4 ${item.color}`} />
-            <span className="text-xs font-medium group-hover:text-primary transition-colors">{item.title}</span>
-            <ArrowRight className="h-3 w-3 text-muted-foreground/20 group-hover:text-primary ml-auto transition-all" />
-          </button>
-        ))}
       </div>
     </div>
   );
