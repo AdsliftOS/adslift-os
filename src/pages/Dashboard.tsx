@@ -1,16 +1,17 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 import { useClients } from "@/store/clients";
 import { useProjects } from "@/store/projects";
 import { useAllCalendarEvents } from "@/store/calendar";
 import { useTasks } from "@/store/tasks";
 import { useDeals } from "@/store/deals";
 import {
-  FolderKanban, Users, DollarSign, TrendingUp, Clock, ArrowRight, BarChart3, ArrowUpRight,
-  Flag, CalendarDays, CheckCircle2, ListTodo, Video, Mail, Megaphone, CircleCheckBig,
-  Inbox, Eye, MousePointerClick, Euro, Wallet, Phone, Target, Loader2,
+  FolderKanban, Users, DollarSign, TrendingUp, ArrowRight, BarChart3,
+  Flag, CheckCircle2, Video, Mail, Megaphone, CircleCheckBig,
+  Eye, MousePointerClick, Euro, Wallet, Phone, Target, Loader2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format, isSameDay, isPast } from "date-fns";
@@ -49,7 +50,6 @@ export default function Dashboard() {
     });
   }, []);
 
-  // Sales closed this month
   const [monthlyClosed, setMonthlyClosed] = useState(0);
   useEffect(() => {
     const now = new Date();
@@ -60,7 +60,6 @@ export default function Dashboard() {
     });
   }, []);
 
-  // Unread mail count
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
   useEffect(() => {
     if (!isGmailConnected()) return;
@@ -75,7 +74,6 @@ export default function Dashboard() {
     })();
   }, []);
 
-  // Meta Ads summary
   const [adsSummary, setAdsSummary] = useState<{ spend: number; impressions: number; clicks: number; ctr: number } | null>(null);
   useEffect(() => {
     supabase.from("meta_campaign_insights").select("spend,impressions,clicks,ctr").then(({ data }) => {
@@ -89,7 +87,6 @@ export default function Dashboard() {
     });
   }, []);
 
-  // Close CRM data
   const [pipelineData, setPipelineData] = useState<{ stages: { label: string; count: number; value: number }[]; totalValue: number; totalCount: number } | null>(null);
   const [forecastData, setForecastData] = useState<{ totalWeighted: number; totalUnweighted: number; byUser: { name: string; weighted: number; unweighted: number; count: number }[] } | null>(null);
   const [activityData, setActivityData] = useState<{ total: number; byUser: { name: string; calls: number; emails: number; meetings: number }[] } | null>(null);
@@ -106,29 +103,25 @@ export default function Dashboard() {
   const today = new Date();
   const activeClients = clients.filter((c) => c.status === "Active").length;
   const fmt = (n: number) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
-  const fmtFull = (n: number) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n);
+  const num = (n: number) => new Intl.NumberFormat("de-DE").format(n);
 
   const hour = today.getHours();
   const greeting = hour < 12 ? "Guten Morgen" : hour < 18 ? "Guten Nachmittag" : "Guten Abend";
 
-  // Tasks
   const openTasks = useMemo(() => tasks.filter((t) => t.column !== "done"), [tasks]);
   const todayTasks = useMemo(() => openTasks.filter((t) => t.dueDate && t.dueDate === format(today, "yyyy-MM-dd")).slice(0, 5), [openTasks, today]);
   const highPrioTasks = useMemo(() => openTasks.filter((t) => t.priority === "high").slice(0, 5), [openTasks]);
+  const displayTasks = todayTasks.length > 0 ? todayTasks : highPrioTasks.length > 0 ? highPrioTasks : openTasks.slice(0, 5);
 
-  // Monthly recurring revenue from deals
   const mrr = useMemo(() => {
     const currentMonth = format(today, "yyyy-MM");
     return deals.reduce((sum, d) => {
       const payment = d.monthlyPayments?.[currentMonth];
-      if (payment && (payment.status === "paid" || payment.status === "planned")) {
-        return sum + payment.amount;
-      }
+      if (payment && (payment.status === "paid" || payment.status === "planned")) return sum + payment.amount;
       return sum + d.netAmount;
     }, 0);
   }, [deals, today]);
 
-  // Projects with progress
   const activeProjects = useMemo(() => {
     return projects.filter((p) => p.phases.length > 0).map((p) => {
       const total = p.phases.reduce((s, ph) => s + ph.tasks.length, 0);
@@ -136,237 +129,332 @@ export default function Dashboard() {
       const progress = total > 0 ? Math.round((done / total) * 100) : 0;
       const currentPhase = p.phases.find((ph) => !ph.tasks.every((t) => t.status === "done"));
       return { ...p, progress, currentPhase: currentPhase?.title || "Abgeschlossen", total, done };
-    }).sort((a, b) => b.progress === 100 ? -1 : a.progress - b.progress).slice(0, 5);
+    }).sort((a, b) => b.progress === 100 ? -1 : a.progress - b.progress).slice(0, 4);
   }, [projects]);
 
-  // Today's events
   const todayStr = format(today, "yyyy-MM-dd");
   const todayEvents = useMemo(() =>
     calendarEvents.filter((e) => e.date === todayStr && !e.id.startsWith("proj-deadline-"))
-      .sort((a, b) => a.startTime.localeCompare(b.startTime)).slice(0, 6),
+      .sort((a, b) => a.startTime.localeCompare(b.startTime)).slice(0, 5),
   [calendarEvents, todayStr]);
 
-  // Deadlines
   const deadlines = useMemo(() => {
     return projects.filter((p) => p.deadline).map((p) => {
       const d = new Date(p.deadline + "T00:00:00");
       const isOverdue = isPast(new Date(p.deadline + "T23:59:59")) && !isSameDay(d, today);
       return { ...p, deadlineDate: d, isOverdue, isToday: isSameDay(d, today) };
-    }).sort((a, b) => a.deadlineDate.getTime() - b.deadlineDate.getTime()).slice(0, 5);
+    }).sort((a, b) => a.deadlineDate.getTime() - b.deadlineDate.getTime()).slice(0, 4);
   }, [projects, today]);
 
-  // Top clients
-  const topClients = useMemo(() => [...clients].sort((a, b) => b.revenue - a.revenue).slice(0, 5), [clients]);
-
   return (
-    <div className="space-y-6">
-      {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border p-6">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-        <div className="relative flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <img src="/favicon.png" className="h-5 w-5 rounded" />
-              <span className="text-xs font-medium text-primary uppercase tracking-wider">Adslift OS</span>
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight">{greeting}, {userName}</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {format(today, "EEEE, d. MMMM yyyy", { locale: de })}
-            </p>
-          </div>
-        </div>
+    <div className="space-y-5">
+      {/* Greeting */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">{greeting}, {userName}</h1>
+        <p className="text-sm text-muted-foreground">{format(today, "EEEE, d. MMMM yyyy", { locale: de })}</p>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
-        <Card className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all" onClick={() => navigate("/clients")}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <Users className="h-4 w-4 text-blue-500" />
-              <span className="text-[10px] text-muted-foreground">{activeClients} aktiv</span>
-            </div>
-            <div className="text-2xl font-bold">{clients.length}</div>
-            <div className="text-[10px] text-muted-foreground">Kunden</div>
+      {/* ═══ ROW 1: KPI Strip ═══ */}
+      <div className="grid gap-2.5 grid-cols-3 lg:grid-cols-6">
+        {[
+          { label: "Kunden", value: String(clients.length), sub: `${activeClients} aktiv`, icon: Users, color: "text-blue-500", path: "/clients" },
+          { label: "Projekte", value: String(projects.length), sub: `${activeProjects.length} aktiv`, icon: FolderKanban, color: "text-violet-500", path: "/projects" },
+          { label: "Closed", value: fmt(monthlyClosed), sub: today.toLocaleString("de-DE", { month: "long" }), icon: TrendingUp, color: "text-emerald-500", path: "/sales" },
+          { label: "MRR", value: fmt(mrr), sub: `${deals.length} Deals`, icon: Wallet, color: "text-teal-500", path: "/finances" },
+          { label: "Mails", value: unreadCount !== null ? String(unreadCount) : "—", sub: "ungelesen", icon: Mail, color: "text-red-500", path: "/mail", badge: unreadCount && unreadCount > 0 ? unreadCount : null },
+          { label: "Aufgaben", value: String(openTasks.length), sub: `${highPrioTasks.length} high prio`, icon: CircleCheckBig, color: "text-amber-500", path: "/tasks" },
+        ].map((kpi) => (
+          <Card key={kpi.label} className="cursor-pointer hover:shadow-sm hover:-translate-y-0.5 transition-all border-border/50" onClick={() => navigate(kpi.path)}>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <kpi.icon className={`h-3.5 w-3.5 ${kpi.color}`} />
+                {kpi.badge && <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4">{kpi.badge}</Badge>}
+              </div>
+              <div className="text-lg font-bold leading-tight">{kpi.value}</div>
+              <div className="text-[9px] text-muted-foreground mt-0.5">{kpi.sub}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* ═══ ROW 2: Heute + Aufgaben + Sales Pipeline ═══ */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Heute */}
+        <Card className="border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              Heute
+            </CardTitle>
+            <button onClick={() => navigate("/calendar")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+              Kalender <ArrowRight className="h-2.5 w-2.5" />
+            </button>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {todayEvents.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4 text-center">Keine Events heute</p>
+            ) : (
+              <div className="space-y-1.5">
+                {todayEvents.map((event) => (
+                  <div key={event.id} className="flex items-center gap-2.5 rounded-md p-2 hover:bg-accent/40 cursor-pointer transition-colors" onClick={() => navigate("/calendar")}>
+                    <div className="text-[10px] tabular-nums text-muted-foreground w-10 shrink-0">{event.startTime}</div>
+                    <div className="h-full w-0.5 rounded-full bg-primary/30 self-stretch" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-medium truncate block">{event.title}</span>
+                      {event.meetingLink && (
+                        <a href={event.meetingLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-0.5 text-[9px] text-primary hover:underline mt-0.5">
+                          <Video className="h-2.5 w-2.5" />{getMeetingPlatform(event.meetingLink)}
+                        </a>
+                      )}
+                    </div>
+                    {isSalesMeeting(event) && <DollarSign className="h-3 w-3 text-emerald-500 shrink-0" />}
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all" onClick={() => navigate("/projects")}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <FolderKanban className="h-4 w-4 text-violet-500" />
-              <span className="text-[10px] text-muted-foreground">{activeProjects.length} aktiv</span>
-            </div>
-            <div className="text-2xl font-bold">{projects.length}</div>
-            <div className="text-[10px] text-muted-foreground">Projekte</div>
+
+        {/* Aufgaben */}
+        <Card className="border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aufgaben</CardTitle>
+            <button onClick={() => navigate("/tasks")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+              Alle <ArrowRight className="h-2.5 w-2.5" />
+            </button>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {displayTasks.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4 text-center">Alles erledigt</p>
+            ) : (
+              <div className="space-y-1">
+                {displayTasks.map((t) => (
+                  <div key={t.id} className="flex items-center gap-2 rounded-md p-2 hover:bg-accent/40 cursor-pointer transition-colors" onClick={() => navigate("/tasks")}>
+                    <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${t.priority === "high" ? "bg-red-500" : t.priority === "medium" ? "bg-amber-500" : "bg-muted-foreground/30"}`} />
+                    <span className="text-xs truncate flex-1">{t.title}</span>
+                    <span className={`text-[9px] shrink-0 ${t.column === "in-progress" ? "text-primary" : "text-muted-foreground"}`}>
+                      {t.column === "in-progress" ? "In Arbeit" : "To-Do"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all" onClick={() => navigate("/sales")}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <TrendingUp className="h-4 w-4 text-emerald-500" />
-              <span className="text-[10px] text-muted-foreground">{today.toLocaleString("de-DE", { month: "short" })}</span>
-            </div>
-            <div className="text-2xl font-bold">{fmt(monthlyClosed)}</div>
-            <div className="text-[10px] text-muted-foreground">Closed</div>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all" onClick={() => navigate("/mail")}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <Mail className="h-4 w-4 text-red-500" />
-              {unreadCount !== null && unreadCount > 0 && <Badge variant="destructive" className="text-[9px] px-1.5 py-0">{unreadCount}</Badge>}
-            </div>
-            <div className="text-2xl font-bold">{unreadCount !== null ? unreadCount : "—"}</div>
-            <div className="text-[10px] text-muted-foreground">Ungelesene Mails</div>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all" onClick={() => navigate("/tasks")}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <CircleCheckBig className="h-4 w-4 text-amber-500" />
-              <span className="text-[10px] text-muted-foreground">{highPrioTasks.length} prio</span>
-            </div>
-            <div className="text-2xl font-bold">{openTasks.length}</div>
-            <div className="text-[10px] text-muted-foreground">Offene Aufgaben</div>
+
+        {/* Sales Pipeline */}
+        <Card className="border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sales Pipeline</CardTitle>
+            <button onClick={() => navigate("/sales")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+              Sales <ArrowRight className="h-2.5 w-2.5" />
+            </button>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {closeLoading ? (
+              <div className="flex items-center justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+            ) : pipelineData ? (
+              <div className="space-y-2">
+                {pipelineData.stages.filter((s) => s.count > 0).map((stage) => {
+                  const pct = pipelineData.totalValue > 0 ? (stage.value / pipelineData.totalValue) * 100 : 0;
+                  return (
+                    <div key={stage.label}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[11px] truncate flex-1">{stage.label}</span>
+                        <span className="text-[10px] text-muted-foreground mx-2">{stage.count}</span>
+                        <span className="text-[11px] font-semibold tabular-nums">{fmt(stage.value / 100)}</span>
+                      </div>
+                      <div className="h-1 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-primary/60" style={{ width: `${Math.max(pct, 2)}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                <Separator className="my-1" />
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium">{pipelineData.totalCount} Deals</span>
+                  <span className="text-sm font-bold">{fmt(pipelineData.totalValue / 100)}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground py-4 text-center">Keine Daten</p>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Grid — 3 columns */}
-      <div className="grid gap-5 lg:grid-cols-3">
-
-        {/* Column 1: Today + Tasks */}
-        <div className="space-y-5">
-          {/* Today's Events */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                Heute — {format(today, "d. MMM", { locale: de })}
-              </CardTitle>
-              <button onClick={() => navigate("/calendar")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
-                Kalender <ArrowRight className="h-2.5 w-2.5" />
-              </button>
-            </CardHeader>
-            <CardContent>
-              {todayEvents.length === 0 ? (
-                <div className="text-center py-6">
-                  <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground/15" />
-                  <p className="text-xs text-muted-foreground">Keine Events heute.</p>
+      {/* ═══ ROW 3: Forecast + Activity + Meta Ads ═══ */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Revenue Forecast */}
+        <Card className="border-border/50">
+          <CardHeader className="pb-1 pt-4 px-4">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Revenue Forecast</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {closeLoading ? (
+              <div className="flex items-center justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+            ) : forecastData ? (
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <div className="flex-1 rounded-lg bg-muted/40 p-2.5 text-center">
+                    <div className="text-lg font-bold">{fmt(forecastData.totalUnweighted / 100)}</div>
+                    <div className="text-[9px] text-muted-foreground">Pipeline</div>
+                  </div>
+                  <div className="flex-1 rounded-lg bg-emerald-500/10 p-2.5 text-center">
+                    <div className="text-lg font-bold text-emerald-600">{fmt(forecastData.totalWeighted / 100)}</div>
+                    <div className="text-[9px] text-emerald-600">Gewichtet</div>
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {todayEvents.map((event) => {
-                    const isSales = isSalesMeeting(event);
-                    return (
-                      <div key={event.id} className={`rounded-lg p-2 cursor-pointer hover:bg-accent/50 transition-colors ${event.accountColorLight || "bg-muted/30"}`} onClick={() => navigate("/calendar")}>
-                        <div className="flex items-center gap-2">
-                          {isSales && <DollarSign className="h-3 w-3 text-emerald-500 shrink-0" />}
-                          <span className="text-xs font-medium truncate">{event.title}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] text-muted-foreground">{event.startTime} – {event.endTime}</span>
-                          {event.meetingLink && (
-                            <a href={event.meetingLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-0.5 text-[9px] font-medium text-primary hover:underline">
-                              <Video className="h-2.5 w-2.5" />{getMeetingPlatform(event.meetingLink)}
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Open Tasks */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm flex items-center gap-1.5">
-                <CircleCheckBig className="h-3.5 w-3.5 text-amber-500" /> Aufgaben
-              </CardTitle>
-              <button onClick={() => navigate("/tasks")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
-                Alle <ArrowRight className="h-2.5 w-2.5" />
-              </button>
-            </CardHeader>
-            <CardContent>
-              {openTasks.length === 0 ? (
-                <div className="text-center py-6">
-                  <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground/15" />
-                  <p className="text-xs text-muted-foreground">Alles erledigt!</p>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  {(todayTasks.length > 0 ? todayTasks : highPrioTasks.length > 0 ? highPrioTasks : openTasks.slice(0, 5)).map((t) => (
-                    <div key={t.id} className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-accent/50 cursor-pointer transition-colors" onClick={() => navigate("/tasks")}>
-                      <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${t.priority === "high" ? "bg-red-500" : t.priority === "medium" ? "bg-amber-500" : "bg-muted-foreground/30"}`} />
-                      <span className="text-xs truncate flex-1">{t.title}</span>
-                      <Badge variant="secondary" className="text-[8px] px-1.5 py-0 shrink-0">
-                        {t.column === "in-progress" ? "In Arbeit" : "To-Do"}
-                      </Badge>
+                {forecastData.byUser.map((u) => (
+                  <div key={u.name} className="flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
+                      {u.name.charAt(0)}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                    <span className="text-xs flex-1">{u.name.split(" ")[0]}</span>
+                    <span className="text-[10px] text-muted-foreground tabular-nums mr-1">{u.count}</span>
+                    <span className="text-xs font-semibold tabular-nums">{fmt(u.weighted / 100)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground py-4 text-center">Keine Daten</p>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Column 2: Projects + Deadlines */}
-        <div className="space-y-5">
-          {/* Active Projects */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm">Aktive Projekte</CardTitle>
-              <button onClick={() => navigate("/projects")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
-                Alle <ArrowRight className="h-2.5 w-2.5" />
-              </button>
-            </CardHeader>
-            <CardContent>
-              {activeProjects.length === 0 ? (
-                <div className="text-center py-6">
-                  <FolderKanban className="h-8 w-8 mx-auto mb-2 text-muted-foreground/15" />
-                  <p className="text-xs text-muted-foreground">Keine Projekte.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {activeProjects.map((p) => (
-                    <div key={p.id} className="cursor-pointer hover:bg-accent/50 rounded-lg p-2 -mx-2 transition-colors" onClick={() => navigate("/projects")}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-medium truncate">{p.name}</span>
-                        <span className="text-[10px] font-bold tabular-nums ml-2">{p.progress}%</span>
+        {/* Heutige Aktivitäten */}
+        <Card className="border-border/50">
+          <CardHeader className="pb-1 pt-4 px-4">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Heutige Aktivitäten</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {closeLoading ? (
+              <div className="flex items-center justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+            ) : activityData && activityData.byUser.length > 0 ? (
+              <div className="space-y-3">
+                {activityData.byUser.map((u) => (
+                  <div key={u.name} className="rounded-lg border border-border/50 p-3">
+                    <div className="text-xs font-medium mb-2">{u.name.split(" ")[0]}</div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <div className="flex items-center justify-center gap-1 mb-0.5">
+                          <Phone className="h-3 w-3 text-emerald-500" />
+                          <span className="text-sm font-bold">{u.calls}</span>
+                        </div>
+                        <span className="text-[8px] text-muted-foreground uppercase">Calls</span>
                       </div>
-                      <Progress value={p.progress} className="h-1.5" />
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-[9px] text-muted-foreground">{p.client}</span>
-                        <span className="text-[9px] text-primary">{p.currentPhase}</span>
+                      <div>
+                        <div className="flex items-center justify-center gap-1 mb-0.5">
+                          <Mail className="h-3 w-3 text-blue-500" />
+                          <span className="text-sm font-bold">{u.emails}</span>
+                        </div>
+                        <span className="text-[8px] text-muted-foreground uppercase">Mails</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-center gap-1 mb-0.5">
+                          <Video className="h-3 w-3 text-violet-500" />
+                          <span className="text-sm font-bold">{u.meetings}</span>
+                        </div>
+                        <span className="text-[8px] text-muted-foreground uppercase">Meetings</span>
                       </div>
                     </div>
-                  ))}
+                  </div>
+                ))}
+                <div className="text-center">
+                  <span className="text-[10px] text-muted-foreground">{activityData.total} Aktivitäten gesamt</span>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground py-4 text-center">Noch keine Aktivitäten heute</p>
+            )}
+          </CardContent>
+        </Card>
 
-          {/* Deadlines */}
+        {/* Meta Ads */}
+        <Card className="border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Meta Ads</CardTitle>
+            <button onClick={() => navigate("/meta-ads")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+              Details <ArrowRight className="h-2.5 w-2.5" />
+            </button>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {adsSummary ? (
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { icon: Euro, label: "Spend", value: fmt(adsSummary.spend), color: "text-muted-foreground" },
+                  { icon: Eye, label: "Impressions", value: num(adsSummary.impressions), color: "text-muted-foreground" },
+                  { icon: MousePointerClick, label: "Clicks", value: num(adsSummary.clicks), color: "text-muted-foreground" },
+                  { icon: TrendingUp, label: "CTR", value: adsSummary.ctr.toFixed(2) + "%", color: "text-muted-foreground" },
+                ].map((m) => (
+                  <div key={m.label} className="rounded-lg border border-border/50 p-2.5">
+                    <div className="flex items-center gap-1 mb-1">
+                      <m.icon className={`h-3 w-3 ${m.color}`} />
+                      <span className="text-[8px] text-muted-foreground uppercase">{m.label}</span>
+                    </div>
+                    <div className="text-sm font-bold">{m.value}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground py-4 text-center">Keine Ads-Daten</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ═══ ROW 4: Projekte + Deadlines + Revenue ═══ */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Projekte */}
+        <Card className="lg:col-span-2 border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aktive Projekte</CardTitle>
+            <button onClick={() => navigate("/projects")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+              Alle <ArrowRight className="h-2.5 w-2.5" />
+            </button>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {activeProjects.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4 text-center">Keine aktiven Projekte</p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {activeProjects.map((p) => (
+                  <div key={p.id} className="rounded-lg border border-border/50 p-3 hover:bg-accent/30 cursor-pointer transition-colors" onClick={() => navigate("/projects")}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-medium truncate flex-1">{p.name}</span>
+                      <span className="text-[10px] font-bold tabular-nums ml-2">{p.progress}%</span>
+                    </div>
+                    <Progress value={p.progress} className="h-1" />
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-[9px] text-muted-foreground">{p.client}</span>
+                      <span className="text-[9px] text-primary">{p.currentPhase}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Deadlines + Revenue */}
+        <div className="space-y-4">
           {deadlines.length > 0 && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm flex items-center gap-1.5">
-                  <Flag className="h-3.5 w-3.5 text-red-500" />Deadlines
+            <Card className="border-border/50">
+              <CardHeader className="pb-1 pt-4 px-4">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <Flag className="h-3 w-3 text-red-500" /> Deadlines
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
+              <CardContent className="px-4 pb-4">
+                <div className="space-y-1.5">
                   {deadlines.map((p) => (
-                    <div key={p.id} className={`flex items-center gap-2.5 rounded-lg p-2 ${p.isOverdue ? "bg-red-500/5" : p.isToday ? "bg-amber-500/5" : ""}`}>
-                      <Flag className={`h-3 w-3 shrink-0 ${p.isOverdue ? "text-red-500" : p.isToday ? "text-amber-500" : "text-muted-foreground"}`} />
+                    <div key={p.id} className={`flex items-center gap-2 rounded-md p-2 ${p.isOverdue ? "bg-red-500/5" : p.isToday ? "bg-amber-500/5" : ""}`}>
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium truncate">{p.name}</div>
+                        <div className="text-[11px] font-medium truncate">{p.name}</div>
                         <div className="text-[9px] text-muted-foreground">{p.client}</div>
                       </div>
-                      <span className={`text-[10px] font-medium shrink-0 ${p.isOverdue ? "text-red-500" : ""}`}>
+                      <span className={`text-[10px] font-medium shrink-0 ${p.isOverdue ? "text-red-500" : p.isToday ? "text-amber-500" : "text-muted-foreground"}`}>
                         {p.isToday ? "Heute" : format(p.deadlineDate, "d. MMM", { locale: de })}
                       </span>
                     </div>
@@ -375,252 +463,31 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           )}
-        </div>
 
-        {/* Column 3: Meta Ads + Top Kunden + Revenue */}
-        <div className="space-y-5">
-          {/* Meta Ads */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm flex items-center gap-1.5">
-                <Megaphone className="h-3.5 w-3.5 text-blue-500" /> Meta Ads
-              </CardTitle>
-              <button onClick={() => navigate("/meta-ads")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
-                Details <ArrowRight className="h-2.5 w-2.5" />
-              </button>
+          <Card className="border-border/50">
+            <CardHeader className="pb-1 pt-4 px-4">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Revenue</CardTitle>
             </CardHeader>
-            <CardContent>
-              {adsSummary ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-lg bg-muted/30 p-2.5">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Euro className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-[9px] text-muted-foreground uppercase">Spend</span>
-                    </div>
-                    <div className="text-sm font-bold">{fmtFull(adsSummary.spend)}</div>
-                  </div>
-                  <div className="rounded-lg bg-muted/30 p-2.5">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Eye className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-[9px] text-muted-foreground uppercase">Impressions</span>
-                    </div>
-                    <div className="text-sm font-bold">{new Intl.NumberFormat("de-DE").format(adsSummary.impressions)}</div>
-                  </div>
-                  <div className="rounded-lg bg-muted/30 p-2.5">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <MousePointerClick className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-[9px] text-muted-foreground uppercase">Clicks</span>
-                    </div>
-                    <div className="text-sm font-bold">{new Intl.NumberFormat("de-DE").format(adsSummary.clicks)}</div>
-                  </div>
-                  <div className="rounded-lg bg-muted/30 p-2.5">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <TrendingUp className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-[9px] text-muted-foreground uppercase">CTR</span>
-                    </div>
-                    <div className="text-sm font-bold">{adsSummary.ctr.toFixed(2)}%</div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <Megaphone className="h-8 w-8 mx-auto mb-2 text-muted-foreground/15" />
-                  <p className="text-xs text-muted-foreground">Keine Ads-Daten.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Revenue / MRR */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm flex items-center gap-1.5">
-                <Wallet className="h-3.5 w-3.5 text-emerald-500" /> Revenue
-              </CardTitle>
-              <button onClick={() => navigate("/finances")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
-                Finanzen <ArrowRight className="h-2.5 w-2.5" />
-              </button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
+            <CardContent className="px-4 pb-4">
+              <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">MRR</span>
                   <span className="text-sm font-bold">{fmt(mrr)}</span>
                 </div>
+                <Separator />
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Deals aktiv</span>
+                  <span className="text-xs text-muted-foreground">Aktive Deals</span>
                   <span className="text-sm font-bold">{deals.length}</span>
                 </div>
+                <Separator />
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Closed {today.toLocaleString("de-DE", { month: "short" })}</span>
-                  <span className="text-sm font-bold">{fmt(monthlyClosed)}</span>
+                  <span className="text-xs text-muted-foreground">Closed {today.toLocaleString("de-DE", { month: "long" })}</span>
+                  <span className="text-sm font-bold text-emerald-600">{fmt(monthlyClosed)}</span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Top Clients */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm">Top Kunden</CardTitle>
-              <button onClick={() => navigate("/clients")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
-                Alle <ArrowRight className="h-2.5 w-2.5" />
-              </button>
-            </CardHeader>
-            <CardContent>
-              {topClients.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">Keine Kunden.</p>
-              ) : (
-                <div className="space-y-2">
-                  {topClients.map((c, idx) => (
-                    <div key={c.id} className="flex items-center gap-2.5 cursor-pointer hover:bg-accent/50 rounded-lg p-1.5 -mx-1.5 transition-colors" onClick={() => navigate("/clients")}>
-                      <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${idx < 3 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
-                        {c.name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-medium truncate">{c.name}</span>
-                      </div>
-                      <span className="text-xs font-semibold tabular-nums">{fmt(c.revenue)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>
-      </div>
-
-      {/* --- Close CRM Section --- */}
-      <div className="grid gap-5 lg:grid-cols-3">
-        {/* Sales Pipeline */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm flex items-center gap-1.5">
-              <Target className="h-3.5 w-3.5 text-violet-500" /> Sales Pipeline
-            </CardTitle>
-            <button onClick={() => navigate("/sales")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
-              Sales <ArrowRight className="h-2.5 w-2.5" />
-            </button>
-          </CardHeader>
-          <CardContent>
-            {closeLoading ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              </div>
-            ) : pipelineData ? (
-              <div className="space-y-2">
-                {pipelineData.stages.filter((s) => s.count > 0).map((stage) => (
-                  <div key={stage.label} className="flex items-center gap-2">
-                    <span className="text-xs truncate flex-1 min-w-0">{stage.label}</span>
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">{stage.count}</Badge>
-                    <span className="text-xs font-semibold tabular-nums shrink-0">{fmt(stage.value / 100)}</span>
-                  </div>
-                ))}
-                <div className="border-t pt-2 mt-2 flex items-center justify-between">
-                  <span className="text-xs font-medium">{pipelineData.totalCount} Deals</span>
-                  <span className="text-sm font-bold">{fmt(pipelineData.totalValue / 100)}</span>
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground text-center py-4">Keine Pipeline-Daten.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Revenue Forecast */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-1.5">
-              <BarChart3 className="h-3.5 w-3.5 text-emerald-500" /> Revenue Forecast
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {closeLoading ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              </div>
-            ) : forecastData ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-lg bg-muted/30 p-2.5">
-                    <div className="text-[9px] text-muted-foreground uppercase mb-1">Pipeline (gesamt)</div>
-                    <div className="text-sm font-bold">{fmt(forecastData.totalUnweighted / 100)}</div>
-                  </div>
-                  <div className="rounded-lg bg-emerald-500/10 p-2.5">
-                    <div className="text-[9px] text-emerald-600 uppercase mb-1">Gewichtet</div>
-                    <div className="text-sm font-bold text-emerald-600">{fmt(forecastData.totalWeighted / 100)}</div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {forecastData.byUser.map((u) => (
-                    <div key={u.name} className="flex items-center gap-2">
-                      <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold text-primary shrink-0">
-                        {u.name.charAt(0)}
-                      </div>
-                      <span className="text-xs truncate flex-1">{u.name.split(" ")[0]}</span>
-                      <span className="text-[10px] text-muted-foreground tabular-nums">{u.count} Deals</span>
-                      <span className="text-xs font-semibold tabular-nums">{fmt(u.weighted / 100)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground text-center py-4">Keine Forecast-Daten.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Activity Feed */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-1.5">
-              <Phone className="h-3.5 w-3.5 text-blue-500" /> Heutige Aktivitäten
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {closeLoading ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              </div>
-            ) : activityData ? (
-              <div className="space-y-3">
-                {activityData.byUser.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-4">Noch keine Aktivitäten heute.</p>
-                ) : (
-                  <>
-                    {activityData.byUser.map((u) => (
-                      <div key={u.name} className="rounded-lg bg-muted/30 p-2.5">
-                        <div className="text-xs font-medium mb-1.5">{u.name.split(" ")[0]}</div>
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3 text-emerald-500" />
-                            <span className="text-xs font-semibold">{u.calls}</span>
-                            <span className="text-[9px] text-muted-foreground">Calls</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Mail className="h-3 w-3 text-blue-500" />
-                            <span className="text-xs font-semibold">{u.emails}</span>
-                            <span className="text-[9px] text-muted-foreground">Mails</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Video className="h-3 w-3 text-violet-500" />
-                            <span className="text-xs font-semibold">{u.meetings}</span>
-                            <span className="text-[9px] text-muted-foreground">Meetings</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    <div className="border-t pt-2 flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Gesamt heute</span>
-                      <span className="text-sm font-bold">{activityData.total} Aktivitäten</span>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground text-center py-4">Keine Activity-Daten.</p>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
