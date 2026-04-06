@@ -33,16 +33,25 @@ function getMeetingPlatform(link: string) {
   return "Link";
 }
 
-// Bento cell wrapper
-function Bento({ children, className = "", onClick }: { children: React.ReactNode; className?: string; onClick?: () => void }) {
+// Glassmorphism Bento cell
+function Bento({ children, className = "", onClick, glow }: { children: React.ReactNode; className?: string; onClick?: () => void; glow?: boolean }) {
   return (
     <div
       onClick={onClick}
-      className={`rounded-2xl border border-border/40 bg-card p-4 ${onClick ? "cursor-pointer hover:border-border hover:shadow-lg hover:-translate-y-0.5 transition-all" : ""} ${className}`}
+      className={`relative rounded-2xl border border-blue-500/10 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm p-5 overflow-hidden
+        ${onClick ? "cursor-pointer hover:border-blue-500/30 hover:shadow-[0_0_30px_-5px_rgba(59,130,246,0.15)] hover:-translate-y-0.5 transition-all duration-300" : ""}
+        ${glow ? "shadow-[0_0_40px_-10px_rgba(59,130,246,0.2)]" : ""}
+        ${className}`}
     >
-      {children}
+      {glow && <div className="absolute -top-20 -right-20 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />}
+      <div className="relative z-10">{children}</div>
     </div>
   );
+}
+
+// Small stat label
+function StatLabel({ children }: { children: React.ReactNode }) {
+  return <div className="text-[9px] font-medium uppercase tracking-[0.15em] text-blue-300/40">{children}</div>;
 }
 
 export default function Dashboard() {
@@ -110,7 +119,7 @@ export default function Dashboard() {
     ]).finally(() => setCloseLoading(false));
   }, []);
 
-  // Auto-load Google Calendar events if not loaded yet
+  // Auto-load Google Calendar events
   const calendarEvents = useAllCalendarEvents();
   useEffect(() => {
     if (calendarEvents.length > 0 || !isGoogleConnected()) return;
@@ -134,16 +143,9 @@ export default function Dashboard() {
             if (video) meetingLink = video.uri;
           }
           return {
-            id: `gcal-${email}-${ge.id}`,
-            title: ge.summary || "(Kein Titel)",
-            date: startDate,
-            startTime,
-            endTime,
-            type: (meetingLink ? "meeting" : "other") as any,
-            description: ge.description,
-            meetingLink: meetingLink || undefined,
-            accountColor: account?.color,
-            accountColorLight: account?.colorLight,
+            id: `gcal-${email}-${ge.id}`, title: ge.summary || "(Kein Titel)", date: startDate, startTime, endTime,
+            type: (meetingLink ? "meeting" : "other") as any, description: ge.description, meetingLink: meetingLink || undefined,
+            accountColor: account?.color, accountColorLight: account?.colorLight,
           };
         });
       });
@@ -176,8 +178,7 @@ export default function Dashboard() {
     return projects.filter((p) => p.phases.length > 0).map((p) => {
       const total = p.phases.reduce((s, ph) => s + ph.tasks.length, 0);
       const done = p.phases.reduce((s, ph) => s + ph.tasks.filter((t) => t.status === "done").length, 0);
-      const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-      return { ...p, progress, total, done };
+      return { ...p, progress: total > 0 ? Math.round((done / total) * 100) : 0, total, done };
     }).sort((a, b) => a.progress - b.progress).slice(0, 4);
   }, [projects]);
 
@@ -199,47 +200,49 @@ export default function Dashboard() {
       {/* Greeting */}
       <div className="flex items-end justify-between">
         <div>
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-blue-400/50 mb-1">Adslift OS</p>
           <h1 className="text-2xl font-bold tracking-tight">{greeting}, {userName}</h1>
           <p className="text-sm text-muted-foreground">{format(today, "EEEE, d. MMMM yyyy", { locale: de })}</p>
         </div>
         <div className="text-right hidden sm:block">
-          <div className="text-2xl font-bold text-primary">{fmt(monthlyClosed)}</div>
+          <div className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">{fmt(monthlyClosed)}</div>
           <p className="text-[10px] text-muted-foreground">Closed in {today.toLocaleString("de-DE", { month: "long" })}</p>
         </div>
       </div>
 
       {/* ═══ BENTO GRID ═══ */}
-      <div className="grid gap-3 grid-cols-4 lg:grid-cols-12 auto-rows-[minmax(120px,auto)]">
+      <div className="grid gap-3 grid-cols-4 lg:grid-cols-12 auto-rows-[minmax(100px,auto)]">
 
-        {/* ── HEUTE (tall, left) ── */}
-        <Bento className="col-span-4 lg:col-span-4 lg:row-span-2" onClick={() => navigate("/calendar")}>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Heute</span>
-            <span className="text-[10px] text-primary flex items-center gap-0.5">Kalender <ArrowUpRight className="h-2.5 w-2.5" /></span>
+        {/* ── HEUTE (tall left) ── */}
+        <Bento className="col-span-4 lg:col-span-4 lg:row-span-2" onClick={() => navigate("/calendar")} glow>
+          <div className="flex items-center justify-between mb-4">
+            <StatLabel>Heute</StatLabel>
+            <span className="text-[10px] text-blue-400/60 flex items-center gap-0.5">Kalender <ArrowUpRight className="h-2.5 w-2.5" /></span>
           </div>
           {todayEvents.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-muted-foreground/30">
-              <p className="text-xs">Freier Tag</p>
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/20">
+              <div className="text-4xl font-bold mb-1">{format(today, "d")}</div>
+              <p className="text-[10px]">Freier Tag</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {todayEvents.map((event) => (
-                <div key={event.id} className="flex gap-3">
-                  <div className="flex flex-col items-center">
-                    <span className="text-[10px] tabular-nums text-muted-foreground font-medium">{event.startTime}</span>
-                    <div className="w-px flex-1 bg-border mt-1" />
+            <div className="space-y-1">
+              {todayEvents.map((event, i) => (
+                <div key={event.id} className="flex gap-3 group">
+                  <div className="flex flex-col items-center pt-0.5">
+                    <span className="text-[10px] tabular-nums text-blue-400/60 font-mono">{event.startTime}</span>
+                    {i < todayEvents.length - 1 && <div className="w-px flex-1 bg-gradient-to-b from-blue-500/20 to-transparent mt-1" />}
                   </div>
-                  <div className="flex-1 pb-3">
-                    <div className="flex items-center gap-1.5">
-                      {isSalesMeeting(event) && <DollarSign className="h-3 w-3 text-emerald-500 shrink-0" />}
-                      <span className="text-sm font-medium">{event.title}</span>
+                  <div className="flex-1 pb-3 min-w-0">
+                    <span className="text-sm font-medium block truncate group-hover:text-blue-400 transition-colors">{event.title}</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {isSalesMeeting(event) && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-medium">Sales</span>}
+                      {event.meetingLink && (
+                        <a href={event.meetingLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                          className="text-[9px] text-blue-400/60 hover:text-blue-400 flex items-center gap-0.5">
+                          <Video className="h-2.5 w-2.5" />{getMeetingPlatform(event.meetingLink)}
+                        </a>
+                      )}
                     </div>
-                    {event.meetingLink && (
-                      <a href={event.meetingLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-0.5">
-                        <Video className="h-2.5 w-2.5" />{getMeetingPlatform(event.meetingLink)}
-                      </a>
-                    )}
                   </div>
                 </div>
               ))}
@@ -247,105 +250,121 @@ export default function Dashboard() {
           )}
         </Bento>
 
-        {/* ── CLOSED + MRR (small KPIs) ── */}
+        {/* ── KPI: Closed ── */}
         <Bento className="col-span-2 lg:col-span-2" onClick={() => navigate("/sales")}>
-          <TrendingUp className="h-4 w-4 text-emerald-500 mb-2" />
-          <div className="text-xl font-bold">{fmt(monthlyClosed)}</div>
-          <div className="text-[9px] text-muted-foreground">Closed</div>
+          <TrendingUp className="h-4 w-4 text-emerald-400 mb-3" />
+          <div className="text-2xl font-bold">{fmt(monthlyClosed)}</div>
+          <StatLabel>Closed</StatLabel>
         </Bento>
 
+        {/* ── KPI: MRR ── */}
         <Bento className="col-span-2 lg:col-span-2" onClick={() => navigate("/finances")}>
-          <Wallet className="h-4 w-4 text-teal-500 mb-2" />
-          <div className="text-xl font-bold">{fmt(mrr)}</div>
-          <div className="text-[9px] text-muted-foreground">MRR</div>
+          <Wallet className="h-4 w-4 text-blue-400 mb-3" />
+          <div className="text-2xl font-bold">{fmt(mrr)}</div>
+          <StatLabel>MRR</StatLabel>
         </Bento>
 
         {/* ── PIPELINE (wide) ── */}
-        <Bento className="col-span-4 lg:col-span-4" onClick={() => navigate("/sales")}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Pipeline</span>
-            {pipelineData && <span className="text-sm font-bold">{fmt(pipelineData.totalValue / 100)}</span>}
+        <Bento className="col-span-4 lg:col-span-4 lg:row-span-2" onClick={() => navigate("/sales")} glow>
+          <div className="flex items-center justify-between mb-3">
+            <StatLabel>Sales Pipeline</StatLabel>
+            {pipelineData && <span className="text-lg font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">{fmt(pipelineData.totalValue / 100)}</span>}
           </div>
           {closeLoading ? (
-            <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+            <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-blue-400/40" /></div>
           ) : pipelineData ? (
-            <div className="space-y-1.5">
+            <div className="space-y-2.5">
               {pipelineData.stages.filter((s) => s.count > 0).map((stage) => {
                 const pct = pipelineData.totalValue > 0 ? (stage.value / pipelineData.totalValue) * 100 : 0;
                 return (
-                  <div key={stage.label} className="flex items-center gap-2">
-                    <span className="text-[11px] w-24 truncate text-muted-foreground">{stage.label.replace(/[^\w\s]/g, "").trim()}</span>
-                    <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
-                      <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(pct, 3)}%` }} />
+                  <div key={stage.label}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] text-muted-foreground truncate">{stage.label.replace(/[^\w\sÄÖÜäöü]/g, "").trim()}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-blue-400/50 tabular-nums">{stage.count}</span>
+                        <span className="text-[11px] font-semibold tabular-nums">{fmt(stage.value / 100)}</span>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-medium tabular-nums w-6 text-right">{stage.count}</span>
+                    <div className="h-1.5 rounded-full bg-blue-500/10 overflow-hidden">
+                      <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400" style={{ width: `${Math.max(pct, 3)}%` }} />
+                    </div>
                   </div>
                 );
               })}
+              <div className="pt-2 border-t border-blue-500/10 flex items-center justify-between">
+                <span className="text-[10px] text-muted-foreground">{pipelineData.totalCount} Deals aktiv</span>
+              </div>
             </div>
           ) : null}
         </Bento>
 
-        {/* ── MAILS (small) ── */}
+        {/* ── KPI: Mails ── */}
         <Bento className="col-span-2 lg:col-span-2" onClick={() => navigate("/mail")}>
-          <div className="flex items-center justify-between mb-2">
-            <Mail className="h-4 w-4 text-red-500" />
-            {unreadCount !== null && unreadCount > 0 && <Badge variant="destructive" className="text-[8px] px-1.5 py-0 h-4">{unreadCount}</Badge>}
+          <div className="flex items-center justify-between mb-3">
+            <Mail className="h-4 w-4 text-red-400" />
+            {unreadCount !== null && unreadCount > 0 && (
+              <span className="h-5 min-w-5 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{unreadCount}</span>
+            )}
           </div>
-          <div className="text-xl font-bold">{unreadCount !== null ? unreadCount : "—"}</div>
-          <div className="text-[9px] text-muted-foreground">Ungelesen</div>
+          <div className="text-2xl font-bold">{unreadCount !== null ? unreadCount : "—"}</div>
+          <StatLabel>Ungelesen</StatLabel>
         </Bento>
 
-        {/* ── KUNDEN + PROJEKTE (small) ── */}
+        {/* ── KPI: Kunden ── */}
         <Bento className="col-span-2 lg:col-span-2" onClick={() => navigate("/clients")}>
-          <Users className="h-4 w-4 text-blue-500 mb-2" />
-          <div className="text-xl font-bold">{clients.length}</div>
-          <div className="text-[9px] text-muted-foreground">{activeClients} aktiv</div>
+          <Users className="h-4 w-4 text-violet-400 mb-3" />
+          <div className="text-2xl font-bold">{clients.length}</div>
+          <StatLabel>{activeClients} aktive Kunden</StatLabel>
         </Bento>
 
-        {/* ── AUFGABEN (medium) ── */}
+        {/* ── AUFGABEN ── */}
         <Bento className="col-span-4 lg:col-span-4" onClick={() => navigate("/tasks")}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Aufgaben</span>
-            <span className="text-xs font-bold">{openTasks.length} offen</span>
+          <div className="flex items-center justify-between mb-3">
+            <StatLabel>Aufgaben</StatLabel>
+            <div className="flex items-center gap-2">
+              {highPrioTasks.length > 0 && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 font-medium">{highPrioTasks.length} urgent</span>
+              )}
+              <span className="text-sm font-bold">{openTasks.length}</span>
+            </div>
           </div>
           {displayTasks.length === 0 ? (
-            <p className="text-xs text-muted-foreground/50 py-2">Alles erledigt</p>
+            <p className="text-xs text-muted-foreground/30 py-2">Alles erledigt</p>
           ) : (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {displayTasks.map((t) => (
-                <div key={t.id} className="flex items-center gap-2">
-                  <div className={`h-2 w-2 rounded-full shrink-0 ${t.priority === "high" ? "bg-red-500" : t.priority === "medium" ? "bg-amber-500" : "bg-muted-foreground/20"}`} />
+                <div key={t.id} className="flex items-center gap-2.5">
+                  <div className={`h-2 w-2 rounded-full shrink-0 ${t.priority === "high" ? "bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.5)]" : t.priority === "medium" ? "bg-amber-400" : "bg-muted-foreground/20"}`} />
                   <span className="text-xs truncate flex-1">{t.title}</span>
-                  {t.column === "in-progress" && <span className="text-[8px] text-primary font-medium shrink-0">IN ARBEIT</span>}
+                  {t.column === "in-progress" && <span className="text-[8px] text-blue-400 font-medium uppercase tracking-wider shrink-0">In Arbeit</span>}
                 </div>
               ))}
             </div>
           )}
         </Bento>
 
-        {/* ── FORECAST (medium) ── */}
-        <Bento className="col-span-4 lg:col-span-4">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Forecast</span>
+        {/* ── FORECAST ── */}
+        <Bento className="col-span-4 lg:col-span-4" glow>
+          <StatLabel>Revenue Forecast</StatLabel>
           {closeLoading ? (
-            <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+            <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-blue-400/40" /></div>
           ) : forecastData ? (
-            <div className="mt-2">
-              <div className="flex gap-3 mb-3">
-                <div className="flex-1 text-center">
-                  <div className="text-xl font-bold">{fmt(forecastData.totalUnweighted / 100)}</div>
-                  <div className="text-[9px] text-muted-foreground">Pipeline</div>
+            <div className="mt-3">
+              <div className="flex gap-4 mb-4">
+                <div className="flex-1">
+                  <div className="text-2xl font-bold">{fmt(forecastData.totalUnweighted / 100)}</div>
+                  <StatLabel>Pipeline</StatLabel>
                 </div>
-                <div className="w-px bg-border" />
-                <div className="flex-1 text-center">
-                  <div className="text-xl font-bold text-emerald-500">{fmt(forecastData.totalWeighted / 100)}</div>
-                  <div className="text-[9px] text-emerald-500">Gewichtet</div>
+                <div className="w-px bg-blue-500/10" />
+                <div className="flex-1">
+                  <div className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">{fmt(forecastData.totalWeighted / 100)}</div>
+                  <StatLabel>Gewichtet</StatLabel>
                 </div>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {forecastData.byUser.map((u) => (
-                  <div key={u.name} className="flex items-center gap-2">
-                    <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold text-primary shrink-0">{u.name.charAt(0)}</div>
+                  <div key={u.name} className="flex items-center gap-2.5">
+                    <div className="h-6 w-6 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-500/5 flex items-center justify-center text-[9px] font-bold text-blue-400 shrink-0">{u.name.charAt(0)}</div>
                     <span className="text-xs flex-1">{u.name.split(" ")[0]}</span>
                     <span className="text-[10px] text-muted-foreground tabular-nums">{u.count} Deals</span>
                     <span className="text-xs font-semibold tabular-nums">{fmt(u.weighted / 100)}</span>
@@ -356,88 +375,96 @@ export default function Dashboard() {
           ) : null}
         </Bento>
 
-        {/* ── AKTIVITÄTEN (medium) ── */}
+        {/* ── AKTIVITÄTEN ── */}
         <Bento className="col-span-4 lg:col-span-4">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Heutige Aktivitäten</span>
+          <StatLabel>Heutige Aktivitäten</StatLabel>
           {closeLoading ? (
-            <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+            <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-blue-400/40" /></div>
           ) : activityData && activityData.byUser.length > 0 ? (
-            <div className="mt-2 space-y-3">
+            <div className="mt-3 space-y-3">
               {activityData.byUser.map((u) => (
                 <div key={u.name}>
-                  <div className="text-xs font-medium mb-1.5">{u.name.split(" ")[0]}</div>
+                  <div className="text-xs font-medium mb-2 text-muted-foreground">{u.name.split(" ")[0]}</div>
                   <div className="flex gap-4">
                     <div className="flex items-center gap-1.5">
-                      <Phone className="h-3.5 w-3.5 text-emerald-500" />
-                      <span className="text-lg font-bold">{u.calls}</span>
-                      <span className="text-[9px] text-muted-foreground">Calls</span>
+                      <div className="h-7 w-7 rounded-lg bg-emerald-500/10 flex items-center justify-center"><Phone className="h-3.5 w-3.5 text-emerald-400" /></div>
+                      <div>
+                        <div className="text-sm font-bold leading-none">{u.calls}</div>
+                        <div className="text-[8px] text-muted-foreground">Calls</div>
+                      </div>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <Mail className="h-3.5 w-3.5 text-blue-500" />
-                      <span className="text-lg font-bold">{u.emails}</span>
-                      <span className="text-[9px] text-muted-foreground">Mails</span>
+                      <div className="h-7 w-7 rounded-lg bg-blue-500/10 flex items-center justify-center"><Mail className="h-3.5 w-3.5 text-blue-400" /></div>
+                      <div>
+                        <div className="text-sm font-bold leading-none">{u.emails}</div>
+                        <div className="text-[8px] text-muted-foreground">Mails</div>
+                      </div>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <Video className="h-3.5 w-3.5 text-violet-500" />
-                      <span className="text-lg font-bold">{u.meetings}</span>
-                      <span className="text-[9px] text-muted-foreground">Meetings</span>
+                      <div className="h-7 w-7 rounded-lg bg-violet-500/10 flex items-center justify-center"><Video className="h-3.5 w-3.5 text-violet-400" /></div>
+                      <div>
+                        <div className="text-sm font-bold leading-none">{u.meetings}</div>
+                        <div className="text-[8px] text-muted-foreground">Meetings</div>
+                      </div>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground/50 mt-4">Noch keine Aktivitäten</p>
+            <p className="text-xs text-muted-foreground/30 mt-4">Noch keine Aktivitäten</p>
           )}
         </Bento>
 
-        {/* ── META ADS (medium) ── */}
+        {/* ── META ADS ── */}
         <Bento className="col-span-4 lg:col-span-4" onClick={() => navigate("/meta-ads")}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Meta Ads</span>
-            <Megaphone className="h-3.5 w-3.5 text-blue-500" />
+          <div className="flex items-center justify-between mb-3">
+            <StatLabel>Meta Ads</StatLabel>
+            <Megaphone className="h-3.5 w-3.5 text-blue-400/40" />
           </div>
           {adsSummary ? (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-1">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
               <div>
                 <div className="text-lg font-bold">{fmt(adsSummary.spend)}</div>
-                <div className="text-[9px] text-muted-foreground">Spend</div>
+                <StatLabel>Spend</StatLabel>
               </div>
               <div>
                 <div className="text-lg font-bold">{num(adsSummary.impressions)}</div>
-                <div className="text-[9px] text-muted-foreground">Impressions</div>
+                <StatLabel>Impressions</StatLabel>
               </div>
               <div>
                 <div className="text-lg font-bold">{num(adsSummary.clicks)}</div>
-                <div className="text-[9px] text-muted-foreground">Clicks</div>
+                <StatLabel>Clicks</StatLabel>
               </div>
               <div>
                 <div className="text-lg font-bold">{adsSummary.ctr.toFixed(2)}%</div>
-                <div className="text-[9px] text-muted-foreground">CTR</div>
+                <StatLabel>CTR</StatLabel>
               </div>
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground/50 mt-4">Keine Daten</p>
+            <p className="text-xs text-muted-foreground/30 mt-4">Keine Daten</p>
           )}
         </Bento>
 
         {/* ── PROJEKTE (wide) ── */}
         <Bento className="col-span-4 lg:col-span-8" onClick={() => navigate("/projects")}>
           <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Projekte</span>
-            <span className="text-[10px] text-primary flex items-center gap-0.5">Alle <ArrowUpRight className="h-2.5 w-2.5" /></span>
+            <StatLabel>Projekte</StatLabel>
+            <span className="text-[10px] text-blue-400/60 flex items-center gap-0.5">Alle <ArrowUpRight className="h-2.5 w-2.5" /></span>
           </div>
           {activeProjects.length === 0 ? (
-            <p className="text-xs text-muted-foreground/50">Keine aktiven Projekte</p>
+            <p className="text-xs text-muted-foreground/30">Keine aktiven Projekte</p>
           ) : (
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2.5 sm:grid-cols-2">
               {activeProjects.map((p) => (
-                <div key={p.id} className="rounded-xl border border-border/30 p-3">
-                  <div className="flex items-center justify-between mb-1">
+                <div key={p.id} className="rounded-xl border border-blue-500/10 bg-blue-500/[0.02] p-3">
+                  <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs font-medium truncate">{p.name}</span>
-                    <span className="text-[10px] font-bold tabular-nums ml-2">{p.progress}%</span>
+                    <span className="text-[10px] font-bold tabular-nums text-blue-400 ml-2">{p.progress}%</span>
                   </div>
-                  <Progress value={p.progress} className="h-1 mb-1" />
+                  <div className="h-1 rounded-full bg-blue-500/10 overflow-hidden mb-1.5">
+                    <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400" style={{ width: `${p.progress}%` }} />
+                  </div>
                   <span className="text-[9px] text-muted-foreground">{p.client}</span>
                 </div>
               ))}
@@ -445,23 +472,23 @@ export default function Dashboard() {
           )}
         </Bento>
 
-        {/* ── DEADLINES (small col) ── */}
+        {/* ── DEADLINES ── */}
         <Bento className="col-span-4 lg:col-span-4">
           <div className="flex items-center gap-1.5 mb-3">
-            <Flag className="h-3.5 w-3.5 text-red-500" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Deadlines</span>
+            <Flag className="h-3 w-3 text-red-400" />
+            <StatLabel>Deadlines</StatLabel>
           </div>
           {deadlines.length === 0 ? (
-            <p className="text-xs text-muted-foreground/50">Keine Deadlines</p>
+            <p className="text-xs text-muted-foreground/30">Keine Deadlines</p>
           ) : (
             <div className="space-y-2">
               {deadlines.map((p, i) => (
-                <div key={i} className={`flex items-center gap-2 rounded-lg p-2 ${p.isOverdue ? "bg-red-500/8" : p.isToday ? "bg-amber-500/8" : "bg-muted/30"}`}>
+                <div key={i} className={`flex items-center gap-2.5 rounded-xl p-2.5 ${p.isOverdue ? "bg-red-500/8 border border-red-500/10" : p.isToday ? "bg-amber-500/8 border border-amber-500/10" : "bg-muted/20"}`}>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium truncate">{p.name}</div>
                     <div className="text-[9px] text-muted-foreground">{p.client}</div>
                   </div>
-                  <span className={`text-[10px] font-semibold shrink-0 ${p.isOverdue ? "text-red-500" : p.isToday ? "text-amber-500" : "text-muted-foreground"}`}>
+                  <span className={`text-[10px] font-semibold shrink-0 ${p.isOverdue ? "text-red-400" : p.isToday ? "text-amber-400" : "text-muted-foreground"}`}>
                     {p.isToday ? "Heute" : format(p.deadlineDate, "d. MMM", { locale: de })}
                   </span>
                 </div>
