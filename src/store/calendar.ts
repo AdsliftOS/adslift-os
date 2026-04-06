@@ -7,7 +7,7 @@ export type CalendarEvent = {
   date: string;
   startTime: string;
   endTime: string;
-  type: "call" | "meeting" | "deadline" | "internal" | "other" | "sales-call" | "kundenmeeting" | "anruf" | "sonstiges";
+  type: "call" | "meeting" | "deadline" | "internal" | "other" | "sales-call" | "kundenmeeting" | "anruf" | "sonstiges" | "privat";
   client?: string;
   description?: string;
   meetingLink?: string;
