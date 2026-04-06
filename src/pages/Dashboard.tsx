@@ -3,7 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useClients } from "@/store/clients";
 import { useProjects } from "@/store/projects";
-import { useAllCalendarEvents } from "@/store/calendar";
+import { useAllCalendarEvents, setGoogleEvents } from "@/store/calendar";
+import { isGoogleConnected, getAccounts, listAllEvents, type GoogleCalendarEvent } from "@/lib/google-calendar";
 import { useTasks } from "@/store/tasks";
 import { useDeals } from "@/store/deals";
 import {
@@ -48,7 +49,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [clients] = useClients();
   const [projects] = useProjects();
-  const calendarEvents = useAllCalendarEvents();
   const [tasks] = useTasks();
   const [deals] = useDeals();
   const [userName, setUserName] = useState("Alex");
@@ -109,6 +109,47 @@ export default function Dashboard() {
       getTodayActivities().then(setActivityData),
     ]).finally(() => setCloseLoading(false));
   }, []);
+
+  // Auto-load Google Calendar events if not loaded yet
+  const calendarEvents = useAllCalendarEvents();
+  useEffect(() => {
+    if (calendarEvents.length > 0 || !isGoogleConnected()) return;
+    const accounts = getAccounts();
+    if (accounts.length === 0) return;
+    const now = new Date();
+    const timeMin = `${now.getFullYear()}-01-01T00:00:00Z`;
+    const timeMax = `${now.getFullYear()}-12-31T23:59:59Z`;
+    listAllEvents(timeMin, timeMax).then((allResults) => {
+      const mapped = allResults.flatMap(({ email, events: gEvents }) => {
+        const account = accounts.find((a) => a.email === email);
+        return gEvents.map((ge: GoogleCalendarEvent) => {
+          const start = ge.start.dateTime || ge.start.date || "";
+          const end = ge.end.dateTime || ge.end.date || "";
+          const startDate = start.split("T")[0];
+          const startTime = start.includes("T") ? start.split("T")[1]?.substring(0, 5) : "00:00";
+          const endTime = end.includes("T") ? end.split("T")[1]?.substring(0, 5) : "23:59";
+          let meetingLink = ge.hangoutLink || "";
+          if (!meetingLink && ge.conferenceData?.entryPoints) {
+            const video = ge.conferenceData.entryPoints.find((ep) => ep.entryPointType === "video");
+            if (video) meetingLink = video.uri;
+          }
+          return {
+            id: `gcal-${email}-${ge.id}`,
+            title: ge.summary || "(Kein Titel)",
+            date: startDate,
+            startTime,
+            endTime,
+            type: (meetingLink ? "meeting" : "other") as any,
+            description: ge.description,
+            meetingLink: meetingLink || undefined,
+            accountColor: account?.color,
+            accountColorLight: account?.colorLight,
+          };
+        });
+      });
+      setGoogleEvents(mapped);
+    }).catch(() => {});
+  }, [calendarEvents.length]);
 
   const today = new Date();
   const activeClients = clients.filter((c) => c.status === "Active").length;
