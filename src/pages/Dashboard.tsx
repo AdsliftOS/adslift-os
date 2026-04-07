@@ -95,15 +95,20 @@ export default function Dashboard() {
 
   const [adsSummary, setAdsSummary] = useState<{ spend: number; impressions: number; clicks: number; ctr: number } | null>(null);
   useEffect(() => {
-    supabase.from("meta_campaign_insights").select("spend,impressions,clicks,ctr").then(({ data }) => {
-      if (data && data.length > 0) {
-        const spend = data.reduce((s, r) => s + parseFloat(r.spend || "0"), 0);
-        const impressions = data.reduce((s, r) => s + parseInt(r.impressions || "0"), 0);
-        const clicks = data.reduce((s, r) => s + parseInt(r.clicks || "0"), 0);
-        const ctr = clicks > 0 && impressions > 0 ? (clicks / impressions) * 100 : 0;
-        setAdsSummary({ spend, impressions, clicks, ctr });
-      }
-    });
+    fetch("/api/meta-ads?preset=this_month&account=act_1263695578446693")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.totals) {
+          const t = res.totals;
+          setAdsSummary({
+            spend: parseFloat(t.spend || "0"),
+            impressions: parseInt(t.impressions || "0"),
+            clicks: parseInt(t.clicks || "0"),
+            ctr: parseFloat(t.ctr || "0"),
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const [pipelineData, setPipelineData] = useState<{ stages: { label: string; count: number; value: number }[]; totalValue: number; totalCount: number } | null>(null);
@@ -419,7 +424,7 @@ export default function Dashboard() {
         {/* ── META ADS ── */}
         <Bento className="col-span-4 lg:col-span-4" onClick={() => navigate("/meta-ads")}>
           <div className="flex items-center justify-between mb-3">
-            <StatLabel>Meta Ads</StatLabel>
+            <StatLabel>Meta Ads — Ochs & Goldmann Consulting</StatLabel>
             <Megaphone className="h-3.5 w-3.5 text-blue-400/40" />
           </div>
           {adsSummary ? (
