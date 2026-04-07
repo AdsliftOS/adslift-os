@@ -93,18 +93,22 @@ export default function Dashboard() {
     })();
   }, []);
 
-  const [adsSummary, setAdsSummary] = useState<{ spend: number; impressions: number; clicks: number; ctr: number } | null>(null);
+  const [adsSummary, setAdsSummary] = useState<{ spend: number; impressions: number; clicks: number; ctr: number; leads: number; cpl: number } | null>(null);
   useEffect(() => {
     fetch("/api/meta-ads?preset=this_month&account=act_1263695578446693")
       .then((r) => r.json())
       .then((res) => {
         if (res.totals) {
           const t = res.totals;
+          const spend = parseFloat(t.spend || "0");
+          const leads = (t.actions || []).filter((a: any) => a.action_type === "lead").reduce((s: number, a: any) => s + parseInt(a.value || "0"), 0);
           setAdsSummary({
-            spend: parseFloat(t.spend || "0"),
+            spend,
             impressions: parseInt(t.impressions || "0"),
             clicks: parseInt(t.clicks || "0"),
             ctr: parseFloat(t.ctr || "0"),
+            leads,
+            cpl: leads > 0 ? spend / leads : 0,
           });
         }
       })
@@ -424,25 +428,36 @@ export default function Dashboard() {
         {/* ── META ADS ── */}
         <Bento className="col-span-4 lg:col-span-4" onClick={() => navigate("/meta-ads")}>
           <div className="flex items-center justify-between mb-3">
-            <StatLabel>Meta Ads — Ochs & Goldmann Consulting</StatLabel>
+            <div>
+              <StatLabel>Meta Ads — Ochs & Goldmann Consulting</StatLabel>
+              <p className="text-[10px] text-muted-foreground/40 mt-0.5">Dieser Monat</p>
+            </div>
             <Megaphone className="h-3.5 w-3.5 text-blue-400/40" />
           </div>
           {adsSummary ? (
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+            <div className="grid grid-cols-3 gap-x-4 gap-y-3">
               <div>
                 <div className="text-lg font-bold">{fmt(adsSummary.spend)}</div>
                 <StatLabel>Spend</StatLabel>
               </div>
               <div>
-                <div className="text-lg font-bold">{num(adsSummary.impressions)}</div>
+                <div className="text-lg font-bold">{adsSummary.leads}</div>
+                <StatLabel>Leads</StatLabel>
+              </div>
+              <div>
+                <div className="text-lg font-bold">{adsSummary.cpl > 0 ? fmt(adsSummary.cpl) : "–"}</div>
+                <StatLabel>CPL</StatLabel>
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-muted-foreground">{num(adsSummary.impressions)}</div>
                 <StatLabel>Impressions</StatLabel>
               </div>
               <div>
-                <div className="text-lg font-bold">{num(adsSummary.clicks)}</div>
+                <div className="text-sm font-semibold text-muted-foreground">{num(adsSummary.clicks)}</div>
                 <StatLabel>Clicks</StatLabel>
               </div>
               <div>
-                <div className="text-lg font-bold">{adsSummary.ctr.toFixed(2)}%</div>
+                <div className="text-sm font-semibold text-muted-foreground">{adsSummary.ctr.toFixed(2)}%</div>
                 <StatLabel>CTR</StatLabel>
               </div>
             </div>
