@@ -130,3 +130,8 @@ create policy "Allow all" on sales_weeks for all using (true) with check (true);
 create policy "Allow all" on deals for all using (true) with check (true);
 create policy "Allow all" on expenses for all using (true) with check (true);
 create policy "Allow all" on app_settings for all using (true) with check (true);
+
+-- Time Tracking: add source tracking for auto-sync (Google Calendar, Close CRM)
+alter table time_entries add column if not exists source text;
+alter table time_entries add column if not exists source_id text;
+create index if not exists idx_time_entries_source_id on time_entries (source_id) where source_id is not null;

@@ -11,9 +11,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Clock, Trash2, Plus, BarChart3, CalendarDays, TrendingUp, Target } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Trash2, Plus, BarChart3, CalendarDays, TrendingUp, Target, RefreshCw, CalendarSync, PhoneCall } from "lucide-react";
 import { toast } from "sonner";
 import { useTimeEntries, addTimeEntry, updateTimeEntry, deleteTimeEntry } from "@/store/timeEntries";
+import { syncGoogleCalendarToTimeEntries, syncCloseActivitiesToTimeEntries } from "@/lib/time-tracking-sync";
+import { isGoogleConnected } from "@/lib/google-calendar";
 import type { TimeEntry, Category } from "@/store/timeEntries";
 
 const categories: { value: Category; label: string; color: string; bg: string }[] = [
@@ -195,6 +197,60 @@ export default function TimeTracking() {
     };
   });
 
+  // Sync state
+  const [syncing, setSyncing] = useState<"gcal" | "close" | null>(null);
+
+  const handleSyncGoogleCalendar = async () => {
+    setSyncing("gcal");
+    try {
+      const weekEnd = addDays(weekStart, 7);
+      const { synced, skipped } = await syncGoogleCalendarToTimeEntries(weekStart, weekEnd);
+      if (synced > 0) {
+        toast.success(`${synced} Kalender-Events importiert${skipped > 0 ? `, ${skipped} bereits vorhanden` : ""}`);
+      } else {
+        toast.info(skipped > 0 ? `Alle ${skipped} Events bereits importiert` : "Keine Events in dieser Woche gefunden");
+      }
+    } catch (err: any) {
+      toast.error("Google Calendar Sync fehlgeschlagen: " + err.message);
+    }
+    setSyncing(null);
+  };
+
+  const handleSyncClose = async () => {
+    setSyncing("close");
+    try {
+      const weekEnd = addDays(weekStart, 7);
+      const { synced, skipped } = await syncCloseActivitiesToTimeEntries(weekStart, weekEnd);
+      if (synced > 0) {
+        toast.success(`${synced} Close-Aktivitäten importiert${skipped > 0 ? `, ${skipped} bereits vorhanden` : ""}`);
+      } else {
+        toast.info(skipped > 0 ? `Alle ${skipped} Aktivitäten bereits importiert` : "Keine Calls/Meetings in dieser Woche gefunden");
+      }
+    } catch (err: any) {
+      toast.error("Close CRM Sync fehlgeschlagen: " + err.message);
+    }
+    setSyncing(null);
+  };
+
+  // Auto-sync on page load
+  const hasSynced = useRef(false);
+  useEffect(() => {
+    if (hasSynced.current) return;
+    hasSynced.current = true;
+
+    const weekEnd = addDays(weekStart, 7);
+
+    if (isGoogleConnected()) {
+      syncGoogleCalendarToTimeEntries(weekStart, weekEnd).then(({ synced }) => {
+        if (synced > 0) toast.success(`${synced} Kalender-Events automatisch importiert`);
+      }).catch(() => {});
+    }
+
+    syncCloseActivitiesToTimeEntries(weekStart, weekEnd).then(({ synced }) => {
+      if (synced > 0) toast.success(`${synced} Close-Aktivitäten automatisch importiert`);
+    }).catch(() => {});
+  }, []);
+
   // Drag state
   const [dragEntry, setDragEntry] = useState<TimeEntry | null>(null);
   const [dragGhostDate, setDragGhostDate] = useState<string | null>(null);
@@ -244,14 +300,14 @@ export default function TimeTracking() {
     return { hour: h, minute: m };
   };
 
-  const openNewDialog = (date: string, hour?: number) => {
+  const openNewDialog = (date: string, slotIndex?: number) => {
     let startTime: string;
     let endTime: string;
-    if (hour !== undefined) {
-      startTime = `${hour.toString().padStart(2, "0")}:00`;
-      const endH = hour;
-      const endM = 15;
-      endTime = `${endH.toString().padStart(2, "0")}:${endM.toString().padStart(2, "0")}`;
+    if (slotIndex !== undefined) {
+      const { hour: sH, minute: sM } = fromSlotIndex(slotIndex);
+      const { hour: eH, minute: eM } = fromSlotIndex(slotIndex + 1);
+      startTime = `${sH.toString().padStart(2, "0")}:${sM.toString().padStart(2, "0")}`;
+      endTime = `${eH.toString().padStart(2, "0")}:${eM.toString().padStart(2, "0")}`;
     } else {
       const current = getCurrentTimeRounded();
       startTime = current.start;
@@ -459,6 +515,28 @@ export default function TimeTracking() {
           <p className="text-sm text-muted-foreground">Woche tracken in 15-Minuten-Blöcken.</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            disabled={syncing !== null}
+            onClick={handleSyncClose}
+          >
+            <PhoneCall className={`h-3.5 w-3.5 ${syncing === "close" ? "animate-pulse" : ""}`} />
+            {syncing === "close" ? "Sync…" : "Close"}
+          </Button>
+          {isGoogleConnected() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs"
+              disabled={syncing !== null}
+              onClick={handleSyncGoogleCalendar}
+            >
+              <CalendarSync className={`h-3.5 w-3.5 ${syncing === "gcal" ? "animate-spin" : ""}`} />
+              {syncing === "gcal" ? "Sync…" : "Google Cal"}
+            </Button>
+          )}
           <div className="text-right hidden sm:block">
             <div className="text-2xl font-bold tracking-tight">{formatMinutes(totalWeekMinutes)}</div>
             <div className="text-[10px] text-muted-foreground uppercase tracking-wider">diese Woche</div>
@@ -580,7 +658,12 @@ export default function TimeTracking() {
                     ref={(el) => { if (el) dayColumnRefs.current.set(dateStr, el); }}
                     className={`border-l relative ${isToday ? "bg-primary/[0.03]" : ""}`}
                     style={{ height: hours.length * SLOT_HEIGHT * 4 }}
-                    onDoubleClick={() => openNewDialog(dateStr)}
+                    onDoubleClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const yInCol = e.clientY - rect.top;
+                      const slot = Math.floor(yInCol / SLOT_HEIGHT);
+                      openNewDialog(dateStr, slot);
+                    }}
                   >
                     {/* Hour lines */}
                     {hours.map((hour, hIdx) => (
@@ -650,6 +733,11 @@ export default function TimeTracking() {
                           <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg ${cat.color}`} />
                           <div className={`h-full ${cat.bg} pl-2 pr-1 py-px flex items-start gap-1 select-none overflow-hidden`}>
                             <span className="text-[9px] font-semibold shrink-0">{cat.label}</span>
+                            {entry.source && (
+                              <span className="text-[8px] opacity-50 shrink-0" title={entry.source === "google-calendar" ? "Google Calendar" : "Close CRM"}>
+                                {entry.source === "google-calendar" ? "📅" : "📞"}
+                              </span>
+                            )}
                             <span className="text-[9px] opacity-80 truncate">{entry.note}</span>
                             <span className="text-[8px] opacity-50 ml-auto shrink-0 tabular-nums">
                               {entry.startHour.toString().padStart(2, "0")}:{entry.startMinute.toString().padStart(2, "0")}

@@ -13,6 +13,8 @@ export type TimeEntry = {
   category: Category;
   note: string;
   assignee: string;
+  source?: string;    // "google-calendar" | "close-crm" | undefined (manual)
+  sourceId?: string;  // external event ID to prevent duplicates
 };
 
 let entries: TimeEntry[] = [];
@@ -35,6 +37,8 @@ export async function loadTimeEntries() {
         category: r.category || "admin",
         note: r.note || "",
         assignee: r.assignee || "alex",
+        source: r.source || undefined,
+        sourceId: r.source_id || undefined,
       }));
       emit();
     }
@@ -50,7 +54,7 @@ export async function addTimeEntry(entry: Omit<TimeEntry, "id">) {
   entries = [{ ...entry, id: tempId }, ...entries];
   emit();
 
-  const { error } = await supabase.from("time_entries").insert({
+  const row: any = {
     date: entry.date,
     start_hour: entry.startHour,
     start_minute: entry.startMinute,
@@ -59,7 +63,11 @@ export async function addTimeEntry(entry: Omit<TimeEntry, "id">) {
     category: entry.category,
     note: entry.note,
     assignee: entry.assignee,
-  });
+  };
+  if (entry.source) row.source = entry.source;
+  if (entry.sourceId) row.source_id = entry.sourceId;
+
+  const { error } = await supabase.from("time_entries").insert(row);
 
   if (!error) {
     await loadTimeEntries();
@@ -103,6 +111,41 @@ export async function deleteTimeEntry(id: string) {
   } else {
     console.error("Failed to delete time entry:", error);
     await loadTimeEntries();
+  }
+}
+
+export function getExistingSourceIds(source: string): Set<string> {
+  return new Set(
+    entries.filter((e) => e.source === source && e.sourceId).map((e) => e.sourceId!)
+  );
+}
+
+export async function bulkAddTimeEntries(newEntries: Omit<TimeEntry, "id">[]): Promise<number> {
+  if (newEntries.length === 0) return 0;
+
+  const rows = newEntries.map((entry) => {
+    const row: any = {
+      date: entry.date,
+      start_hour: entry.startHour,
+      start_minute: entry.startMinute,
+      end_hour: entry.endHour,
+      end_minute: entry.endMinute,
+      category: entry.category,
+      note: entry.note,
+      assignee: entry.assignee,
+    };
+    if (entry.source) row.source = entry.source;
+    if (entry.sourceId) row.source_id = entry.sourceId;
+    return row;
+  });
+
+  const { error } = await supabase.from("time_entries").insert(rows);
+  if (!error) {
+    await loadTimeEntries();
+    return newEntries.length;
+  } else {
+    console.error("Failed to bulk add time entries:", error);
+    return 0;
   }
 }
 
