@@ -838,12 +838,14 @@ export default function Calendar() {
                                 draggable
                                 onDragStart={(e) => handleDragStart(e, event)}
                                 onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEdit(event);
+                                }}
+                                onDoubleClick={(e) => {
                                   if (salesMeeting) {
                                     e.stopPropagation();
                                     if (eventNoShow) { unmarkNoShow(event.id); toast.success("No-Show entfernt"); }
                                     else { markNoShow(event.id, event.title, event.date); toast.success("Als No-Show markiert"); }
-                                  } else {
-                                    openEdit(event);
                                   }
                                 }}
                               >
@@ -932,11 +934,12 @@ export default function Calendar() {
                     const noShow = isNoShow(event.id);
                     return (
                       <div key={event.id} className={`rounded-lg p-2.5 ${ec.bgLight} ${noShow ? "opacity-50" : ""} cursor-pointer`}
-                        onClick={() => {
+                        onClick={() => { openEdit(event); }}
+                        onDoubleClick={() => {
                           if (isSales) {
                             if (noShow) { unmarkNoShow(event.id); toast.success("No-Show entfernt"); }
                             else { markNoShow(event.id, event.title, event.date); toast.success("Als No-Show markiert"); }
-                          } else { openEdit(event); }
+                          }
                         }}>
                         <div className="flex items-center gap-1.5 mb-0.5">
                           <span className={`h-1.5 w-1.5 rounded-full ${ec.color}`} />
