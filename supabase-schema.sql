@@ -131,6 +131,9 @@ create policy "Allow all" on deals for all using (true) with check (true);
 create policy "Allow all" on expenses for all using (true) with check (true);
 create policy "Allow all" on app_settings for all using (true) with check (true);
 
+-- Calendar Events: add assignee to track who created the event
+alter table calendar_events add column if not exists assignee text;
+
 -- Time Tracking: add source tracking for auto-sync (Google Calendar, Close CRM)
 alter table time_entries add column if not exists source text;
 alter table time_entries add column if not exists source_id text;

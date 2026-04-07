@@ -2,6 +2,7 @@ import { listAllEvents, getAccounts, type GoogleCalendarEvent } from "@/lib/goog
 import { getActivities, type CloseActivity } from "@/lib/close-api-client";
 import { getExistingSourceIds, bulkAddTimeEntries, hasTimeOverlap } from "@/store/timeEntries";
 import type { Category } from "@/store/timeEntries";
+import { supabase } from "@/lib/supabase";
 
 // --- Sales Call detection (only sales calls get special treatment, everything else = meeting) ---
 
@@ -210,6 +211,74 @@ export async function syncCloseActivitiesToTimeEntries(
       note,
       assignee: activityAssignee,
       source: "close-crm",
+      sourceId,
+    });
+  }
+
+  const synced = await bulkAddTimeEntries(newEntries);
+  return { synced, skipped };
+}
+
+// --- App Calendar Events Sync (Supabase calendar_events) ---
+
+export async function syncAppCalendarToTimeEntries(
+  weekStart: Date,
+  weekEnd: Date,
+): Promise<{ synced: number; skipped: number }> {
+  const startDate = weekStart.toISOString().slice(0, 10);
+  const endDate = weekEnd.toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from("calendar_events")
+    .select("*")
+    .gte("date", startDate)
+    .lt("date", endDate)
+    .not("type", "eq", "deadline");
+
+  if (error || !data) return { synced: 0, skipped: 0 };
+
+  const existingIds = getExistingSourceIds("app-calendar");
+  const newEntries: Parameters<typeof bulkAddTimeEntries>[0] = [];
+  let skipped = 0;
+
+  for (const row of data) {
+    const sourceId = `appcal-${row.id}`;
+
+    if (existingIds.has(sourceId)) {
+      skipped++;
+      continue;
+    }
+
+    const [sH, sM] = (row.start_time || "09:00").split(":").map(Number);
+    const [eH, eM] = (row.end_time || "10:00").split(":").map(Number);
+
+    const startHour = sH;
+    const startMinute = roundTo15(sM);
+    let endHour = eH;
+    let endMinute = roundTo15(eM);
+
+    if (endMinute >= 60) { endMinute = 0; endHour += 1; }
+    if (startHour === endHour && startMinute === endMinute) continue;
+
+    const assignee = row.assignee || "alex";
+    const title = row.title || "(Kein Titel)";
+    const category: Category = isSalesEvent(title, row.description) ? "sales" : "meeting";
+
+    if (hasTimeOverlap(row.date, startHour, startMinute, endHour, endMinute, assignee)) {
+      skipped++;
+      continue;
+    }
+
+    newEntries.push({
+      date: row.date,
+      startHour,
+      startMinute,
+      endHour,
+      endMinute,
+      category,
+      note: title,
+      assignee,
+      source: "app-calendar",
       sourceId,
     });
   }

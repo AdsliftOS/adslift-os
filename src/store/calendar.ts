@@ -17,6 +17,7 @@ export type CalendarEvent = {
   accountColorLight?: string;
   googleEventId?: string;
   accountEmail?: string;
+  assignee?: string;
 };
 
 let events: CalendarEvent[] = [];
@@ -31,6 +32,7 @@ function rowToEvent(row: any): CalendarEvent {
     id: row.id, title: row.title, date: row.date, startTime: row.start_time,
     endTime: row.end_time, type: row.type, client: row.client,
     description: row.description, meetingLink: row.meeting_link, projectId: row.project_id,
+    assignee: row.assignee || undefined,
   };
 }
 
@@ -52,6 +54,7 @@ function eventToRow(e: Partial<CalendarEvent>) {
   if (e.description !== undefined) row.description = e.description || null;
   if (e.meetingLink !== undefined) row.meeting_link = e.meetingLink || null;
   if (e.projectId !== undefined) row.project_id = e.projectId || null;
+  if (e.assignee !== undefined) row.assignee = e.assignee || null;
   return row;
 }
 

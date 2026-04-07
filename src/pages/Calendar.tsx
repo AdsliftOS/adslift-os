@@ -170,6 +170,15 @@ export default function Calendar() {
   const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Current user detection for assignee
+  const [currentUser, setCurrentUser] = useState("alex");
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const email = session?.user?.email;
+      if (email === "office@consulting-og.de") setCurrentUser("daniel");
+    });
+  }, []);
+
   // Google Calendar — Multi-Account
   const [googleAccounts, setGoogleAccounts] = useState(getAccounts());
   const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([]);
@@ -383,6 +392,7 @@ export default function Calendar() {
       title: form.title, date: form.date, startTime: form.startTime, endTime: form.endTime,
       type: form.type, client: form.client || undefined, description: form.description || undefined,
       meetingLink: form.meetingLink || undefined,
+      assignee: currentUser,
     };
     if (editingEvent) {
       await updateCalendarEvent(editingEvent.id, eventData);
