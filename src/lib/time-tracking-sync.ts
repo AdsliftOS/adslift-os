@@ -3,6 +3,41 @@ import { getActivities, type CloseActivity } from "@/lib/close-api-client";
 import { getExistingSourceIds, bulkAddTimeEntries } from "@/store/timeEntries";
 import type { Category } from "@/store/timeEntries";
 
+// --- Sales Call vs. Kundenmeeting detection (mirrors sales-meetings.ts) ---
+
+const SALES_PATTERNS = [
+  /meeting mit.*von adslift/i,
+  /meeting with.*von adslift/i,
+  /termin mit.*von adslift/i,
+  /call mit.*von adslift/i,
+  /sales call/i,
+  /discovery call/i,
+  /setter call/i,
+  /closing call/i,
+  /📞.*call/i,
+  /linkedin.*outreach/i,
+];
+
+const CLIENT_PATTERNS = [
+  /meeting mit adslift$/i,
+  /meeting with adslift$/i,
+  /termin mit adslift$/i,
+  /call mit adslift$/i,
+  /onboarding/i,
+  /kundenmeeting/i,
+  /kundencall/i,
+  /kick.?off/i,
+  /reporting/i,
+  /walkthrough/i,
+];
+
+function classifyMeeting(title: string, description?: string): "sales" | "fulfillment" | "meeting" {
+  const text = `${title} ${description || ""}`;
+  if (SALES_PATTERNS.some((p) => p.test(text))) return "sales";
+  if (CLIENT_PATTERNS.some((p) => p.test(text))) return "fulfillment";
+  return "meeting";
+}
+
 // --- Category detection (mirrors TimeTracking.tsx keywords) ---
 
 const categoryKeywords: { keywords: string[]; category: Category }[] = [
@@ -164,7 +199,9 @@ export async function syncGoogleCalendarToTimeEntries(
       if (startHour === endHour && startMinute === endMinute) continue;
 
       const title = event.summary || "(Kein Titel)";
-      const category = detectCategory(title);
+      // First check sales call vs. kundenmeeting patterns, then fall back to keyword detection
+      const meetingType = classifyMeeting(title, event.description);
+      const category = meetingType !== "meeting" ? meetingType : detectCategory(title);
       const entryAssignee = emailToAssignee[email] || assignee;
 
       newEntries.push({
@@ -188,10 +225,17 @@ export async function syncGoogleCalendarToTimeEntries(
 
 // --- Close CRM Sync ---
 
+// Map Close CRM user names to assignees
+function closeUserToAssignee(userName: string): string {
+  const lower = userName.toLowerCase();
+  if (lower.includes("daniel")) return "daniel";
+  if (lower.includes("alex")) return "alex";
+  return "alex"; // fallback
+}
+
 export async function syncCloseActivitiesToTimeEntries(
   weekStart: Date,
   weekEnd: Date,
-  assignee = "alex"
 ): Promise<{ synced: number; skipped: number }> {
   const dateGte = weekStart.toISOString().slice(0, 10);
   const dateLte = weekEnd.toISOString().slice(0, 10);
@@ -234,16 +278,26 @@ export async function syncCloseActivitiesToTimeEntries(
     if (endHour >= 24) { endHour = 24; endMinute = 0; }
 
     const isMeeting = activity._type === "Meeting" || activity._type === "meeting";
-    const category: Category = isMeeting ? "meeting" : "sales";
+    const isCall = !isMeeting;
+
+    // Calls from Close = sales, Meetings = classify based on title/lead
+    let category: Category;
+    if (isCall) {
+      category = "sales";
+    } else {
+      // Meetings: check if it's a client meeting (fulfillment) or sales meeting
+      const meetingText = [activity.title, activity.lead_name].filter(Boolean).join(" ");
+      category = classifyMeeting(meetingText);
+    }
 
     // Build descriptive note
     const parts: string[] = [];
     if (activity.lead_name) parts.push(activity.lead_name);
     if (activity.title) parts.push(activity.title);
     if (activity.disposition) parts.push(activity.disposition);
-    if (!isMeeting && activity.direction) parts.push(activity.direction === "outbound" ? "Outbound Call" : "Inbound Call");
+    if (isCall && activity.direction) parts.push(activity.direction === "outbound" ? "Outbound Call" : "Inbound Call");
 
-    const note = parts.length > 0 ? parts.join(" — ") : (isMeeting ? "Meeting (Close)" : "Call (Close)");
+    const note = parts.length > 0 ? parts.join(" — ") : (isMeeting ? "Kundenmeeting (Close)" : "Sales Call (Close)");
 
     newEntries.push({
       date,
@@ -253,7 +307,7 @@ export async function syncCloseActivitiesToTimeEntries(
       endMinute,
       category,
       note,
-      assignee,
+      assignee: closeUserToAssignee(activity.user_name),
       source: "close-crm",
       sourceId,
     });
