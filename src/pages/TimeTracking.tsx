@@ -11,12 +11,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Clock, Trash2, Plus, BarChart3, CalendarDays, TrendingUp, Target, RefreshCw, CalendarSync, PhoneCall } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Trash2, Plus, BarChart3, CalendarDays, TrendingUp, Target, RefreshCw, CalendarSync, PhoneCall, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useTimeEntries, addTimeEntry, updateTimeEntry, deleteTimeEntry } from "@/store/timeEntries";
 import { syncGoogleCalendarToTimeEntries, syncCloseActivitiesToTimeEntries } from "@/lib/time-tracking-sync";
 import { isGoogleConnected } from "@/lib/google-calendar";
+import { supabase } from "@/lib/supabase";
 import type { TimeEntry, Category } from "@/store/timeEntries";
+
+const teamMembers = [
+  { key: "alex", label: "Alex", email: "info@consulting-og.de" },
+  { key: "daniel", label: "Daniel", email: "office@consulting-og.de" },
+];
 
 const categories: { value: Category; label: string; color: string; bg: string }[] = [
   { value: "fulfillment", label: "Fulfillment", color: "bg-blue-500", bg: "bg-blue-500/15 text-blue-700 dark:text-blue-300" },
@@ -183,7 +189,20 @@ function hasOverlap(entries: TimeEntry[], date: string, startSlot: number, endSl
 export default function TimeTracking() {
   const today = new Date();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(today, { weekStartsOn: 1 }));
-  const entries = useTimeEntries();
+  const allEntries = useTimeEntries();
+  const [viewUser, setViewUser] = useState("alex");
+
+  // Auto-detect current user
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const email = session?.user?.email;
+      const found = teamMembers.find((m) => m.email === email);
+      if (found) setViewUser(found.key);
+    });
+  }, []);
+
+  // Filter entries by selected user
+  const entries = useMemo(() => allEntries.filter((e) => !e.assignee || e.assignee === viewUser), [allEntries, viewUser]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [form, setForm] = useState(() => {
@@ -376,7 +395,7 @@ export default function TimeTracking() {
         endMinute: end.minute,
         category: form.category,
         note: form.note,
-        assignee: "alex",
+        assignee: viewUser,
       });
       toast.success("Eintrag hinzugefügt");
     }
@@ -510,9 +529,28 @@ export default function TimeTracking() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Zeiterfassung</h1>
-          <p className="text-sm text-muted-foreground">Woche tracken in 15-Minuten-Blöcken.</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Zeiterfassung</h1>
+            <p className="text-sm text-muted-foreground">Woche tracken in 15-Minuten-Blöcken.</p>
+          </div>
+          {/* User Switch */}
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <div className="flex gap-1 border rounded-lg p-0.5">
+              {teamMembers.map((m) => (
+                <button
+                  key={m.key}
+                  onClick={() => setViewUser(m.key)}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                    viewUser === m.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Button
