@@ -114,6 +114,24 @@ export async function deleteTimeEntry(id: string) {
   }
 }
 
+export function hasTimeOverlap(
+  date: string,
+  startHour: number,
+  startMinute: number,
+  endHour: number,
+  endMinute: number,
+  assignee: string,
+): boolean {
+  const newStart = startHour * 60 + startMinute;
+  const newEnd = endHour * 60 + endMinute;
+  return entries.some((e) => {
+    if (e.date !== date || e.assignee !== assignee) return false;
+    const eStart = e.startHour * 60 + e.startMinute;
+    const eEnd = e.endHour * 60 + e.endMinute;
+    return newStart < eEnd && newEnd > eStart;
+  });
+}
+
 export function getExistingSourceIds(source: string): Set<string> {
   return new Set(
     entries.filter((e) => e.source === source && e.sourceId).map((e) => e.sourceId!)

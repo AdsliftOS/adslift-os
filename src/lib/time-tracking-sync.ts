@@ -1,9 +1,9 @@
 import { listAllEvents, getAccounts, type GoogleCalendarEvent } from "@/lib/google-calendar";
 import { getActivities, type CloseActivity } from "@/lib/close-api-client";
-import { getExistingSourceIds, bulkAddTimeEntries } from "@/store/timeEntries";
+import { getExistingSourceIds, bulkAddTimeEntries, hasTimeOverlap } from "@/store/timeEntries";
 import type { Category } from "@/store/timeEntries";
 
-// --- Sales Call vs. Kundenmeeting detection (mirrors sales-meetings.ts) ---
+// --- Sales Call detection (only sales calls get special treatment, everything else = meeting) ---
 
 const SALES_PATTERNS = [
   /meeting mit.*von adslift/i,
@@ -18,119 +18,9 @@ const SALES_PATTERNS = [
   /linkedin.*outreach/i,
 ];
 
-const CLIENT_PATTERNS = [
-  /meeting mit adslift$/i,
-  /meeting with adslift$/i,
-  /termin mit adslift$/i,
-  /call mit adslift$/i,
-  /onboarding/i,
-  /kundenmeeting/i,
-  /kundencall/i,
-  /kick.?off/i,
-  /reporting/i,
-  /walkthrough/i,
-];
-
-function classifyMeeting(title: string, description?: string): "sales" | "fulfillment" | "meeting" {
+function isSalesEvent(title: string, description?: string): boolean {
   const text = `${title} ${description || ""}`;
-  if (SALES_PATTERNS.some((p) => p.test(text))) return "sales";
-  if (CLIENT_PATTERNS.some((p) => p.test(text))) return "fulfillment";
-  return "meeting";
-}
-
-// --- Category detection (mirrors TimeTracking.tsx keywords) ---
-
-const categoryKeywords: { keywords: string[]; category: Category }[] = [
-  { keywords: [
-    "creative erstellen", "creatives erstellen", "creatives", "creative", "design", "hook", "hooks", "angle", "angles",
-    "video", "videos", "schnitt", "schneiden", "grafik", "grafiken", "thumbnail", "thumbnails",
-    "canva", "figma", "photoshop", "illustrator", "after effects", "premiere",
-    "mockup", "mockups", "visual", "visuals", "storyboard", "animation",
-    "bildbearbeitung", "reels", "reel", "ugc", "script", "skript",
-    "vorlage", "vorlagen", "template", "templates", "banner", "ad design",
-  ], category: "creative" },
-  { keywords: [
-    "sales call", "sales", "closing", "closer", "discovery", "discovery call",
-    "lead", "leads", "angebot", "angebote", "pitch", "pitchen",
-    "setter", "setting", "setter call", "deal", "deals",
-    "verhandlung", "verhandeln", "akquise", "kaltakquise", "cold call",
-    "nachfassen", "follow up", "followup", "follow-up",
-    "einwandbehandlung", "qualifizierung", "qualifizieren",
-    "crm", "close crm", "pipeline", "upsell", "cross-sell",
-    "provisionen", "conversion", "abschluss", "abschließen",
-  ], category: "sales" },
-  { keywords: [
-    "fulfillment", "fulfilment", "kunde einarbeiten", "kunden einarbeiten",
-    "onboarding", "einarbeiten", "einarbeitung",
-    "kampagne", "kampagnen", "ad copy", "adcopy", "copy schreiben", "texte schreiben",
-    "ads", "meta ads", "facebook ads", "instagram ads", "google ads",
-    "reporting", "report", "berichte", "bericht", "auswertung",
-    "zielgruppe", "zielgruppen", "targeting", "retargeting", "lookalike",
-    "pixel", "pixel einrichten", "conversion api",
-    "ad manager", "werbeanzeigenmanager", "business manager",
-    "briefing", "kundenarbeit", "kundenprojekt",
-    "a/b test", "split test", "skalieren", "budget",
-    "landingpage", "landing page", "funnel bauen",
-    "loom", "kundenvideo", "walkthrough",
-  ], category: "fulfillment" },
-  { keywords: [
-    "admin", "administration", "email", "emails", "e-mail", "e-mails",
-    "slack", "buchhaltung", "buchführung", "rechnung", "rechnungen",
-    "steuer", "steuern", "steuererklärung", "finanzamt",
-    "organisation", "organisieren", "planung", "tagesplanung", "wochenplanung",
-    "dokument", "dokumente", "dokumentation", "vertrag", "verträge",
-    "büro", "office", "aufräumen", "sortieren", "ablage",
-    "datev", "sevdesk", "lexoffice", "banking",
-    "passwort", "passwörter", "lastpass", "1password",
-    "kalender", "termine planen", "termin", "versicherung",
-    "postfach", "inbox", "inbox zero",
-  ], category: "admin" },
-  { keywords: [
-    "growth", "wachstum", "strategie", "strategisch",
-    "content", "content strategie", "content plan", "contentplan",
-    "funnel", "funnel optimierung", "conversion rate",
-    "optimierung", "optimieren", "analyse", "analysieren", "analytics",
-    "skalierung", "skalieren", "prozess", "prozesse",
-    "automation", "automatisierung", "zapier", "make", "n8n",
-    "system", "systeme", "workflow", "workflows",
-    "kpi", "kpis", "metriken", "dashboard",
-    "marktanalyse", "wettbewerb", "konkurrenz", "benchmark",
-    "brainstorm", "brainstorming", "ideation", "innovation",
-    "test", "testen", "experiment", "hypothese",
-    "roadmap", "quartalsziele", "jahresziele", "okr", "okrs",
-  ], category: "growth" },
-  { keywords: [
-    "meeting", "meetings", "call", "calls", "zoom", "zoom call",
-    "google meet", "teams", "microsoft teams",
-    "besprechung", "besprechungen", "sync", "daily sync",
-    "standup", "stand-up", "daily", "weekly",
-    "abstimmung", "abstimmen", "teammeeting", "team meeting",
-    "jour fixe", "retrospektive", "retro",
-    "workshop", "brainstorming session",
-    "kundencall", "kunden call", "interncall", "intern call",
-    "präsentation", "demo", "vorstellung",
-  ], category: "meeting" },
-  { keywords: [
-    "pause", "mittag", "mittagspause", "mittagessen",
-    "break", "essen", "kaffee", "kaffeepause",
-    "spaziergang", "spazieren", "frische luft",
-    "auszeit", "erholung", "gym", "sport", "training",
-  ], category: "pause" },
-];
-
-function detectCategory(text: string): Category {
-  const lower = text.toLowerCase().trim();
-  if (!lower) return "meeting"; // default for calendar events
-
-  let bestMatch: { category: Category; length: number } | null = null;
-  for (const { keywords, category } of categoryKeywords) {
-    for (const kw of keywords) {
-      if (lower.includes(kw) && (!bestMatch || kw.length > bestMatch.length)) {
-        bestMatch = { category, length: kw.length };
-      }
-    }
-  }
-  return bestMatch?.category ?? "meeting";
+  return SALES_PATTERNS.some((p) => p.test(text));
 }
 
 // Round minutes to nearest 15-minute block
@@ -199,10 +89,15 @@ export async function syncGoogleCalendarToTimeEntries(
       if (startHour === endHour && startMinute === endMinute) continue;
 
       const title = event.summary || "(Kein Titel)";
-      // First check sales call vs. kundenmeeting patterns, then fall back to keyword detection
-      const meetingType = classifyMeeting(title, event.description);
-      const category = meetingType !== "meeting" ? meetingType : detectCategory(title);
+      // Sales calls get "sales", everything else defaults to "meeting"
+      const category: Category = isSalesEvent(title, event.description) ? "sales" : "meeting";
       const entryAssignee = emailToAssignee[email] || assignee;
+
+      // Skip if overlaps with an existing entry for same person
+      if (hasTimeOverlap(date, startHour, startMinute, endHour, endMinute, entryAssignee)) {
+        skipped++;
+        continue;
+      }
 
       newEntries.push({
         date,
@@ -280,14 +175,13 @@ export async function syncCloseActivitiesToTimeEntries(
     const isMeeting = activity._type === "Meeting" || activity._type === "meeting";
     const isCall = !isMeeting;
 
-    // Calls from Close = sales, Meetings = classify based on title/lead
+    // Calls from Close = sales, Meetings = meeting (unless it matches a sales pattern)
     let category: Category;
     if (isCall) {
       category = "sales";
     } else {
-      // Meetings: check if it's a client meeting (fulfillment) or sales meeting
       const meetingText = [activity.title, activity.lead_name].filter(Boolean).join(" ");
-      category = classifyMeeting(meetingText);
+      category = isSalesEvent(meetingText) ? "sales" : "meeting";
     }
 
     // Build descriptive note
@@ -297,7 +191,14 @@ export async function syncCloseActivitiesToTimeEntries(
     if (activity.disposition) parts.push(activity.disposition);
     if (isCall && activity.direction) parts.push(activity.direction === "outbound" ? "Outbound Call" : "Inbound Call");
 
-    const note = parts.length > 0 ? parts.join(" — ") : (isMeeting ? "Kundenmeeting (Close)" : "Sales Call (Close)");
+    const note = parts.length > 0 ? parts.join(" — ") : (isMeeting ? "Meeting (Close)" : "Sales Call (Close)");
+    const activityAssignee = closeUserToAssignee(activity.user_name);
+
+    // Skip if overlaps with an existing entry for same person
+    if (hasTimeOverlap(date, startHour, startMinute, endHour, endMinute, activityAssignee)) {
+      skipped++;
+      continue;
+    }
 
     newEntries.push({
       date,
@@ -307,7 +208,7 @@ export async function syncCloseActivitiesToTimeEntries(
       endMinute,
       category,
       note,
-      assignee: closeUserToAssignee(activity.user_name),
+      assignee: activityAssignee,
       source: "close-crm",
       sourceId,
     });
