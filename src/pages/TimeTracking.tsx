@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ChevronLeft, ChevronRight, Clock, Trash2, Plus, BarChart3, CalendarDays, TrendingUp, Target, RefreshCw, CalendarSync, PhoneCall, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useTimeEntries, addTimeEntry, updateTimeEntry, deleteTimeEntry } from "@/store/timeEntries";
-import { syncGoogleCalendarToTimeEntries, syncCloseActivitiesToTimeEntries, syncAppCalendarToTimeEntries } from "@/lib/time-tracking-sync";
+import { syncGoogleCalendarToTimeEntries, syncCloseActivitiesToTimeEntries } from "@/lib/time-tracking-sync";
 import { isGoogleConnected } from "@/lib/google-calendar";
 import { supabase } from "@/lib/supabase";
 import type { TimeEntry, Category } from "@/store/timeEntries";
@@ -269,9 +269,6 @@ export default function TimeTracking() {
       if (synced > 0) toast.success(`${synced} Close-Aktivitäten automatisch importiert`);
     }).catch(() => {});
 
-    syncAppCalendarToTimeEntries(weekStart, weekEnd).then(({ synced }) => {
-      if (synced > 0) toast.success(`${synced} App-Kalender-Events automatisch importiert`);
-    }).catch(() => {});
   }, []);
 
   // Drag state
