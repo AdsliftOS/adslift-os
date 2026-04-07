@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { PopupModal } from "react-calendly";
 import { format, startOfWeek, addDays, isSameDay, addWeeks, subWeeks, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from "date-fns";
@@ -168,6 +168,7 @@ export default function Calendar() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Google Calendar — Multi-Account
   const [googleAccounts, setGoogleAccounts] = useState(getAccounts());
@@ -839,11 +840,17 @@ export default function Calendar() {
                                 onDragStart={(e) => handleDragStart(e, event)}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  openEdit(event);
+                                  if (salesMeeting) {
+                                    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+                                    clickTimerRef.current = setTimeout(() => { openEdit(event); clickTimerRef.current = null; }, 250);
+                                  } else {
+                                    openEdit(event);
+                                  }
                                 }}
                                 onDoubleClick={(e) => {
                                   if (salesMeeting) {
                                     e.stopPropagation();
+                                    if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null; }
                                     if (eventNoShow) { unmarkNoShow(event.id); toast.success("No-Show entfernt"); }
                                     else { markNoShow(event.id, event.title, event.date); toast.success("Als No-Show markiert"); }
                                   }
@@ -934,9 +941,15 @@ export default function Calendar() {
                     const noShow = isNoShow(event.id);
                     return (
                       <div key={event.id} className={`rounded-lg p-2.5 ${ec.bgLight} ${noShow ? "opacity-50" : ""} cursor-pointer`}
-                        onClick={() => { openEdit(event); }}
+                        onClick={() => {
+                          if (isSales) {
+                            if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+                            clickTimerRef.current = setTimeout(() => { openEdit(event); clickTimerRef.current = null; }, 250);
+                          } else { openEdit(event); }
+                        }}
                         onDoubleClick={() => {
                           if (isSales) {
+                            if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null; }
                             if (noShow) { unmarkNoShow(event.id); toast.success("No-Show entfernt"); }
                             else { markNoShow(event.id, event.title, event.date); toast.success("Als No-Show markiert"); }
                           }
