@@ -11,6 +11,7 @@ import { ChevronRight, ChevronLeft, Building2, Target, DollarSign, KeyRound, Meg
 import { addClient as addClientDB } from "@/store/clients";
 import { addProject as addProjectDB } from "@/store/projects";
 import type { Project } from "@/store/projects";
+import { supabase } from "@/lib/supabase";
 
 type OnboardingVariant = "done4you" | "donewithyou" | "";
 
@@ -148,23 +149,36 @@ export default function Onboarding() {
   };
 
   const handleSubmit = async () => {
-    // 1. Create client
-    await addClientDB({
-      name: data.companyName,
-      contact: data.contactName,
-      email: data.contactEmail,
-      phone: data.contactPhone,
-      company: data.companyName,
-      projects: 1,
-      revenue: 0,
-      status: "Active" as const,
-    });
+    // 1. Check if a client with this email already exists
+    const normalizedEmail = data.contactEmail.trim().toLowerCase();
+    const { data: existing } = await supabase
+      .from("clients")
+      .select("name, email")
+      .ilike("email", normalizedEmail)
+      .limit(1);
+
+    const existingClient = existing && existing.length > 0 ? existing[0] : null;
+    const clientName = existingClient ? existingClient.name : data.companyName;
+
+    // Only create a new client if none matched the email
+    if (!existingClient) {
+      await addClientDB({
+        name: data.companyName,
+        contact: data.contactName,
+        email: data.contactEmail,
+        phone: data.contactPhone,
+        company: data.companyName,
+        projects: 1,
+        revenue: 0,
+        status: "Active" as const,
+      });
+    }
 
     // 2. Create project with raw onboarding data in separate field
     const projectType = data.variant === "done4you" ? "done4you" : "donewithyou";
     const newProject: Project = {
       id: `onb-${Date.now()}`,
-      client: data.companyName,
+      client: clientName,
       name: `Meta Ads — ${data.companyName}`,
       product: data.monthlyAdBudget || "TBD",
       type: projectType,
