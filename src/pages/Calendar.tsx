@@ -398,7 +398,11 @@ export default function Calendar() {
       await updateCalendarEvent(editingEvent.id, eventData);
       toast.success("Event aktualisiert");
     } else {
-      await addCalendarEvent(eventData as Omit<CalendarEvent, "id">);
+      const result = await addCalendarEvent(eventData as Omit<CalendarEvent, "id">);
+      if ("error" in result) {
+        toast.error("Speichern fehlgeschlagen: " + result.error);
+        return;
+      }
       toast.success("Event erstellt");
     }
     setDialogOpen(false);

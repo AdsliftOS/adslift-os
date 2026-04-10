@@ -59,14 +59,14 @@ function eventToRow(e: Partial<CalendarEvent>) {
 }
 
 // --- Direct CRUD ---
-export async function addCalendarEvent(event: Omit<CalendarEvent, "id">): Promise<string | null> {
+export async function addCalendarEvent(event: Omit<CalendarEvent, "id">): Promise<{ id: string } | { error: string }> {
   const { data, error } = await supabase.from("calendar_events").insert(eventToRow(event)).select().single();
   if (!error && data) {
     await loadEvents();
-    return data.id;
+    return { id: data.id };
   }
   console.error("Failed to add calendar event:", error);
-  return null;
+  return { error: error?.message || "Unbekannter Fehler" };
 }
 
 export async function updateCalendarEvent(id: string, updates: Partial<CalendarEvent>) {
