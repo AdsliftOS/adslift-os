@@ -1,5 +1,12 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
+import {
+  accountForAssignee,
+  accountByEmail,
+  createGoogleEvent,
+  updateGoogleEvent,
+  deleteGoogleEvent,
+} from "@/lib/google-calendar";
 
 export type CalendarEvent = {
   id: string;
@@ -33,6 +40,8 @@ function rowToEvent(row: any): CalendarEvent {
     endTime: row.end_time, type: row.type, client: row.client,
     description: row.description, meetingLink: row.meeting_link, projectId: row.project_id,
     assignee: row.assignee || undefined,
+    googleEventId: row.google_event_id || undefined,
+    accountEmail: row.google_account_email || undefined,
   };
 }
 
@@ -55,37 +64,68 @@ function eventToRow(e: Partial<CalendarEvent>) {
   if (e.meetingLink !== undefined) row.meeting_link = e.meetingLink || null;
   if (e.projectId !== undefined) row.project_id = e.projectId || null;
   if (e.assignee !== undefined) row.assignee = e.assignee || null;
+  if (e.googleEventId !== undefined) row.google_event_id = e.googleEventId || null;
+  if (e.accountEmail !== undefined) row.google_account_email = e.accountEmail || null;
   return row;
 }
 
 // --- Direct CRUD ---
 export async function addCalendarEvent(event: Omit<CalendarEvent, "id">): Promise<{ id: string } | { error: string }> {
   const { data, error } = await supabase.from("calendar_events").insert(eventToRow(event)).select().single();
-  if (!error && data) {
-    await loadEvents();
-    return { id: data.id };
+  if (error || !data) {
+    console.error("Failed to add calendar event:", error);
+    return { error: error?.message || "Unbekannter Fehler" };
   }
-  console.error("Failed to add calendar event:", error);
-  return { error: error?.message || "Unbekannter Fehler" };
+
+  // Push to Google Calendar (fire-and-forget for the caller; we still await so the ID is persisted)
+  const account = accountForAssignee(event.assignee);
+  if (account) {
+    const googleEventId = await createGoogleEvent(account, event);
+    if (googleEventId) {
+      await supabase
+        .from("calendar_events")
+        .update({ google_event_id: googleEventId, google_account_email: account.email })
+        .eq("id", data.id);
+    }
+  }
+
+  await loadEvents();
+  return { id: data.id };
 }
 
 export async function updateCalendarEvent(id: string, updates: Partial<CalendarEvent>) {
+  const existing = events.find((e) => e.id === id);
   const { error } = await supabase.from("calendar_events").update(eventToRow(updates)).eq("id", id);
-  if (!error) {
-    events = events.map((e) => e.id === id ? { ...e, ...updates } : e);
-    emit();
-  } else {
+  if (error) {
     console.error("Failed to update calendar event:", error);
+    return;
+  }
+  events = events.map((e) => e.id === id ? { ...e, ...updates } : e);
+  emit();
+
+  // Sync to Google if this event was linked to a Google account
+  if (existing?.googleEventId && existing.accountEmail) {
+    const account = accountByEmail(existing.accountEmail);
+    if (account) {
+      const merged = { ...existing, ...updates };
+      await updateGoogleEvent(account, existing.googleEventId, merged);
+    }
   }
 }
 
 export async function deleteCalendarEvent(id: string) {
+  const existing = events.find((e) => e.id === id);
   const { error } = await supabase.from("calendar_events").delete().eq("id", id);
-  if (!error) {
-    events = events.filter((e) => e.id !== id);
-    emit();
-  } else {
+  if (error) {
     console.error("Failed to delete calendar event:", error);
+    return;
+  }
+  events = events.filter((e) => e.id !== id);
+  emit();
+
+  if (existing?.googleEventId && existing.accountEmail) {
+    const account = accountByEmail(existing.accountEmail);
+    if (account) await deleteGoogleEvent(account, existing.googleEventId);
   }
 }
 

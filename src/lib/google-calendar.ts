@@ -219,3 +219,124 @@ export async function listEvents(timeMin: string, timeMax: string): Promise<Goog
   const all = await listAllEvents(timeMin, timeMax);
   return all.flatMap((a) => a.events);
 }
+
+// --- Assignee → Google account mapping ---
+const ASSIGNEE_TO_EMAIL: Record<string, string> = {
+  alex: "info@consulting-og.de",
+  daniel: "office@consulting-og.de",
+};
+
+export function accountForAssignee(assignee?: string): GoogleAccount | null {
+  if (!assignee) return null;
+  const email = ASSIGNEE_TO_EMAIL[assignee];
+  if (!email) return null;
+  return getAccounts().find((a) => a.email === email) || null;
+}
+
+export function accountByEmail(email?: string): GoogleAccount | null {
+  if (!email) return null;
+  return getAccounts().find((a) => a.email === email) || null;
+}
+
+// --- Event body builder (date YYYY-MM-DD + time HH:MM → RFC3339 in Europe/Berlin) ---
+type LocalEventInput = {
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  description?: string;
+  meetingLink?: string;
+  client?: string;
+};
+
+function buildEventBody(e: LocalEventInput) {
+  const timeZone = "Europe/Berlin";
+  const summary = e.client ? `${e.title} (${e.client})` : e.title;
+  const descriptionParts: string[] = [];
+  if (e.description) descriptionParts.push(e.description);
+  if (e.meetingLink) descriptionParts.push(`Meeting-Link: ${e.meetingLink}`);
+  return {
+    summary,
+    description: descriptionParts.join("\n\n") || undefined,
+    location: e.meetingLink || undefined,
+    start: { dateTime: `${e.date}T${e.startTime}:00`, timeZone },
+    end: { dateTime: `${e.date}T${e.endTime}:00`, timeZone },
+  };
+}
+
+// --- Create / Update / Delete ---
+export async function createGoogleEvent(
+  account: GoogleAccount,
+  event: LocalEventInput
+): Promise<string | null> {
+  try {
+    const token = await getValidToken(account);
+    const res = await fetch(`${API_BASE}/calendars/primary/events`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(buildEventBody(event)),
+    });
+    if (!res.ok) {
+      console.error("Google create event failed:", res.status, await res.text());
+      return null;
+    }
+    const data = await res.json();
+    return data.id || null;
+  } catch (e) {
+    console.error("Google create event error:", e);
+    return null;
+  }
+}
+
+export async function updateGoogleEvent(
+  account: GoogleAccount,
+  googleEventId: string,
+  event: LocalEventInput
+): Promise<boolean> {
+  try {
+    const token = await getValidToken(account);
+    const res = await fetch(
+      `${API_BASE}/calendars/primary/events/${encodeURIComponent(googleEventId)}`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(buildEventBody(event)),
+      }
+    );
+    if (!res.ok) {
+      console.error("Google update event failed:", res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("Google update event error:", e);
+    return false;
+  }
+}
+
+export async function deleteGoogleEvent(
+  account: GoogleAccount,
+  googleEventId: string
+): Promise<boolean> {
+  try {
+    const token = await getValidToken(account);
+    const res = await fetch(
+      `${API_BASE}/calendars/primary/events/${encodeURIComponent(googleEventId)}`,
+      { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok && res.status !== 410) {
+      console.error("Google delete event failed:", res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("Google delete event error:", e);
+    return false;
+  }
+}
