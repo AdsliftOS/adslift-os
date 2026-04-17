@@ -1,22 +1,20 @@
-import { useState, useMemo, useRef, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Search, ChevronRight, ChevronDown, Clock, CheckCircle2, AlertCircle, ArrowLeft, MessageSquare, FileText, ListChecks, Send, Trash2, GripVertical, ChevronUp, Wrench, ClipboardList, Building2, Target, DollarSign, KeyRound } from "lucide-react";
+import { Plus, Search, ChevronRight, ChevronDown, CheckCircle2, MessageSquare, FileText, ListChecks, Send, Trash2, GripVertical, ChevronUp, Wrench, ClipboardList, Building2, Target, DollarSign, KeyRound, ExternalLink, Globe, FolderOpen, BarChart3, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useClients } from "@/store/clients";
 import { useProjects, addProject as addProjectDB, updateProject as updateProjectDB, deleteProject as deleteProjectDB } from "@/store/projects";
 import type { Project, Phase, Task, Comment, TaskStatus, ProjectType, CreativeFormat } from "@/store/projects";
+import { searchLeadByName, searchLeads, getLeadActivities, getLeadOpportunities } from "@/lib/close-api-client";
+import type { CloseActivity, CloseOpportunity } from "@/lib/close-api-client";
 
 // --- Types (re-exported from store) ---
 
@@ -438,7 +436,123 @@ const phaseColors = [
   "bg-yellow-500", "bg-orange-500", "bg-rose-500", "bg-pink-500",
 ];
 
-// --- Component ---
+// --- Date helpers ---
+
+function parseDeDate(s: string): Date | null {
+  if (!s) return null;
+  // Handle "dd.mm.yyyy" (German) or "yyyy-mm-dd" (ISO)
+  if (s.includes(".")) {
+    const [d, m, y] = s.split(".");
+    return new Date(+y, +m - 1, +d);
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function daysBetween(a: Date, b: Date): number {
+  return Math.round((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function getDaysRunning(project: Project): number | null {
+  const start = parseDeDate(project.startDate);
+  if (!start) return null;
+  return daysBetween(start, new Date());
+}
+
+function getDaysLeft(project: Project): number | null {
+  if (!project.deadline) return null;
+  const deadline = parseDeDate(project.deadline);
+  if (!deadline) return null;
+  return daysBetween(new Date(), deadline);
+}
+
+function getTimeProgress(project: Project): number | null {
+  const start = parseDeDate(project.startDate);
+  if (!start || !project.deadline) return null;
+  const deadline = parseDeDate(project.deadline);
+  if (!deadline) return null;
+  const total = daysBetween(start, deadline);
+  if (total <= 0) return 100;
+  const elapsed = daysBetween(start, new Date());
+  return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+}
+
+type HealthStatus = "green" | "yellow" | "red";
+
+function getHealthScore(project: Project): { status: HealthStatus; label: string; reason: string } {
+  const progress = getProjectProgress(project);
+  const daysLeft = getDaysLeft(project);
+  const timeProgress = getTimeProgress(project);
+
+  // Completed
+  if (progress === 100) return { status: "green", label: "Done", reason: "Projekt abgeschlossen" };
+
+  // Overdue
+  if (daysLeft !== null && daysLeft < 0) return { status: "red", label: "Überfällig", reason: `${Math.abs(daysLeft)} Tage über Deadline` };
+
+  // Deadline soon + low progress
+  if (daysLeft !== null && daysLeft <= 3 && progress < 80) return { status: "red", label: "Kritisch", reason: `Nur noch ${daysLeft}d, aber erst ${progress}%` };
+
+  // Time vs progress mismatch
+  if (timeProgress !== null && timeProgress > 0) {
+    const ratio = progress / timeProgress;
+    if (ratio < 0.5) return { status: "red", label: "At Risk", reason: `${timeProgress}% Zeit verbraucht, nur ${progress}% fertig` };
+    if (ratio < 0.75) return { status: "yellow", label: "Achtung", reason: `Fortschritt hinkt der Zeit hinterher` };
+  }
+
+  // No deadline set on active project
+  if (progress > 0 && !project.deadline) return { status: "yellow", label: "Keine Deadline", reason: "Deadline fehlt" };
+
+  // Default
+  if (progress > 0) return { status: "green", label: "On Track", reason: "Läuft planmäßig" };
+  return { status: "green", label: "Neu", reason: "Noch nicht gestartet" };
+}
+
+function getNextOpenTask(project: Project): { phase: string; task: string } | null {
+  for (const phase of project.phases) {
+    for (const task of phase.tasks) {
+      if (task.status !== "done") return { phase: phase.title, task: task.title };
+    }
+  }
+  return null;
+}
+
+// Kanban columns for overview
+const kanbanColumns = [
+  { key: "new", label: "Neu", color: "bg-gray-400" },
+  { key: "onboarding", label: "Onboarding", color: "bg-violet-500" },
+  { key: "active", label: "In Arbeit", color: "bg-blue-500" },
+  { key: "review", label: "Review / Freigabe", color: "bg-amber-500" },
+  { key: "done", label: "Abgeschlossen", color: "bg-emerald-500" },
+] as const;
+
+type KanbanKey = typeof kanbanColumns[number]["key"];
+
+function isRunningCampaign(project: Project): boolean {
+  // A project is a "running campaign" if it has completed the Launch phase or is 100% done
+  const progress = getProjectProgress(project);
+  if (progress === 100) return true;
+  const launchPhase = project.phases.find((p) => p.title.toLowerCase().includes("launch"));
+  if (launchPhase) {
+    const launchDone = launchPhase.tasks.length > 0 && launchPhase.tasks.every((t) => t.status === "done");
+    if (launchDone) return true;
+  }
+  return false;
+}
+
+function getKanbanColumn(project: Project): KanbanKey {
+  const progress = getProjectProgress(project);
+  if (progress === 100) return "done";
+  if (progress === 0) return "new";
+  const current = getCurrentPhase(project);
+  if (!current) return "active";
+  const title = current.title.toLowerCase();
+  if (title.includes("onboarding") || title.includes("kick-off")) return "onboarding";
+  if (title.includes("review") || title.includes("freigabe")) return "review";
+  return "active";
+}
+
+// --- Component (Clean Rewrite — Linear-style) ---
 
 export default function ProjectManager() {
   const [clientsList] = useClients();
@@ -463,13 +577,30 @@ export default function ProjectManager() {
   const [customPhases, setCustomPhases] = useState<string[]>([]);
   const [dragPhaseIdx, setDragPhaseIdx] = useState<number | null>(null);
   const [commentText, setCommentText] = useState("");
+  const [overviewTab, setOverviewTab] = useState<"alle" | "aktiv" | "kampagnen" | "neu" | "done">("alle");
+
+  // Close CRM state for project detail
+  const [closeActivities, setCloseActivities] = useState<CloseActivity[]>([]);
+  const [closeOpportunities, setCloseOpportunities] = useState<CloseOpportunity[]>([]);
+  const [closeLoading, setCloseLoading] = useState(false);
+  const [closeLeadId, setCloseLeadId] = useState<string | null>(null);
+  const [closeFetched, setCloseFetched] = useState<string | null>(null);
+
+  // Lead Finder state
+  const [leadSearchQuery, setLeadSearchQuery] = useState("");
+  const [leadSearchResults, setLeadSearchResults] = useState<{ id: string; name: string; status: string; contacts: any[] }[]>([]);
+  const [leadSearching, setLeadSearching] = useState(false);
+
+  // Pipeline editor state
+  const [pipelineEditing, setPipelineEditing] = useState(false);
+
+  // Detail tab state
+  const [detailTab, setDetailTab] = useState<"pipeline" | "briefing" | "comments" | "onboarding">("pipeline");
 
   const filteredProjects = useMemo(() => {
     let filtered = projects;
-    // Filter by assignee
     if (viewFilter === "alex") filtered = filtered.filter((p) => p.assignees.some((a) => a.toLowerCase().includes("alex")));
     if (viewFilter === "daniel") filtered = filtered.filter((p) => p.assignees.some((a) => a.toLowerCase().includes("daniel")));
-    // Filter by search
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter((p) => p.client.toLowerCase().includes(q) || p.name.toLowerCase().includes(q));
@@ -479,10 +610,21 @@ export default function ProjectManager() {
 
   const selectedProject = selectedProjectId ? projects.find((p) => p.id === selectedProjectId) ?? null : null;
 
-  // Stats (based on filtered)
-  const activeCount = filteredProjects.filter((p) => { const prog = getProjectProgress(p); return prog > 0 && prog < 100; }).length;
-  const completedCount = filteredProjects.filter((p) => getProjectProgress(p) === 100).length;
-  const newCount = filteredProjects.filter((p) => getProjectProgress(p) === 0).length;
+  const allActive = filteredProjects.filter((p) => { const prog = getProjectProgress(p); return prog > 0 && prog < 100; });
+  const allDoneProjects = filteredProjects.filter((p) => getProjectProgress(p) === 100);
+  const allNew = filteredProjects.filter((p) => getProjectProgress(p) === 0);
+  const allAtRisk = filteredProjects.filter((p) => { const h = getHealthScore(p); return h.status === "red" || h.status === "yellow"; });
+  const runningCampaigns = filteredProjects.filter(isRunningCampaign);
+
+  const tabFilteredProjects = useMemo(() => {
+    switch (overviewTab) {
+      case "aktiv": return filteredProjects.filter((p) => { const prog = getProjectProgress(p); return prog > 0 && prog < 100; });
+      case "neu": return filteredProjects.filter((p) => getProjectProgress(p) === 0);
+      case "done": return filteredProjects.filter((p) => getProjectProgress(p) === 100);
+      case "kampagnen": return runningCampaigns;
+      default: return filteredProjects;
+    }
+  }, [filteredProjects, overviewTab, runningCampaigns]);
 
   const togglePhase = (phaseId: string) => {
     setExpandedPhases((prev) => {
@@ -580,7 +722,6 @@ export default function ProjectManager() {
     updateProjectDB(projectId, { comments: newComments });
   };
 
-  // Update local state immediately while typing — save to Supabase only on blur
   const updateProjectFieldLocal = useCallback((projectId: string, field: keyof Project, value: string) => {
     setProjectsLocal((prev) => prev.map((p) => p.id === projectId ? { ...p, [field]: value } : p));
   }, []);
@@ -598,562 +739,498 @@ export default function ProjectManager() {
     }));
   };
 
-  // --- Project Detail View ---
+  // Load Close data when project detail opens
+  useEffect(() => {
+    if (!selectedProject || closeFetched === selectedProject.id) return;
+    let cancelled = false;
+    (async () => {
+      setCloseLoading(true);
+      try {
+        const lead = await searchLeadByName(selectedProject.client);
+        if (cancelled) return;
+        if (lead) {
+          setCloseLeadId(lead.id);
+          const [acts, opps] = await Promise.all([
+            getLeadActivities(lead.id),
+            getLeadOpportunities(lead.id),
+          ]);
+          if (cancelled) return;
+          setCloseActivities(acts);
+          setCloseOpportunities(opps);
+        } else {
+          setCloseLeadId(null);
+          setCloseActivities([]);
+          setCloseOpportunities([]);
+        }
+      } catch {
+        // silently fail
+      } finally {
+        if (!cancelled) {
+          setCloseLoading(false);
+          setCloseFetched(selectedProject.id);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedProject?.id]);
+
+  const goBack = useCallback(() => {
+    setSelectedProjectId(null);
+    setExpandedPhases(new Set());
+    setCloseFetched(null);
+    setCloseActivities([]);
+    setCloseOpportunities([]);
+    setCloseLeadId(null);
+    setLeadSearchQuery("");
+    setLeadSearchResults([]);
+    setPipelineEditing(false);
+    setDetailTab("pipeline");
+  }, []);
+
+  const searchCloseLead = useCallback(async (query: string) => {
+    if (!query.trim()) { setLeadSearchResults([]); return; }
+    setLeadSearching(true);
+    try {
+      const results = await searchLeads(query);
+      setLeadSearchResults(results);
+    } catch {
+      setLeadSearchResults([]);
+    } finally {
+      setLeadSearching(false);
+    }
+  }, []);
+
+  const connectLead = useCallback(async (leadId: string) => {
+    setCloseLoading(true);
+    try {
+      setCloseLeadId(leadId);
+      const [acts, opps] = await Promise.all([
+        getLeadActivities(leadId),
+        getLeadOpportunities(leadId),
+      ]);
+      setCloseActivities(acts);
+      setCloseOpportunities(opps);
+    } catch {
+      // fail silently
+    } finally {
+      setCloseLoading(false);
+      setLeadSearchQuery("");
+      setLeadSearchResults([]);
+    }
+  }, []);
+
+  const addPhaseToProject = useCallback((projectId: string, blockKey: string, creativeFormat: CreativeFormat) => {
+    const block = allPhaseBlockMap[blockKey];
+    if (!block) return;
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return;
+    const isCreativePhase = block.title === "Creative Production" || block.title === "Creative Refresh";
+    const tasks = isCreativePhase ? creativeTasks[creativeFormat] : block.tasks;
+    const newPhase: Phase = {
+      id: `phase-${Date.now()}`,
+      title: block.title,
+      tasks: tasks.map((t, tIdx) => ({ id: `task-${Date.now()}-${tIdx}`, title: t, status: "todo" as TaskStatus })),
+    };
+    const newPhases = [...project.phases, newPhase];
+    setProjectsLocal((prev) => prev.map((p) => p.id === projectId ? { ...p, phases: newPhases } : p));
+    updateProjectDB(projectId, { phases: newPhases });
+    toast.success(`Phase "${block.title}" hinzugefügt`);
+  }, [projects]);
+
+  const removePhaseFromProject = useCallback((projectId: string, phaseId: string) => {
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return;
+    const newPhases = project.phases.filter((p) => p.id !== phaseId);
+    setProjectsLocal((prev) => prev.map((p) => p.id === projectId ? { ...p, phases: newPhases } : p));
+    updateProjectDB(projectId, { phases: newPhases });
+    toast.success("Phase entfernt");
+  }, [projects]);
+
+  const movePhaseInProject = useCallback((projectId: string, fromIdx: number, toIdx: number) => {
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return;
+    const newPhases = [...project.phases];
+    const [item] = newPhases.splice(fromIdx, 1);
+    newPhases.splice(toIdx, 0, item);
+    setProjectsLocal((prev) => prev.map((p) => p.id === projectId ? { ...p, phases: newPhases } : p));
+    updateProjectDB(projectId, { phases: newPhases });
+  }, [projects]);
+
+  // =====================================================================
+  // PROJECT DETAIL VIEW
+  // =====================================================================
   if (selectedProject) {
     const progress = getProjectProgress(selectedProject);
-    const status = getProjectStatus(selectedProject);
     const currentPhase = getCurrentPhase(selectedProject);
+    const health = getHealthScore(selectedProject);
+    const daysRunningDetail = getDaysRunning(selectedProject);
+    const daysLeftDetail = getDaysLeft(selectedProject);
+    const status = getProjectStatus(selectedProject);
 
     return (
       <div className="space-y-6">
-        {/* Back + Header */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={() => { setSelectedProjectId(null); setExpandedPhases(new Set()); }}>
-              <ArrowLeft className="h-4 w-4" />Zurück
-            </Button>
-            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteProject(selectedProject.id)}>
-              <Trash2 className="h-3.5 w-3.5" />Löschen
-            </Button>
+        {/* Breadcrumb + Back */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-sm">
+            <button onClick={goBack} className="text-muted-foreground hover:text-foreground transition-colors">Projekte</button>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
+            <span className="text-muted-foreground">{selectedProject.client}</span>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
+            <span className="font-medium">{selectedProject.name}</span>
           </div>
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="text-sm text-muted-foreground">{selectedProject.client}</span>
-                <span className="text-muted-foreground/30">·</span>
-                <span className="text-sm text-muted-foreground">{selectedProject.product}</span>
-                <Badge className={`${projectTypeMap[selectedProject.type].color} text-white text-[9px] px-1.5 py-0`}>
-                  {projectTypeMap[selectedProject.type].label}
-                </Badge>
-                <Badge variant="outline" className="text-[9px] px-1.5 py-0">
-                  {creativeFormats.find((f) => f.value === selectedProject.creativeFormat)?.icon}{" "}
-                  {creativeFormats.find((f) => f.value === selectedProject.creativeFormat)?.label}
-                </Badge>
-              </div>
-              <h1 className="text-2xl font-semibold tracking-tight">{selectedProject.name}</h1>
-            </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold tracking-tight">{progress}%</div>
-              <div className="text-xs text-muted-foreground">abgeschlossen</div>
-            </div>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl font-bold tabular-nums">{progress}%</span>
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive h-8 px-2" onClick={() => handleDeleteProject(selectedProject.id)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
 
-        {/* Progress bar + meta */}
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-4 mb-4">
-              <Badge className={`${status.color} text-white text-xs`}>{status.label}</Badge>
-              <span className="text-xs text-muted-foreground">Start: {selectedProject.startDate}</span>
-              <div className="flex items-center gap-1.5 ml-auto">
-                {teamMembers.map((m) => {
-                  const isAssigned = selectedProject.assignees.includes(m);
-                  return (
-                    <button
-                      key={m}
-                      onClick={() => {
-                        const newAssignees = isAssigned
-                          ? selectedProject.assignees.filter((a) => a !== m)
-                          : [...selectedProject.assignees, m];
-                        setProjectsLocal((prev) => prev.map((p) => p.id === selectedProject.id ? { ...p, assignees: newAssignees } : p));
-                        updateProjectDB(selectedProject.id, { assignees: newAssignees });
-                      }}
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-all ${
-                        isAssigned
-                          ? "bg-primary text-primary-foreground ring-1 ring-primary/30"
-                          : "bg-muted text-muted-foreground hover:bg-muted/80 ring-1 ring-border"
-                      }`}
-                    >
-                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-white/20 text-[9px] font-bold">{m[0]}</span>
-                      {m}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Phase progress pipeline */}
-            <div className="flex gap-1 h-3 rounded-full overflow-hidden">
-              {selectedProject.phases.map((phase, idx) => {
-                const pProg = getPhaseProgress(phase);
-                const isCurrent = phase.id === currentPhase?.id;
-                return (
-                  <div
-                    key={phase.id}
-                    className="flex-1 bg-muted/50 rounded-sm overflow-hidden relative"
-                  >
-                    <div
-                      className={`h-full transition-all ${phaseColors[idx % phaseColors.length]} ${pProg === 100 ? "" : "opacity-80"}`}
-                      style={{ width: `${pProg}%` }}
-                    />
-                    {isCurrent && pProg < 100 && (
-                      <div className="absolute right-0 top-0 bottom-0 w-1 bg-foreground/20 animate-pulse" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex mt-1.5">
-              {selectedProject.phases.map((phase, idx) => (
-                <div key={phase.id} className="flex-1 text-center">
-                  <span className="text-[8px] text-muted-foreground/60 uppercase tracking-wider leading-none">
-                    {idx + 1}
-                  </span>
-                </div>
+        {/* Two-column layout */}
+        <div className="flex gap-6 items-start">
+          {/* LEFT — main content ~70% */}
+          <div className="flex-1 min-w-0 space-y-4">
+            {/* Tab bar */}
+            <div className="flex items-center gap-1 border-b border-border">
+              {([
+                { key: "pipeline" as const, label: "Pipeline", icon: ListChecks },
+                ...(selectedProject.onboarding ? [{ key: "onboarding" as const, label: "Onboarding", icon: ClipboardList }] : []),
+                { key: "briefing" as const, label: "Briefing", icon: FileText },
+                { key: "comments" as const, label: "Kommentare", icon: MessageSquare },
+              ] as { key: typeof detailTab; label: string; icon: typeof ListChecks }[]).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setDetailTab(tab.key)}
+                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                    detailTab === tab.key
+                      ? "border-foreground text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <tab.icon className="h-3.5 w-3.5" />
+                  {tab.label}
+                  {tab.key === "comments" && selectedProject.comments.length > 0 && (
+                    <span className="text-[10px] tabular-nums text-muted-foreground">{selectedProject.comments.length}</span>
+                  )}
+                </button>
               ))}
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Detail Tabs */}
-        <Tabs defaultValue="pipeline">
-          <TabsList>
-            <TabsTrigger value="pipeline" className="gap-1.5"><ListChecks className="h-3.5 w-3.5" />Pipeline</TabsTrigger>
-            {selectedProject.onboarding && (
-              <TabsTrigger value="onboarding" className="gap-1.5"><ClipboardList className="h-3.5 w-3.5" />Onboarding</TabsTrigger>
-            )}
-            <TabsTrigger value="briefing" className="gap-1.5"><FileText className="h-3.5 w-3.5" />Briefing & Infos</TabsTrigger>
-            <TabsTrigger value="comments" className="gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5" />
-              Kommentare
-              {selectedProject.comments.length > 0 && (
-                <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary px-1">
-                  {selectedProject.comments.length}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
-
-          {/* PIPELINE TAB */}
-          <TabsContent value="pipeline" className="space-y-3 mt-4">
-            {/* Empty pipeline — choose project type */}
-            {selectedProject.phases.length === 0 && (
-              <Card>
-                <CardContent className="p-6">
-                  <div className="text-center mb-5">
-                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                      <ListChecks className="h-6 w-6 text-primary" />
-                    </div>
-                    <h3 className="text-lg font-semibold">Pipeline einrichten</h3>
-                    <p className="text-sm text-muted-foreground mt-1">Wähle den Projekttyp — die passenden Phasen werden automatisch erstellt.</p>
+            {/* PIPELINE TAB */}
+            {detailTab === "pipeline" && (
+              <div className="space-y-2">
+                {/* Editor toggle */}
+                {selectedProject.phases.length > 0 && (
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-xs text-muted-foreground">{selectedProject.phases.length} Phasen · {selectedProject.phases.reduce((s, p) => s + p.tasks.length, 0)} Tasks</span>
+                    <Button
+                      variant={pipelineEditing ? "default" : "ghost"}
+                      size="sm"
+                      className="gap-1.5 h-7 text-xs"
+                      onClick={() => setPipelineEditing(!pipelineEditing)}
+                    >
+                      <Wrench className="h-3 w-3" />{pipelineEditing ? "Fertig" : "Bearbeiten"}
+                    </Button>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {projectTypes.filter((pt) => pt.value !== "custom").map((pt) => (
-                      <button
-                        key={pt.value}
-                        onClick={() => {
+                )}
+
+                {/* Pipeline Editor */}
+                {pipelineEditing && selectedProject.phases.length > 0 && (
+                  <div className="rounded-lg border border-primary/20 bg-primary/[0.02] p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-xs font-semibold">Pipeline-Baukasten</span>
+                    </div>
+                    <div className="space-y-1">
+                      {selectedProject.phases.map((phase, idx) => {
+                        const pProg = getPhaseProgress(phase);
+                        return (
+                          <div key={phase.id} className="flex items-center gap-2 rounded-md border bg-card px-2.5 py-1.5">
+                            <div className="flex gap-0.5 shrink-0">
+                              <button className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-20" disabled={idx === 0} onClick={() => movePhaseInProject(selectedProject.id, idx, idx - 1)}><ChevronUp className="h-3 w-3" /></button>
+                              <button className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-20" disabled={idx === selectedProject.phases.length - 1} onClick={() => movePhaseInProject(selectedProject.id, idx, idx + 1)}><ChevronDown className="h-3 w-3" /></button>
+                            </div>
+                            <span className="text-[10px] font-bold text-primary w-4 text-center">{idx + 1}</span>
+                            <span className="text-xs font-medium flex-1">{phase.title}</span>
+                            <span className="text-[10px] text-muted-foreground tabular-nums">{phase.tasks.filter((t) => t.status === "done").length}/{phase.tasks.length}</span>
+                            <div className="w-10 h-1 rounded-full bg-muted overflow-hidden">
+                              <div className={`h-full rounded-full ${pProg === 100 ? "bg-emerald-500" : "bg-primary"}`} style={{ width: `${pProg}%` }} />
+                            </div>
+                            <button className="p-0.5 text-muted-foreground hover:text-destructive transition-colors" onClick={() => removePhaseFromProject(selectedProject.id, phase.id)}><Trash2 className="h-3 w-3" /></button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Add phase blocks */}
+                    {allPhaseBlocks.filter((b) => !selectedProject.phases.some((p) => p.title === b.title)).length > 0 && (
+                      <>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold pt-1">Phase hinzufügen</div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                          {allPhaseBlocks.filter((b) => !selectedProject.phases.some((p) => p.title === b.title)).map((block) => (
+                            <button key={block.key} onClick={() => addPhaseToProject(selectedProject.id, block.key, selectedProject.creativeFormat)} className="text-left rounded-md border border-dashed px-2.5 py-2 hover:border-primary/40 hover:bg-primary/5 transition-all">
+                              <div className="flex items-center gap-1.5">
+                                <Plus className="h-3 w-3 text-primary shrink-0" />
+                                <span className="text-xs font-medium">{block.title}</span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground mt-0.5 ml-[18px]">{block.tasks.length} Tasks</p>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Empty state — pick pipeline type */}
+                {selectedProject.phases.length === 0 && (
+                  <div className="rounded-lg border p-6">
+                    <div className="text-center mb-5">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
+                        <ListChecks className="h-5 w-5 text-primary" />
+                      </div>
+                      <h3 className="text-sm font-semibold">Pipeline einrichten</h3>
+                      <p className="text-xs text-muted-foreground mt-1">Projekttyp waehlen — Phasen werden automatisch erstellt.</p>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {projectTypes.filter((pt) => pt.value !== "custom").map((pt) => (
+                        <button key={pt.value} onClick={() => {
                           const newPhases = createPhases(pt.value, undefined, selectedProject.creativeFormat);
                           setProjectsLocal((prev) => prev.map((p) => p.id === selectedProject.id ? { ...p, type: pt.value, phases: newPhases } : p));
                           updateProjectDB(selectedProject.id, { type: pt.value, phases: newPhases });
                           toast.success(`Pipeline "${pt.label}" erstellt`);
-                        }}
-                        className="text-left rounded-xl border p-4 hover:border-primary/40 hover:bg-primary/5 transition-all group"
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`h-2.5 w-2.5 rounded-full ${pt.color}`} />
-                          <span className="text-sm font-semibold group-hover:text-primary transition-colors">{pt.label}</span>
-                          {(pt as any).badge && <span className={`text-[9px] font-bold rounded px-1.5 py-0.5 ${(pt as any).badge === "DWY" ? "bg-red-500/15 text-red-500" : "bg-emerald-500/15 text-emerald-500"}`}>{(pt as any).badge}</span>}
-                        </div>
-                        <p className="text-xs text-muted-foreground">{pt.description}</p>
-                        <p className="text-[10px] text-muted-foreground/60 mt-2">{phaseTemplates[pt.value]?.length || 0} Phasen</p>
-                      </button>
-                    ))}
-                    {/* Custom option */}
-                    <button
-                      onClick={() => {
+                        }} className="text-left rounded-lg border p-3 hover:border-primary/30 hover:bg-primary/5 transition-all group">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className={`h-2 w-2 rounded-full ${pt.color}`} />
+                            <span className="text-xs font-semibold group-hover:text-primary">{pt.label}</span>
+                            {pt.badge && <span className={`text-[9px] font-bold rounded px-1 py-0 ${pt.badge === "DWY" ? "bg-red-500/15 text-red-500" : "bg-emerald-500/15 text-emerald-500"}`}>{pt.badge}</span>}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground ml-4">{pt.description}</p>
+                        </button>
+                      ))}
+                      <button onClick={() => {
                         const allKeys = allPhaseBlocks.map((b) => b.key);
                         const newPhases = createPhases("custom" as ProjectType, allKeys, selectedProject.creativeFormat);
                         setProjectsLocal((prev) => prev.map((p) => p.id === selectedProject.id ? { ...p, type: "custom" as ProjectType, phases: newPhases } : p));
                         updateProjectDB(selectedProject.id, { type: "custom" as ProjectType, phases: newPhases });
-                        toast.success("Custom Pipeline erstellt — du kannst Phasen entfernen");
-                      }}
-                      className="text-left rounded-xl border border-dashed p-4 hover:border-primary/40 hover:bg-primary/5 transition-all group"
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Wrench className="h-3.5 w-3.5 text-pink-500" />
-                        <span className="text-sm font-semibold group-hover:text-primary transition-colors">Custom Projekt</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Alle Phasen — entferne was du nicht brauchst.</p>
-                    </button>
+                        toast.success("Custom Pipeline erstellt");
+                      }} className="text-left rounded-lg border border-dashed p-3 hover:border-primary/30 hover:bg-primary/5 transition-all group">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <Wrench className="h-3 w-3 text-pink-500" />
+                          <span className="text-xs font-semibold group-hover:text-primary">Custom Projekt</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground ml-5">Alle Phasen — entferne was du nicht brauchst.</p>
+                      </button>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
 
-            {selectedProject.phases.map((phase, phaseIdx) => {
-              const pProg = getPhaseProgress(phase);
-              const isExpanded = expandedPhases.has(phase.id) || phase.id === currentPhase?.id;
-              const isCurrent = phase.id === currentPhase?.id;
-              const allDone = pProg === 100;
-              const doneTasks = phase.tasks.filter((t) => t.status === "done").length;
+                {/* Phase cards */}
+                {selectedProject.phases.map((phase, phaseIdx) => {
+                  const pProg = getPhaseProgress(phase);
+                  const isExpanded = expandedPhases.has(phase.id) || phase.id === currentPhase?.id;
+                  const isCurrent = phase.id === currentPhase?.id;
+                  const allPhaseDone = pProg === 100;
+                  const doneTasks = phase.tasks.filter((t) => t.status === "done").length;
 
-              return (
-                <Card
-                  key={phase.id}
-                  className={`transition-all ${isCurrent ? "ring-1 ring-primary/30 shadow-sm" : ""} ${allDone ? "opacity-75" : ""}`}
-                >
-                  <button
-                    className="w-full text-left p-4 flex items-center gap-3"
-                    onClick={() => togglePhase(phase.id)}
-                  >
-                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${allDone ? "bg-emerald-500/10" : isCurrent ? "bg-primary/10" : "bg-muted"}`}>
-                      {allDone ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                      ) : (
-                        <span className={`text-sm font-bold ${isCurrent ? "text-primary" : "text-muted-foreground"}`}>{phaseIdx + 1}</span>
+                  return (
+                    <div key={phase.id} className={`rounded-lg border transition-all ${isCurrent ? "border-primary/30 bg-primary/[0.02]" : ""} ${allPhaseDone ? "opacity-60" : ""}`}>
+                      <button className="w-full text-left px-4 py-3 flex items-center gap-3" onClick={() => togglePhase(phase.id)}>
+                        <div className={`h-6 w-6 rounded-md flex items-center justify-center shrink-0 text-xs font-bold ${allPhaseDone ? "bg-emerald-500/10 text-emerald-500" : isCurrent ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                          {allPhaseDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : phaseIdx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-medium ${allPhaseDone ? "line-through text-muted-foreground" : ""}`}>{phase.title}</span>
+                            {isCurrent && !allPhaseDone && <span className="text-[10px] text-primary font-medium">Aktuell</span>}
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground tabular-nums mr-2">{doneTasks}/{phase.tasks.length}</span>
+                        <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden shrink-0 mr-2">
+                          <div className={`h-full rounded-full transition-all ${allPhaseDone ? "bg-emerald-500" : phaseColors[phaseIdx % phaseColors.length]}`} style={{ width: `${pProg}%` }} />
+                        </div>
+                        {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                      </button>
+                      {isExpanded && (
+                        <div className="px-4 pb-3">
+                          <div className="ml-9 space-y-0.5 border-l border-border/50 pl-4">
+                            {phase.tasks.map((task) => (
+                              <div key={task.id} className="flex items-center gap-2.5 py-1 group cursor-pointer rounded-sm hover:bg-muted/30 px-1 -mx-1 transition-colors" onClick={() => toggleTask(selectedProject.id, phase.id, task.id)}>
+                                <Checkbox checked={task.status === "done"} className="shrink-0 h-3.5 w-3.5" onCheckedChange={() => toggleTask(selectedProject.id, phase.id, task.id)} />
+                                <span className={`text-sm ${task.status === "done" ? "line-through text-muted-foreground" : "text-foreground"}`}>{task.title}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm font-semibold ${allDone ? "line-through text-muted-foreground" : ""}`}>{phase.title}</span>
-                        {isCurrent && !allDone && (
-                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0">Aktuell</Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden max-w-[200px]">
-                          <div className={`h-full rounded-full transition-all ${allDone ? "bg-emerald-500" : phaseColors[phaseIdx % phaseColors.length]}`} style={{ width: `${pProg}%` }} />
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ONBOARDING TAB */}
+            {detailTab === "onboarding" && selectedProject.onboarding && (() => {
+              const ob = selectedProject.onboarding as Record<string, unknown>;
+              const sections: { title: string; icon: typeof Building2; fields: { label: string; value: unknown }[] }[] = [
+                { title: "Agentur", icon: Building2, fields: [
+                  { label: "Firmenname", value: ob.companyName }, { label: "Website", value: ob.website }, { label: "Teamgroesse", value: ob.teamSize },
+                  { label: "Ansprechpartner", value: ob.contactName }, { label: "E-Mail", value: ob.contactEmail }, { label: "Telefon", value: ob.contactPhone },
+                  { label: "Services", value: Array.isArray(ob.services) ? (ob.services as string[]).join(", ") : ob.services },
+                ]},
+                { title: "Angebot & USP", icon: FileText, fields: [
+                  { label: "Hauptangebot", value: ob.mainOffer }, { label: "Preisrange", value: ob.priceRange },
+                  { label: "USP", value: ob.usp }, { label: "Case Studies", value: ob.caseStudies }, { label: "Aktuelle Kunden", value: ob.currentClients },
+                ]},
+                { title: "Traumkunden", icon: Target, fields: [
+                  { label: "Idealer Kunde", value: ob.idealClient }, { label: "Zielbranchen", value: Array.isArray(ob.idealIndustry) ? (ob.idealIndustry as string[]).join(", ") : ob.idealIndustry },
+                  { label: "Kundenbudget", value: ob.idealBudget }, { label: "Pain Points", value: ob.clientProblems },
+                ]},
+                { title: "Aktuelle Kundengewinnung", icon: MessageSquare, fields: [
+                  { label: "Marketing-Kanaele", value: Array.isArray(ob.currentMarketing) ? (ob.currentMarketing as string[]).join(", ") : ob.currentMarketing },
+                  { label: "Anfragen / Monat", value: ob.monthlyLeads }, { label: "Closing Rate", value: ob.closingRate }, { label: "Groesste Herausforderung", value: ob.biggestChallenge },
+                ]},
+                { title: "Ads & Budget", icon: DollarSign, fields: [
+                  { label: "Ad-Erfahrung", value: ob.adExperience }, { label: "Kampagnenziel", value: ob.adGoal },
+                  { label: "Monatliches Ad-Budget", value: ob.monthlyAdBudget }, { label: "Ziel Leads / Monat", value: ob.targetLeadsPerMonth }, { label: "Gewuenschter Start", value: ob.timeline },
+                ]},
+                { title: "Material & Assets", icon: ClipboardList, fields: [
+                  { label: "Google Drive / Dropbox Link", value: ob.driveLink }, { label: "Bisherige Ad-Erfahrung", value: ob.existingAds },
+                ]},
+                { title: "Zugaenge & Technisches", icon: KeyRound, fields: [
+                  { label: "Business Manager ID", value: ob.metaBusinessManager }, { label: "Ad Account ID", value: ob.adAccountId },
+                  { label: "Pixel ID", value: ob.pixelId }, { label: "Landingpage fuer Ads", value: ob.websiteForAds }, { label: "Sonstige Notizen", value: ob.additionalNotes },
+                ]},
+              ];
+              return (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {sections.map((section) => {
+                    const hasData = section.fields.some((f) => f.value);
+                    if (!hasData) return null;
+                    const Icon = section.icon;
+                    return (
+                      <div key={section.title} className="rounded-lg border p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Icon className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium">{section.title}</span>
                         </div>
-                        <span className="text-[10px] text-muted-foreground tabular-nums">{doneTasks}/{phase.tasks.length}</span>
+                        <div className="space-y-2">
+                          {section.fields.map((field) => {
+                            if (!field.value) return null;
+                            const isLong = typeof field.value === "string" && field.value.length > 60;
+                            return (
+                              <div key={field.label} className={isLong ? "" : "flex items-start justify-between gap-4"}>
+                                <span className="text-xs text-muted-foreground shrink-0">{field.label}</span>
+                                <span className={`text-sm font-medium ${isLong ? "block mt-0.5" : "text-right"}`}>{String(field.value)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                    {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
-                  </button>
-
-                  {isExpanded && (
-                    <CardContent className="pt-0 pb-4 px-4">
-                      <div className="ml-11 space-y-1 border-l-2 border-border/50 pl-4">
-                        {phase.tasks.map((task) => (
-                          <div
-                            key={task.id}
-                            className="flex items-center gap-3 py-1.5 group cursor-pointer"
-                            onClick={() => toggleTask(selectedProject.id, phase.id, task.id)}
-                          >
-                            <Checkbox
-                              checked={task.status === "done"}
-                              className="shrink-0"
-                              onCheckedChange={() => toggleTask(selectedProject.id, phase.id, task.id)}
-                            />
-                            <span className={`text-sm ${task.status === "done" ? "line-through text-muted-foreground" : "text-foreground"} group-hover:text-primary transition-colors`}>
-                              {task.title}
-                            </span>
-                            {task.status === "in-progress" && (
-                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 ml-auto text-primary border-primary/30">
-                                In Arbeit
-                              </Badge>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
+                    );
+                  })}
+                </div>
               );
-            })}
-          </TabsContent>
+            })()}
 
-          {/* ONBOARDING TAB */}
-          {selectedProject.onboarding && (
-            <TabsContent value="onboarding" className="space-y-4 mt-4">
-              {(() => {
-                const ob = selectedProject.onboarding as Record<string, unknown>;
-                const sections: { title: string; icon: typeof Building2; fields: { label: string; value: unknown }[] }[] = [
-                  {
-                    title: "Agentur",
-                    icon: Building2,
-                    fields: [
-                      { label: "Firmenname", value: ob.companyName },
-                      { label: "Website", value: ob.website },
-                      { label: "Teamgröße", value: ob.teamSize },
-                      { label: "Ansprechpartner", value: ob.contactName },
-                      { label: "E-Mail", value: ob.contactEmail },
-                      { label: "Telefon", value: ob.contactPhone },
-                      { label: "Services", value: Array.isArray(ob.services) ? (ob.services as string[]).join(", ") : ob.services },
-                    ],
-                  },
-                  {
-                    title: "Angebot & USP",
-                    icon: FileText,
-                    fields: [
-                      { label: "Hauptangebot", value: ob.mainOffer },
-                      { label: "Preisrange", value: ob.priceRange },
-                      { label: "USP", value: ob.usp },
-                      { label: "Case Studies", value: ob.caseStudies },
-                      { label: "Aktuelle Kunden", value: ob.currentClients },
-                    ],
-                  },
-                  {
-                    title: "Traumkunden",
-                    icon: Target,
-                    fields: [
-                      { label: "Idealer Kunde", value: ob.idealClient },
-                      { label: "Zielbranchen", value: Array.isArray(ob.idealIndustry) ? (ob.idealIndustry as string[]).join(", ") : ob.idealIndustry },
-                      { label: "Kundenbudget", value: ob.idealBudget },
-                      { label: "Pain Points", value: ob.clientProblems },
-                    ],
-                  },
-                  {
-                    title: "Aktuelle Kundengewinnung",
-                    icon: MessageSquare,
-                    fields: [
-                      { label: "Marketing-Kanäle", value: Array.isArray(ob.currentMarketing) ? (ob.currentMarketing as string[]).join(", ") : ob.currentMarketing },
-                      { label: "Anfragen / Monat", value: ob.monthlyLeads },
-                      { label: "Closing Rate", value: ob.closingRate },
-                      { label: "Größte Herausforderung", value: ob.biggestChallenge },
-                    ],
-                  },
-                  {
-                    title: "Ads & Budget",
-                    icon: DollarSign,
-                    fields: [
-                      { label: "Ad-Erfahrung", value: ob.adExperience },
-                      { label: "Kampagnenziel", value: ob.adGoal },
-                      { label: "Monatliches Ad-Budget", value: ob.monthlyAdBudget },
-                      { label: "Ziel Leads / Monat", value: ob.targetLeadsPerMonth },
-                      { label: "Gewünschter Start", value: ob.timeline },
-                    ],
-                  },
-                  {
-                    title: "Material & Assets",
-                    icon: ClipboardList,
-                    fields: [
-                      { label: "Google Drive / Dropbox Link", value: ob.driveLink },
-                      { label: "Bisherige Ad-Erfahrung", value: ob.existingAds },
-                    ],
-                  },
-                  {
-                    title: "Zugänge & Technisches",
-                    icon: KeyRound,
-                    fields: [
-                      { label: "Business Manager ID", value: ob.metaBusinessManager },
-                      { label: "Ad Account ID", value: ob.adAccountId },
-                      { label: "Pixel ID", value: ob.pixelId },
-                      { label: "Landingpage für Ads", value: ob.websiteForAds },
-                      { label: "Sonstige Notizen", value: ob.additionalNotes },
-                    ],
-                  },
-                ];
-
-                const iconMap: Record<string, typeof Building2> = {
-                  "Agentur": Building2,
-                  "Angebot & USP": FileText,
-                  "Traumkunden": Target,
-                  "Aktuelle Kundengewinnung": MessageSquare,
-                  "Ads & Budget": DollarSign,
-                  "Material & Assets": ClipboardList,
-                  "Zugänge & Technisches": KeyRound,
-                };
-
-                return (
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    {sections.map((section) => {
-                      const Icon = iconMap[section.title] || FileText;
-                      const hasData = section.fields.some((f) => f.value);
-                      if (!hasData) return null;
-                      return (
-                        <Card key={section.title}>
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2">
-                              <Icon className="h-4 w-4 text-primary" />{section.title}
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-2.5">
-                              {section.fields.map((field) => {
-                                if (!field.value) return null;
-                                const isLong = typeof field.value === "string" && field.value.length > 60;
-                                return (
-                                  <div key={field.label} className={isLong ? "" : "flex items-start justify-between gap-4"}>
-                                    <span className="text-xs text-muted-foreground shrink-0">{field.label}</span>
-                                    <span className={`text-sm font-medium ${isLong ? "block mt-0.5" : "text-right"}`}>
-                                      {String(field.value)}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+            {/* BRIEFING TAB */}
+            {detailTab === "briefing" && (
+              <div className="space-y-4">
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Briefing</Label>
+                    <Textarea placeholder="Was will der Kunde? Ziele, Budget, Zeitrahmen, besondere Wuensche..." rows={6}
+                      value={selectedProject.briefing}
+                      onChange={(e) => updateProjectFieldLocal(selectedProject.id, "briefing", e.target.value)}
+                      onBlur={(e) => saveProjectField(selectedProject.id, "briefing", e.target.value)}
+                      className="resize-none" />
                   </div>
-                );
-              })()}
-            </TabsContent>
-          )}
-
-          {/* BRIEFING & INFOS TAB */}
-          <TabsContent value="briefing" className="space-y-4 mt-4">
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-primary" />Briefing
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Textarea
-                    placeholder="Was will der Kunde? Ziele, Budget, Zeitrahmen, besondere Wünsche..."
-                    rows={6}
-                    value={selectedProject.briefing}
-                    onChange={(e) => updateProjectFieldLocal(selectedProject.id, "briefing", e.target.value)}
-                    onBlur={(e) => saveProjectField(selectedProject.id, "briefing", e.target.value)}
-                    className="resize-none"
-                  />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-primary" />Meeting-Notizen
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Textarea
-                    placeholder="Notizen aus Kick-off, Calls, Meetings..."
-                    rows={6}
-                    value={selectedProject.meetingNotes}
-                    onChange={(e) => updateProjectFieldLocal(selectedProject.id, "meetingNotes", e.target.value)}
-                    onBlur={(e) => saveProjectField(selectedProject.id, "meetingNotes", e.target.value)}
-                    className="resize-none"
-                  />
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Zielgruppe</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Textarea
-                    placeholder="Wer soll angesprochen werden? Alter, Interessen, Verhalten..."
-                    rows={4}
-                    value={selectedProject.targetAudience}
-                    onChange={(e) => updateProjectFieldLocal(selectedProject.id, "targetAudience", e.target.value)}
-                    onBlur={(e) => saveProjectField(selectedProject.id, "targetAudience", e.target.value)}
-                    className="resize-none"
-                  />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Angebot / Offer</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Textarea
-                    placeholder="Was ist das Angebot? Rabatt, Freebie, Trial..."
-                    rows={4}
-                    value={selectedProject.offer}
-                    onChange={(e) => updateProjectFieldLocal(selectedProject.id, "offer", e.target.value)}
-                    onBlur={(e) => saveProjectField(selectedProject.id, "offer", e.target.value)}
-                    className="resize-none"
-                  />
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Project Meta */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Projektdetails</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-3 sm:grid-cols-5">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Kunde</Label>
-                    <p className="text-sm font-medium mt-0.5">{selectedProject.client}</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Offer</Label>
-                    <p className="text-sm font-medium mt-0.5">{selectedProject.product}</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Start</Label>
-                    <p className="text-sm font-medium mt-0.5">{selectedProject.startDate}</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Deadline</Label>
-                    <Input
-                      type="date"
-                      className="h-8 mt-0.5 text-sm"
-                      value={selectedProject.deadline || ""}
-                      onChange={(e) => updateProjectFieldLocal(selectedProject.id, "deadline", e.target.value)}
-                      onBlur={(e) => saveProjectField(selectedProject.id, "deadline", e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Team</Label>
-                    <div className="flex gap-1 mt-0.5">
-                      {selectedProject.assignees.map((a) => (
-                        <span key={a} className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{a}</span>
-                      ))}
-                    </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Meeting-Notizen</Label>
+                    <Textarea placeholder="Notizen aus Kick-off, Calls, Meetings..." rows={6}
+                      value={selectedProject.meetingNotes}
+                      onChange={(e) => updateProjectFieldLocal(selectedProject.id, "meetingNotes", e.target.value)}
+                      onBlur={(e) => saveProjectField(selectedProject.id, "meetingNotes", e.target.value)}
+                      className="resize-none" />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Zielgruppe</Label>
+                    <Textarea placeholder="Wer soll angesprochen werden? Alter, Interessen, Verhalten..." rows={4}
+                      value={selectedProject.targetAudience}
+                      onChange={(e) => updateProjectFieldLocal(selectedProject.id, "targetAudience", e.target.value)}
+                      onBlur={(e) => saveProjectField(selectedProject.id, "targetAudience", e.target.value)}
+                      className="resize-none" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Angebot / Offer</Label>
+                    <Textarea placeholder="Was ist das Angebot? Rabatt, Freebie, Trial..." rows={4}
+                      value={selectedProject.offer}
+                      onChange={(e) => updateProjectFieldLocal(selectedProject.id, "offer", e.target.value)}
+                      onBlur={(e) => saveProjectField(selectedProject.id, "offer", e.target.value)}
+                      className="resize-none" />
+                  </div>
+                </div>
+                {/* Links */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Links & Ressourcen</Label>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {[
+                      { icon: FolderOpen, label: "Google Drive", placeholder: "Drive-Link einfuegen..." },
+                      { icon: Globe, label: "Landingpage", placeholder: "URL der Landingpage..." },
+                      { icon: BarChart3, label: "Ad Manager", placeholder: "Ad Account Link..." },
+                    ].map((link) => (
+                      <div key={link.label} className="flex items-center gap-2 rounded-md border border-dashed px-2.5 py-2 hover:border-primary/30 transition-colors">
+                        <link.icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[10px] text-muted-foreground">{link.label}</div>
+                          <Input placeholder={link.placeholder} className="h-5 text-xs border-0 p-0 shadow-none focus-visible:ring-0" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
-          {/* KOMMENTARE TAB */}
-          <TabsContent value="comments" className="mt-4">
-            <Card>
-              <CardContent className="p-4">
-                {/* Comment Input */}
-                <div className="flex gap-3 mb-4">
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
-                    <span className="text-xs font-bold text-primary">A</span>
+            {/* COMMENTS TAB */}
+            {detailTab === "comments" && (
+              <div className="space-y-4">
+                {/* Composer */}
+                <div className="flex gap-3">
+                  <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
+                    <span className="text-[10px] font-bold text-primary">A</span>
                   </div>
                   <div className="flex-1">
-                    <Textarea
-                      placeholder="Kommentar schreiben... (Updates, Feedback, Notizen)"
-                      rows={3}
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      className="resize-none"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                          addComment(selectedProject.id);
-                        }
-                      }}
-                    />
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-[10px] text-muted-foreground">Cmd+Enter zum Senden</span>
-                      <Button size="sm" onClick={() => addComment(selectedProject.id)} disabled={!commentText.trim()}>
-                        <Send className="h-3.5 w-3.5 mr-1.5" />Senden
+                    <Textarea placeholder="Kommentar schreiben..." rows={2}
+                      value={commentText} onChange={(e) => setCommentText(e.target.value)} className="resize-none text-sm"
+                      onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addComment(selectedProject.id); }} />
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-[10px] text-muted-foreground">Cmd+Enter</span>
+                      <Button size="sm" className="h-7 text-xs" onClick={() => addComment(selectedProject.id)} disabled={!commentText.trim()}>
+                        <Send className="h-3 w-3 mr-1" />Senden
                       </Button>
                     </div>
                   </div>
                 </div>
-
-                <Separator className="my-4" />
-
-                {/* Comments List */}
+                <Separator />
                 {selectedProject.comments.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <div className="text-center py-10 text-muted-foreground">
+                    <MessageSquare className="h-6 w-6 mx-auto mb-2 opacity-20" />
                     <p className="text-sm">Noch keine Kommentare.</p>
-                    <p className="text-xs mt-1">Halte hier Updates, Feedback und Notizen fest.</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {[...selectedProject.comments].reverse().map((comment) => (
                       <div key={comment.id} className="flex gap-3 group">
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          <span className="text-xs font-bold text-primary">{comment.author[0]}</span>
+                        <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <span className="text-[10px] font-bold text-primary">{comment.author[0]}</span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold">{comment.author}</span>
+                            <span className="text-sm font-medium">{comment.author}</span>
                             <span className="text-[10px] text-muted-foreground">{comment.timestamp}</span>
-                            <button
-                              onClick={() => deleteComment(selectedProject.id, comment.id)}
-                              className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
+                            <button onClick={() => deleteComment(selectedProject.id, comment.id)} className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"><Trash2 className="h-3 w-3" /></button>
                           </div>
                           <p className="text-sm text-muted-foreground mt-0.5 whitespace-pre-wrap">{comment.text}</p>
                         </div>
@@ -1161,109 +1238,251 @@ export default function ProjectManager() {
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT — sidebar ~30% */}
+          <div className="w-72 shrink-0 space-y-4 sticky top-4">
+            {/* Status + Health */}
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Status</span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`h-2 w-2 rounded-full ${health.status === "green" ? "bg-emerald-500" : health.status === "yellow" ? "bg-amber-500" : "bg-red-500"}`} />
+                  <span className="text-xs font-medium">{status.label}</span>
+                </div>
+              </div>
+              <Separator />
+
+              {/* Laufzeit */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Laufzeit</span>
+                <span className="text-xs font-medium">{daysRunningDetail ?? 0} Tage</span>
+              </div>
+
+              {/* Deadline */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Deadline</span>
+                <div className="flex items-center gap-1.5">
+                  {daysLeftDetail !== null ? (
+                    <span className={`text-xs font-medium ${daysLeftDetail < 0 ? "text-red-500" : daysLeftDetail <= 3 ? "text-amber-500" : ""}`}>
+                      {daysLeftDetail < 0 ? `${Math.abs(daysLeftDetail)}d ueber` : `${daysLeftDetail}d`}
+                    </span>
+                  ) : (
+                    <Input type="date" className="h-6 text-[10px] w-28 border-dashed" value={selectedProject.deadline || ""}
+                      onChange={(e) => updateProjectFieldLocal(selectedProject.id, "deadline", e.target.value)}
+                      onBlur={(e) => saveProjectField(selectedProject.id, "deadline", e.target.value)} />
+                  )}
+                </div>
+              </div>
+
+              {/* Team */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Team</span>
+                <div className="flex gap-1">
+                  {teamMembers.map((m) => {
+                    const isAssigned = selectedProject.assignees.includes(m);
+                    return (
+                      <button key={m} onClick={() => {
+                        const newAssignees = isAssigned ? selectedProject.assignees.filter((a) => a !== m) : [...selectedProject.assignees, m];
+                        setProjectsLocal((prev) => prev.map((p) => p.id === selectedProject.id ? { ...p, assignees: newAssignees } : p));
+                        updateProjectDB(selectedProject.id, { assignees: newAssignees });
+                      }} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-all ${isAssigned ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+                        <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white/20 text-[8px] font-bold">{m[0]}</span>
+                        {m}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Type + Creative Format */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Typ</span>
+                <Badge className={`${projectTypeMap[selectedProject.type].color} text-white text-[9px] px-1.5 py-0`}>{projectTypeMap[selectedProject.type].label}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Creative</span>
+                <span className="text-xs">
+                  {creativeFormats.find((f) => f.value === selectedProject.creativeFormat)?.icon}{" "}
+                  {creativeFormats.find((f) => f.value === selectedProject.creativeFormat)?.label}
+                </span>
+              </div>
+
+              {/* Start date */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Start</span>
+                <span className="text-xs font-medium">{selectedProject.startDate}</span>
+              </div>
+            </div>
+
+            {/* Phase Journey — vertical mini-timeline */}
+            {selectedProject.phases.length > 0 && (
+              <div className="rounded-lg border p-4">
+                <div className="text-xs font-medium mb-3">Phase Journey</div>
+                <div className="space-y-0">
+                  {selectedProject.phases.map((phase, idx) => {
+                    const pProg = getPhaseProgress(phase);
+                    const isCur = phase.id === currentPhase?.id;
+                    const isDone = pProg === 100;
+                    const isLast = idx === selectedProject.phases.length - 1;
+                    return (
+                      <div key={phase.id} className="flex gap-2.5">
+                        {/* Vertical line + dot */}
+                        <div className="flex flex-col items-center">
+                          <div className={`h-4 w-4 rounded-full flex items-center justify-center shrink-0 ${isDone ? "bg-emerald-500" : isCur ? "bg-primary ring-2 ring-primary/20" : "bg-muted"}`}>
+                            {isDone ? <CheckCircle2 className="h-2.5 w-2.5 text-white" /> : <span className={`text-[8px] font-bold ${isCur ? "text-white" : "text-muted-foreground"}`}>{idx + 1}</span>}
+                          </div>
+                          {!isLast && <div className={`w-px flex-1 min-h-[16px] ${isDone ? "bg-emerald-500/30" : "bg-border"}`} />}
+                        </div>
+                        {/* Label */}
+                        <div className="pb-2 min-w-0">
+                          <span className={`text-[11px] leading-tight ${isDone ? "text-muted-foreground" : isCur ? "text-foreground font-medium" : "text-muted-foreground/60"}`}>{phase.title}</span>
+                          {isCur && <span className="text-[9px] text-primary ml-1.5">Aktuell</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* CRM Opportunities (if any) */}
+            {closeLoading && (
+              <div className="rounded-lg border p-4 text-center">
+                <Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" />
+                <p className="text-[10px] text-muted-foreground mt-1">CRM laden...</p>
+              </div>
+            )}
+            {!closeLoading && closeLeadId && closeOpportunities.length > 0 && (
+              <div className="rounded-lg border p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium">CRM Deals</span>
+                  <button onClick={() => window.open(`https://app.close.com/lead/${closeLeadId}/`, "_blank")} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                    <ExternalLink className="h-3 w-3" />Close
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  {closeOpportunities.slice(0, 3).map((opp) => (
+                    <div key={opp.id} className="flex items-center justify-between gap-2">
+                      <span className={`text-[10px] px-1.5 py-0 rounded ${opp.status_type === "won" ? "bg-emerald-500/10 text-emerald-600" : opp.status_type === "lost" ? "bg-red-500/10 text-red-500" : "bg-muted text-muted-foreground"}`}>
+                        {opp.status_label || opp.status_type}
+                      </span>
+                      <span className="text-xs font-medium tabular-nums">
+                        {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(opp.value / 100)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {!closeLoading && !closeLeadId && (
+              <div className="rounded-lg border border-dashed p-3">
+                <div className="text-xs text-muted-foreground mb-2">CRM Lead verknuepfen</div>
+                <div className="flex gap-1.5">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2 top-1.5 h-3 w-3 text-muted-foreground" />
+                    <Input placeholder="Suchen..." className="h-6 text-[10px] pl-6" value={leadSearchQuery}
+                      onChange={(e) => setLeadSearchQuery(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") searchCloseLead(leadSearchQuery); }} />
+                  </div>
+                  <Button size="sm" className="h-6 w-6 p-0" onClick={() => searchCloseLead(leadSearchQuery.trim() || selectedProject.client)} disabled={leadSearching}>
+                    {leadSearching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+                  </Button>
+                </div>
+                {leadSearchResults.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {leadSearchResults.map((lead) => (
+                      <button key={lead.id} onClick={() => connectLead(lead.id)} className="w-full text-left rounded-md border px-2 py-1.5 text-[10px] hover:bg-muted/50 transition-colors">
+                        <span className="font-medium">{lead.name}</span>
+                        <span className="text-muted-foreground ml-1">{lead.status}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
 
-  // --- Overview ---
+  // =====================================================================
+  // OVERVIEW PAGE (project list)
+  // =====================================================================
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
+    <div className="space-y-4">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Projekte</h1>
-          <p className="text-sm text-muted-foreground">Alle Kundenprojekte und ihr Fortschritt.</p>
-          {/* Team Filter */}
-          <div className="flex items-center gap-1 mt-3">
-            {([
-              { key: "alle", label: "Alle" },
-              { key: "alex", label: "Alexander" },
-              { key: "daniel", label: "Daniel" },
-            ] as const).map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setViewFilter(f.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  viewFilter === f.key
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+          <h1 className="text-xl font-semibold tracking-tight">Projekte</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {filteredProjects.length} Projekte
+            {allActive.length > 0 && <> · <span className="text-foreground">{allActive.length}</span> Aktiv</>}
+            {allNew.length > 0 && <> · {allNew.length} Neu</>}
+            {allAtRisk.length > 0 && <> · <span className="text-amber-500">{allAtRisk.length} Achtung</span></>}
+            {allDoneProjects.length > 0 && <> · {allDoneProjects.length} Fertig</>}
+          </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <Button onClick={() => setDialogOpen(true)} size="sm">
-            <Plus className="mr-2 h-4 w-4" />Neues Projekt
+          <Button onClick={() => setDialogOpen(true)} size="sm" className="h-8 gap-1.5">
+            <Plus className="h-3.5 w-3.5" />Neues Projekt
           </Button>
+
+          {/* NEW PROJECT DIALOG */}
           <DialogContent className={form.type === "custom" ? "sm:max-w-xl max-h-[85vh] overflow-y-auto" : "sm:max-w-md"}>
             <DialogHeader>
-              <DialogTitle>Neues Projekt anlegen</DialogTitle>
+              <DialogTitle className="text-base">Neues Projekt</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-2">
-              <div className="grid gap-2">
-                <Label>Kunde</Label>
+            <div className="grid gap-3 py-1">
+              {/* Client */}
+              <div className="grid gap-1.5">
+                <Label className="text-xs">Kunde</Label>
                 <Select value={form.client} onValueChange={(v) => setForm({ ...form, client: v })}>
-                  <SelectTrigger><SelectValue placeholder="Kunde wählen..." /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Kunde waehlen..." /></SelectTrigger>
                   <SelectContent>
                     {existingClients.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     <SelectItem value="__custom">+ Neuer Kunde</SelectItem>
                   </SelectContent>
                 </Select>
                 {form.client === "__custom" && (
-                  <Input placeholder="Neuen Kundennamen eingeben" className="mt-2" value={form.clientCustom} onChange={(e) => setForm({ ...form, clientCustom: e.target.value })} />
+                  <Input placeholder="Kundennamen eingeben" className="h-8 text-sm" value={form.clientCustom} onChange={(e) => setForm({ ...form, clientCustom: e.target.value })} />
                 )}
               </div>
-              <div className="grid gap-2">
-                <Label>Projektname</Label>
-                <Input placeholder="z.B. Spring Campaign 2026" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+
+              {/* Name */}
+              <div className="grid gap-1.5">
+                <Label className="text-xs">Projektname</Label>
+                <Input placeholder="z.B. Spring Campaign 2026" className="h-8 text-sm" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
-              <div className="grid gap-2">
-                <Label>Projekttyp</Label>
-                <div className="grid gap-2">
+
+              {/* Type */}
+              <div className="grid gap-1.5">
+                <Label className="text-xs">Projekttyp</Label>
+                <div className="grid gap-1.5">
                   {projectTypes.map((pt) => (
-                    <button
-                      key={pt.value}
-                      onClick={() => setForm({ ...form, type: pt.value })}
-                      className={`text-left rounded-lg border p-3 transition-all ${
-                        form.type === pt.value
-                          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                          : "border-border hover:border-primary/30"
-                      }`}
-                    >
+                    <button key={pt.value} onClick={() => setForm({ ...form, type: pt.value })} className={`text-left rounded-md border px-3 py-2 transition-all ${form.type === pt.value ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/30"}`}>
                       <div className="flex items-center gap-2">
                         <span className={`h-2 w-2 rounded-full ${pt.color}`} />
-                        <span className="text-sm font-semibold">{pt.label}</span>
-                        {(pt as any).badge && <span className={`text-[9px] font-bold rounded px-1.5 py-0.5 ${(pt as any).badge === "DWY" ? "bg-red-500/15 text-red-500" : "bg-emerald-500/15 text-emerald-500"}`}>{(pt as any).badge}</span>}
+                        <span className="text-sm font-medium">{pt.label}</span>
+                        {pt.badge && <span className={`text-[9px] font-bold rounded px-1 py-0 ${pt.badge === "DWY" ? "bg-red-500/15 text-red-500" : "bg-emerald-500/15 text-emerald-500"}`}>{pt.badge}</span>}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 ml-4">{pt.description}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 ml-4">{pt.description}</p>
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Creative Format */}
-              <div className="grid gap-2">
-                <Label>Creative-Format</Label>
+              <div className="grid gap-1.5">
+                <Label className="text-xs">Creative-Format</Label>
                 <div className="flex gap-2">
                   {creativeFormats.map((cf) => (
-                    <button
-                      key={cf.value}
-                      onClick={() => setForm({ ...form, creativeFormat: cf.value })}
-                      className={`flex-1 rounded-lg border p-2.5 text-center transition-all ${
-                        form.creativeFormat === cf.value
-                          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                          : "border-border hover:border-primary/30"
-                      }`}
-                    >
-                      <div className="text-lg">{cf.icon}</div>
-                      <div className="text-xs font-medium mt-0.5">{cf.label}</div>
+                    <button key={cf.value} onClick={() => setForm({ ...form, creativeFormat: cf.value })} className={`flex-1 rounded-md border py-2 text-center transition-all ${form.creativeFormat === cf.value ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/30"}`}>
+                      <div className="text-base">{cf.icon}</div>
+                      <div className="text-[10px] font-medium mt-0.5">{cf.label}</div>
                     </button>
                   ))}
                 </div>
@@ -1271,110 +1490,63 @@ export default function ProjectManager() {
 
               {/* Custom Phase Builder */}
               {form.type === "custom" && (
-                <div className="grid gap-2">
-                  <Label className="flex items-center gap-1.5"><Wrench className="h-3.5 w-3.5" />Phasen zusammenstellen</Label>
-                  <p className="text-xs text-muted-foreground -mt-1">Wähle Phasen aus und sortiere sie per Drag & Drop.</p>
-
-                  {/* Selected phases (sortable) */}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs flex items-center gap-1.5"><Wrench className="h-3 w-3" />Phasen zusammenstellen</Label>
                   {customPhases.length > 0 && (
-                    <div className="space-y-1 mb-2">
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Ausgewählt ({customPhases.length})</div>
+                    <div className="space-y-1 mb-1">
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Ausgewaehlt ({customPhases.length})</div>
                       {customPhases.map((key, idx) => {
                         const block = allPhaseBlockMap[key];
                         if (!block) return null;
                         return (
-                          <div
-                            key={key}
-                            draggable
-                            onDragStart={() => setDragPhaseIdx(idx)}
-                            onDragOver={(e) => { e.preventDefault(); }}
-                            onDrop={() => {
-                              if (dragPhaseIdx !== null && dragPhaseIdx !== idx) {
-                                moveCustomPhase(dragPhaseIdx, idx);
-                              }
-                              setDragPhaseIdx(null);
-                            }}
-                            className={`flex items-center gap-2 rounded-lg border bg-card p-2.5 cursor-grab active:cursor-grabbing transition-all ${
-                              dragPhaseIdx === idx ? "opacity-50 ring-2 ring-primary" : "hover:shadow-sm"
-                            }`}
-                          >
-                            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-                            <span className="text-xs font-bold text-primary w-5">{idx + 1}</span>
-                            <span className="text-sm font-medium flex-1">{block.title}</span>
+                          <div key={key} draggable onDragStart={() => setDragPhaseIdx(idx)} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (dragPhaseIdx !== null && dragPhaseIdx !== idx) moveCustomPhase(dragPhaseIdx, idx); setDragPhaseIdx(null); }}
+                            className={`flex items-center gap-2 rounded-md border bg-card px-2.5 py-1.5 cursor-grab active:cursor-grabbing transition-all ${dragPhaseIdx === idx ? "opacity-50 ring-2 ring-primary" : "hover:shadow-sm"}`}>
+                            <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                            <span className="text-[10px] font-bold text-primary w-4">{idx + 1}</span>
+                            <span className="text-xs font-medium flex-1">{block.title}</span>
                             <span className="text-[10px] text-muted-foreground">{block.tasks.length} Tasks</span>
                             <div className="flex gap-0.5">
-                              <button
-                                className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                                disabled={idx === 0}
-                                onClick={(e) => { e.stopPropagation(); moveCustomPhase(idx, idx - 1); }}
-                              >
-                                <ChevronUp className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                                disabled={idx === customPhases.length - 1}
-                                onClick={(e) => { e.stopPropagation(); moveCustomPhase(idx, idx + 1); }}
-                              >
-                                <ChevronDown className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                className="p-0.5 text-muted-foreground hover:text-destructive ml-1"
-                                onClick={(e) => { e.stopPropagation(); toggleCustomPhase(key); }}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
+                              <button className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-20" disabled={idx === 0} onClick={(e) => { e.stopPropagation(); moveCustomPhase(idx, idx - 1); }}><ChevronUp className="h-3 w-3" /></button>
+                              <button className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-20" disabled={idx === customPhases.length - 1} onClick={(e) => { e.stopPropagation(); moveCustomPhase(idx, idx + 1); }}><ChevronDown className="h-3 w-3" /></button>
+                              <button className="p-0.5 text-muted-foreground hover:text-destructive ml-0.5" onClick={(e) => { e.stopPropagation(); toggleCustomPhase(key); }}><Trash2 className="h-3 w-3" /></button>
                             </div>
                           </div>
                         );
                       })}
                     </div>
                   )}
-
-                  {/* Available phases */}
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Verfügbare Bausteine</div>
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Verfuegbare Bausteine</div>
                   <div className="grid grid-cols-2 gap-1.5">
                     {allPhaseBlocks.filter((b) => !customPhases.includes(b.key)).map((block) => (
-                      <button
-                        key={block.key}
-                        onClick={() => toggleCustomPhase(block.key)}
-                        className="text-left rounded-lg border border-dashed border-border p-2.5 hover:border-primary/40 hover:bg-primary/5 transition-all"
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <Plus className="h-3 w-3 text-primary shrink-0" />
-                          <span className="text-xs font-medium">{block.title}</span>
-                        </div>
+                      <button key={block.key} onClick={() => toggleCustomPhase(block.key)} className="text-left rounded-md border border-dashed px-2 py-1.5 hover:border-primary/40 hover:bg-primary/5 transition-all">
+                        <div className="flex items-center gap-1.5"><Plus className="h-3 w-3 text-primary shrink-0" /><span className="text-xs font-medium">{block.title}</span></div>
                         <p className="text-[10px] text-muted-foreground mt-0.5 ml-[18px]">{block.tasks.length} Tasks</p>
                       </button>
                     ))}
                   </div>
                   {allPhaseBlocks.filter((b) => !customPhases.includes(b.key)).length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center py-2">Alle Phasen ausgewählt.</p>
+                    <p className="text-xs text-muted-foreground text-center py-1">Alle Phasen ausgewaehlt.</p>
                   )}
                 </div>
               )}
 
-              <div className="grid gap-2">
-                <Label>Offer</Label>
+              {/* Offer */}
+              <div className="grid gap-1.5">
+                <Label className="text-xs">Offer</Label>
                 <Select value={form.product} onValueChange={(v) => setForm({ ...form, product: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {products.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
-                <Label>Team</Label>
+
+              {/* Team */}
+              <div className="grid gap-1.5">
+                <Label className="text-xs">Team</Label>
                 <div className="flex gap-2">
                   {teamMembers.map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => toggleAssignee(m)}
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-all ${
-                        form.assignees.includes(m)
-                          ? "bg-primary/10 border-primary/30 text-primary ring-1 ring-primary/20"
-                          : "bg-muted border-border text-muted-foreground hover:border-primary/30"
-                      }`}
-                    >
+                    <button key={m} onClick={() => toggleAssignee(m)} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium border transition-all ${form.assignees.includes(m) ? "bg-primary/10 border-primary/30 text-primary" : "bg-muted border-border text-muted-foreground hover:border-primary/30"}`}>
                       {m}
                     </button>
                   ))}
@@ -1382,162 +1554,112 @@ export default function ProjectManager() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>Abbrechen</Button>
-              <Button onClick={handleAddProject}>Projekt anlegen</Button>
+              <Button variant="outline" size="sm" onClick={() => setDialogOpen(false)}>Abbrechen</Button>
+              <Button size="sm" onClick={handleAddProject}>Erstellen</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-primary/5 rounded-bl-full" />
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-              <Clock className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold">{activeCount}</div>
-              <div className="text-xs text-muted-foreground">Aktive Projekte</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/5 rounded-bl-full" />
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
-              <AlertCircle className="h-5 w-5 text-amber-500" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold">{newCount}</div>
-              <div className="text-xs text-muted-foreground">Neue Projekte</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-bl-full" />
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold">{completedCount}</div>
-              <div className="text-xs text-muted-foreground">Abgeschlossen</div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Filter row */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-0.5">
+          {([
+            { key: "alle" as const, label: "Alle" },
+            { key: "aktiv" as const, label: "In Arbeit" },
+            { key: "kampagnen" as const, label: "Kampagnen" },
+            { key: "neu" as const, label: "Neu" },
+            { key: "done" as const, label: "Fertig" },
+          ]).map((tab) => (
+            <button key={tab.key} onClick={() => setOverviewTab(tab.key)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${overviewTab === tab.key ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input placeholder="Suchen..." className="pl-8 h-7 w-44 text-xs" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+        </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Projekt oder Kunde suchen..."
-          className="pl-9 max-w-sm"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      {/* Team filter pills */}
+      <div className="flex items-center gap-1">
+        {([
+          { key: "alle" as const, label: "Alle" },
+          { key: "alex" as const, label: "Alex" },
+          { key: "daniel" as const, label: "Daniel" },
+        ] as const).map((f) => (
+          <button key={f.key} onClick={() => setViewFilter(f.key)} className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${viewFilter === f.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+            {f.label}
+          </button>
+        ))}
       </div>
 
-      {/* Project Cards */}
-      <div className="space-y-3">
-        {filteredProjects.map((project) => {
+      {/* Project list — clean rows */}
+      <div className="space-y-px rounded-lg border overflow-hidden">
+        {tabFilteredProjects.map((project) => {
           const progress = getProjectProgress(project);
-          const status = getProjectStatus(project);
+          const health = getHealthScore(project);
+          const daysRunning = getDaysRunning(project);
           const current = getCurrentPhase(project);
-          const currentIdx = current ? project.phases.indexOf(current) : -1;
 
           return (
-            <Card
+            <div
               key={project.id}
-              className="cursor-pointer hover:shadow-md transition-all hover:border-primary/20 group"
+              className="flex items-center gap-4 px-4 py-3 bg-card hover:bg-muted/40 transition-colors cursor-pointer"
               onClick={() => {
                 setSelectedProjectId(project.id);
-                // Auto-expand current phase
                 if (current) setExpandedPhases(new Set([current.id]));
               }}
             >
-              <CardContent className="p-5">
-                <div className="flex items-start gap-4">
-                  {/* Progress circle */}
-                  <div className="relative h-14 w-14 shrink-0">
-                    <svg className="h-14 w-14 -rotate-90" viewBox="0 0 56 56">
-                      <circle cx="28" cy="28" r="24" fill="none" className="stroke-muted" strokeWidth="4" />
-                      <circle
-                        cx="28" cy="28" r="24" fill="none"
-                        className={progress === 100 ? "stroke-emerald-500" : "stroke-primary"}
-                        strokeWidth="4"
-                        strokeLinecap="round"
-                        strokeDasharray={`${2 * Math.PI * 24}`}
-                        strokeDashoffset={`${2 * Math.PI * 24 * (1 - progress / 100)}`}
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-xs font-bold tabular-nums">{progress}%</span>
-                    </div>
-                  </div>
+              {/* Health dot */}
+              <span className={`h-2 w-2 rounded-full shrink-0 ${health.status === "green" ? "bg-emerald-500" : health.status === "yellow" ? "bg-amber-500" : "bg-red-500"}`} title={health.reason} />
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-sm text-muted-foreground">{project.client}</span>
-                      <Badge className={`${projectTypeMap[project.type].color} text-white text-[9px] px-1.5 py-0`}>{projectTypeMap[project.type].label}</Badge>
-                      <Badge className={`${status.color} text-white text-[9px] px-1.5 py-0`}>{status.label}</Badge>
-                    </div>
-                    <h3 className="text-base font-semibold group-hover:text-primary transition-colors truncate">{project.name}</h3>
+              {/* Client + name */}
+              <div className="min-w-0 w-64 shrink-0">
+                <span className="text-[10px] text-muted-foreground block truncate">{project.client}</span>
+                <span className="text-sm font-medium block truncate">{project.name}</span>
+              </div>
 
-                    {/* Phase pipeline mini */}
-                    <div className="flex gap-0.5 mt-2.5 h-2 rounded-full overflow-hidden">
-                      {project.phases.map((phase, idx) => {
-                        const pProg = getPhaseProgress(phase);
-                        return (
-                          <div key={phase.id} className="flex-1 bg-muted/50 rounded-sm overflow-hidden">
-                            <div
-                              className={`h-full ${phaseColors[idx % phaseColors.length]} transition-all`}
-                              style={{ width: `${pProg}%` }}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="flex items-center gap-1 mt-1">
-                      {project.phases.map((ph, idx) => (
-                        <div key={ph.id} className="flex-1 text-center">
-                          <span className={`text-[7px] uppercase tracking-wider ${idx === currentIdx ? "text-primary font-bold" : "text-muted-foreground/40"}`}>
-                            {ph.title.split(" ")[0].slice(0, 4)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Meta */}
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] text-muted-foreground">
-                        {creativeFormats.find((f) => f.value === project.creativeFormat)?.icon}{" "}
-                        {project.product}
-                      </span>
-                    </div>
-                    <div className="flex -space-x-1">
-                      {project.assignees.map((a) => (
-                        <span key={a} className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary ring-2 ring-card">
-                          {a[0]}
-                        </span>
-                      ))}
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">{project.startDate}</span>
-                  </div>
+              {/* Phase progress bar */}
+              <div className="flex-1 min-w-0">
+                <div className="flex gap-0.5 h-1.5 rounded-full overflow-hidden">
+                  {project.phases.map((phase, idx) => {
+                    const pProg = getPhaseProgress(phase);
+                    return (
+                      <div key={phase.id} className="flex-1 bg-muted/50 rounded-sm overflow-hidden">
+                        <div className={`h-full ${phaseColors[idx % phaseColors.length]}`} style={{ width: `${pProg}%` }} />
+                      </div>
+                    );
+                  })}
                 </div>
-              </CardContent>
-            </Card>
+                <div className="text-[9px] text-muted-foreground mt-0.5 tabular-nums">{progress}%</div>
+              </div>
+
+              {/* Type badge */}
+              <Badge className={`${projectTypeMap[project.type].color} text-white text-[9px] px-1.5 py-0 shrink-0`}>{projectTypeMap[project.type].label}</Badge>
+
+              {/* Assignee avatars */}
+              <div className="flex -space-x-1 shrink-0">
+                {project.assignees.map((a) => (
+                  <span key={a} className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary ring-1 ring-card">{a[0]}</span>
+                ))}
+                {project.assignees.length === 0 && <span className="h-5 w-5" />}
+              </div>
+
+              {/* Days running */}
+              <span className="text-[10px] text-muted-foreground tabular-nums w-10 text-right shrink-0">
+                {daysRunning !== null && daysRunning > 0 ? `${daysRunning}d` : ""}
+              </span>
+
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
+            </div>
           );
         })}
 
-        {filteredProjects.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">
-            <p className="text-sm">Keine Projekte gefunden.</p>
+        {tabFilteredProjects.length === 0 && (
+          <div className="text-center py-12 text-muted-foreground bg-card">
+            <p className="text-sm">Keine Projekte in dieser Ansicht.</p>
           </div>
         )}
       </div>
