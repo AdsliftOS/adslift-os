@@ -14,7 +14,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { ChevronLeft, ChevronRight, Plus, Phone, PhoneForwarded, Users, Flag, Briefcase, Calendar as CalendarIcon, Trash2, LayoutGrid, List, Video, ExternalLink, FolderKanban, RefreshCw, DollarSign, Link2, User } from "lucide-react";
 import { toast } from "sonner";
 import { useCalendar, setGoogleEvents as setGlobalGoogleEvents, addCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/store/calendar";
-import type { CalendarEvent } from "@/store/calendar";
+import type { CalendarEvent, SyncStatus } from "@/store/calendar";
+
+// --- Toast helper for Google Calendar sync status ---
+function toastSync(sync: SyncStatus | undefined, labels: { synced: string; notConnected: string; failed: string }) {
+  if (!sync) return;
+  if (sync.kind === "synced") {
+    toast.success(`${labels.synced} (${sync.email})`);
+  } else if (sync.kind === "no-account") {
+    toast.warning(labels.notConnected + (sync.assignee ? ` — Kein Google Account fuer "${sync.assignee}" verknuepft.` : ""));
+  } else if (sync.kind === "sync-failed") {
+    toast.error(`${labels.failed}: ${sync.reason}`);
+  }
+}
 import { useClients } from "@/store/clients";
 import { useProjects } from "@/store/projects";
 import { useNoShows, markNoShow, unmarkNoShow, isNoShow } from "@/store/noshows";
@@ -395,8 +407,14 @@ export default function Calendar() {
       assignee: currentUser,
     };
     if (editingEvent) {
-      await updateCalendarEvent(editingEvent.id, eventData);
+      const res = await updateCalendarEvent(editingEvent.id, eventData);
+      if ("error" in res) { toast.error("Speichern fehlgeschlagen: " + res.error); return; }
       toast.success("Event aktualisiert");
+      toastSync(res.sync, {
+        synced: "In Google Calendar aktualisiert",
+        notConnected: "Nur lokal gespeichert",
+        failed: "Google Calendar Sync fehlgeschlagen",
+      });
     } else {
       const result = await addCalendarEvent(eventData as Omit<CalendarEvent, "id">);
       if ("error" in result) {
@@ -404,13 +422,24 @@ export default function Calendar() {
         return;
       }
       toast.success("Event erstellt");
+      toastSync(result.sync, {
+        synced: "Zu Google Calendar hinzugefuegt",
+        notConnected: "Nur lokal gespeichert",
+        failed: "Google Calendar Sync fehlgeschlagen",
+      });
     }
     setDialogOpen(false);
   };
 
   const deleteEvent = async (id: string) => {
-    await deleteCalendarEvent(id);
+    const res = await deleteCalendarEvent(id);
+    if ("error" in res) { toast.error("Löschen fehlgeschlagen: " + res.error); return; }
     toast.success("Event gelöscht");
+    toastSync(res.sync, {
+      synced: "Aus Google Calendar entfernt",
+      notConnected: "Nur lokal gelöscht",
+      failed: "Google Calendar Sync fehlgeschlagen",
+    });
   };
 
   // Drag & Drop handlers
@@ -447,10 +476,16 @@ export default function Calendar() {
     setDragConfirmOpen(true);
   };
 
-  const moveLocalEvent = () => {
+  const moveLocalEvent = async () => {
     if (!dragEvent || !dragTarget) return;
-    updateCalendarEvent(dragEvent.id, { date: dragTarget.date, startTime: dragStartTime, endTime: dragEndTime });
+    const res = await updateCalendarEvent(dragEvent.id, { date: dragTarget.date, startTime: dragStartTime, endTime: dragEndTime });
+    if ("error" in res) { toast.error("Verschieben fehlgeschlagen: " + res.error); return; }
     toast.success("Event verschoben");
+    toastSync(res.sync, {
+      synced: "In Google Calendar aktualisiert",
+      notConnected: "Nur lokal verschoben",
+      failed: "Google Calendar Sync fehlgeschlagen",
+    });
     setDragConfirmOpen(false);
     setDragEvent(null);
     setDragTarget(null);

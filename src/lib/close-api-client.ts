@@ -235,6 +235,16 @@ export async function searchLeadByName(name: string): Promise<{ id: string; name
   return null;
 }
 
+export async function searchLeads(query: string): Promise<{ id: string; name: string; status: string; contacts: any[] }[]> {
+  try {
+    const data = await closeGet("lead", { query, _limit: "10", _fields: "id,display_name,status_label,contacts" });
+    if (data.data && data.data.length > 0) {
+      return data.data.map((l: any) => ({ id: l.id, name: l.display_name, status: l.status_label, contacts: l.contacts || [] }));
+    }
+  } catch {}
+  return [];
+}
+
 export async function getLeadActivities(leadId: string): Promise<CloseActivity[]> {
   const data = await closeGet("activity", { lead_id: leadId, _limit: "30" });
   return (data.data || []).map((a: any) => ({

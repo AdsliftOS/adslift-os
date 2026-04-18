@@ -70,63 +70,129 @@ function eventToRow(e: Partial<CalendarEvent>) {
 }
 
 // --- Direct CRUD ---
-export async function addCalendarEvent(event: Omit<CalendarEvent, "id">): Promise<{ id: string } | { error: string }> {
+
+export type SyncStatus =
+  | { kind: "synced"; email: string }
+  | { kind: "no-account"; assignee?: string }
+  | { kind: "sync-failed"; email: string; reason: string }
+  | { kind: "skipped" };
+
+export async function addCalendarEvent(event: Omit<CalendarEvent, "id">): Promise<{ id: string; sync: SyncStatus } | { error: string }> {
   const { data, error } = await supabase.from("calendar_events").insert(eventToRow(event)).select().single();
   if (error || !data) {
     console.error("Failed to add calendar event:", error);
     return { error: error?.message || "Unbekannter Fehler" };
   }
 
-  // Push to Google Calendar (fire-and-forget for the caller; we still await so the ID is persisted)
+  // Push to Google Calendar
+  let sync: SyncStatus = { kind: "skipped" };
   const account = accountForAssignee(event.assignee);
-  if (account) {
-    const googleEventId = await createGoogleEvent(account, event);
-    if (googleEventId) {
-      await supabase
-        .from("calendar_events")
-        .update({ google_event_id: googleEventId, google_account_email: account.email })
-        .eq("id", data.id);
+  if (!account) {
+    sync = { kind: "no-account", assignee: event.assignee };
+  } else {
+    try {
+      const googleEventId = await createGoogleEvent(account, event);
+      if (googleEventId) {
+        const { error: updErr } = await supabase
+          .from("calendar_events")
+          .update({ google_event_id: googleEventId, google_account_email: account.email })
+          .eq("id", data.id);
+        if (updErr) {
+          console.warn("Google event created but link column missing. Run the DB migration.", updErr);
+          sync = { kind: "sync-failed", email: account.email, reason: "DB-Migration fehlt (google_event_id)" };
+        } else {
+          sync = { kind: "synced", email: account.email };
+        }
+      } else {
+        sync = { kind: "sync-failed", email: account.email, reason: "Google Calendar API lehnte ab" };
+      }
+    } catch (e: any) {
+      sync = { kind: "sync-failed", email: account.email, reason: e?.message || "Unbekannter Fehler" };
     }
   }
 
   await loadEvents();
-  return { id: data.id };
+  return { id: data.id, sync };
 }
 
-export async function updateCalendarEvent(id: string, updates: Partial<CalendarEvent>) {
+export async function updateCalendarEvent(id: string, updates: Partial<CalendarEvent>): Promise<{ sync: SyncStatus } | { error: string }> {
   const existing = events.find((e) => e.id === id);
   const { error } = await supabase.from("calendar_events").update(eventToRow(updates)).eq("id", id);
   if (error) {
     console.error("Failed to update calendar event:", error);
-    return;
+    return { error: error.message };
   }
   events = events.map((e) => e.id === id ? { ...e, ...updates } : e);
   emit();
 
-  // Sync to Google if this event was linked to a Google account
+  let sync: SyncStatus = { kind: "skipped" };
+
+  // If event already has a Google link → update there
   if (existing?.googleEventId && existing.accountEmail) {
     const account = accountByEmail(existing.accountEmail);
     if (account) {
       const merged = { ...existing, ...updates };
-      await updateGoogleEvent(account, existing.googleEventId, merged);
+      try {
+        const ok = await updateGoogleEvent(account, existing.googleEventId, merged);
+        sync = ok
+          ? { kind: "synced", email: account.email }
+          : { kind: "sync-failed", email: account.email, reason: "Google API lehnte Update ab" };
+      } catch (e: any) {
+        sync = { kind: "sync-failed", email: account.email, reason: e?.message || "Unbekannter Fehler" };
+      }
+    }
+  } else if (existing) {
+    // Event war noch nicht mit Google verknüpft → jetzt erstellen
+    const merged = { ...existing, ...updates };
+    const account = accountForAssignee(merged.assignee);
+    if (!account) {
+      sync = { kind: "no-account", assignee: merged.assignee };
+    } else {
+      try {
+        const googleEventId = await createGoogleEvent(account, merged);
+        if (googleEventId) {
+          await supabase
+            .from("calendar_events")
+            .update({ google_event_id: googleEventId, google_account_email: account.email })
+            .eq("id", id);
+          sync = { kind: "synced", email: account.email };
+        } else {
+          sync = { kind: "sync-failed", email: account.email, reason: "Google Calendar API lehnte ab" };
+        }
+      } catch (e: any) {
+        sync = { kind: "sync-failed", email: account.email, reason: e?.message || "Unbekannter Fehler" };
+      }
     }
   }
+
+  return { sync };
 }
 
-export async function deleteCalendarEvent(id: string) {
+export async function deleteCalendarEvent(id: string): Promise<{ sync: SyncStatus } | { error: string }> {
   const existing = events.find((e) => e.id === id);
   const { error } = await supabase.from("calendar_events").delete().eq("id", id);
   if (error) {
     console.error("Failed to delete calendar event:", error);
-    return;
+    return { error: error.message };
   }
   events = events.filter((e) => e.id !== id);
   emit();
 
+  let sync: SyncStatus = { kind: "skipped" };
   if (existing?.googleEventId && existing.accountEmail) {
     const account = accountByEmail(existing.accountEmail);
-    if (account) await deleteGoogleEvent(account, existing.googleEventId);
+    if (account) {
+      try {
+        const ok = await deleteGoogleEvent(account, existing.googleEventId);
+        sync = ok
+          ? { kind: "synced", email: account.email }
+          : { kind: "sync-failed", email: account.email, reason: "Google API lehnte Delete ab" };
+      } catch (e: any) {
+        sync = { kind: "sync-failed", email: account.email, reason: e?.message || "Unbekannter Fehler" };
+      }
+    }
   }
+  return { sync };
 }
 
 // Legacy setCalendarEvents — for local-only state changes (Google Calendar events etc.)
