@@ -235,7 +235,9 @@ export function useAllCalendarEvents(): CalendarEvent[] {
   if (cal !== allEventsCalRef || gcal !== allEventsGcalRef) {
     allEventsCalRef = cal;
     allEventsGcalRef = gcal;
-    allEventsCached = [...cal, ...gcal];
+    const linkedGoogleIds = new Set(cal.map((e) => e.googleEventId).filter(Boolean) as string[]);
+    const gcalDeduped = gcal.filter((e) => !e.googleEventId || !linkedGoogleIds.has(e.googleEventId));
+    allEventsCached = [...cal, ...gcalDeduped];
   }
   return allEventsCached;
 }

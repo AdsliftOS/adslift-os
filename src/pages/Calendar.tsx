@@ -344,7 +344,9 @@ export default function Calendar() {
         description: `Projekt-Deadline für ${p.name}`,
         projectId: p.id,
       }));
-    return [...events, ...deadlineEvents, ...googleEvents];
+    const linkedGoogleIds = new Set(events.map((e) => e.googleEventId).filter(Boolean) as string[]);
+    const gcalDeduped = googleEvents.filter((e) => !e.googleEventId || !linkedGoogleIds.has(e.googleEventId));
+    return [...events, ...deadlineEvents, ...gcalDeduped];
   }, [events, projects, googleEvents]);
 
   // Month grid
