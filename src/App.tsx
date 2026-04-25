@@ -52,8 +52,8 @@ async function isAuthorized(email: string): Promise<{ ok: boolean; reason: strin
   // Hard timeout — never let auth check hang the loading screen.
   const timeout = new Promise<{ data: any; error: any }>((resolve) =>
     setTimeout(
-      () => resolve({ data: null, error: { message: "Auth-Check Timeout (5s)" } }),
-      5000,
+      () => resolve({ data: null, error: { message: "Auth-Check Timeout (3s)" } }),
+      3000,
     ),
   );
   const query = supabase
@@ -100,7 +100,7 @@ const App = () => {
         }
         return prev;
       });
-    }, 8000);
+    }, 12000);
 
     const handleSession = async (session: any) => {
       try {
@@ -142,7 +142,7 @@ const App = () => {
     // freeze the loader. After 4s without an answer we treat it as "no session"
     // and let the user log in fresh.
     const sessionTimeout = new Promise<{ data: { session: any } }>((resolve) =>
-      setTimeout(() => resolve({ data: { session: null } }), 4000),
+      setTimeout(() => resolve({ data: { session: null } }), 2500),
     );
     Promise.race([supabase.auth.getSession(), sessionTimeout]).then(
       ({ data: { session } }) => handleSession(session),
