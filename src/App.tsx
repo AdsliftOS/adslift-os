@@ -46,19 +46,36 @@ const queryClient = new QueryClient();
 // Authorization gate — only allow login for active members of the
 // team_members table. The new-hire flow is: add the person in
 // Settings → Team (status="active") and they can log in.
-async function isAuthorized(email: string): Promise<boolean> {
-  if (!email) return false;
-  const { data, error } = await supabase
+async function isAuthorized(email: string): Promise<{ ok: boolean; reason: string }> {
+  if (!email) return { ok: false, reason: "Keine E-Mail im Session-Token" };
+
+  // Hard timeout — never let auth check hang the loading screen.
+  const timeout = new Promise<{ data: any; error: any }>((resolve) =>
+    setTimeout(
+      () => resolve({ data: null, error: { message: "Auth-Check Timeout (5s)" } }),
+      5000,
+    ),
+  );
+  const query = supabase
     .from("team_members")
     .select("id, status")
     .eq("email", email.toLowerCase())
-    .maybeSingle();
+    .limit(1);
+
+  const { data, error } = await Promise.race([query, timeout]);
+
   if (error) {
     console.error("Authorization lookup failed:", error);
-    // Fail-closed: if the table check fails, deny.
-    return false;
+    return { ok: false, reason: `team_members Abfrage: ${error.message}` };
   }
-  return !!data && data.status === "active";
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    return { ok: false, reason: `${email} ist nicht in team_members eingetragen` };
+  }
+  if (row.status !== "active") {
+    return { ok: false, reason: `${email} ist auf Status "${row.status}"` };
+  }
+  return { ok: true, reason: "" };
 }
 
 const App = () => {
@@ -70,32 +87,39 @@ const App = () => {
     let cancelled = false;
 
     const handleSession = async (session: any) => {
-      if (cancelled) return;
-      if (!session) {
+      try {
+        if (cancelled) return;
+        if (!session) {
+          setLoggedIn(false);
+          setUserEmail("");
+          return;
+        }
+        const email = session.user?.email || "";
+        const result = await isAuthorized(email);
+        if (cancelled) return;
+        if (!result.ok) {
+          // Session exists but email is not in the team_members allowlist.
+          // Kick them out immediately, surface the reason.
+          await supabase.auth.signOut().catch(() => {});
+          setAuthError(`Zugriff verweigert: ${result.reason}`);
+          setLoggedIn(false);
+          setUserEmail("");
+          return;
+        }
+        setLoggedIn(true);
+        setUserEmail(email);
+        setAuthError(null);
+        generateAutoTasks();
+        generateCloseAutoTasks();
+        generateNotifications(email).then(() => loadNotifications());
+      } catch (err: any) {
+        console.error("handleSession crashed:", err);
+        if (cancelled) return;
+        // Fail-open to login screen with error so user is never stuck on loader.
+        setAuthError(`Auth-Fehler: ${err?.message || String(err)}`);
         setLoggedIn(false);
         setUserEmail("");
-        return;
       }
-      const email = session.user?.email || "";
-      const ok = await isAuthorized(email);
-      if (cancelled) return;
-      if (!ok) {
-        // Session exists but email is not in the team_members allowlist.
-        // Kick them out immediately.
-        await supabase.auth.signOut();
-        setAuthError(
-          `Zugriff verweigert für ${email}. Bitte bei Alex melden.`,
-        );
-        setLoggedIn(false);
-        setUserEmail("");
-        return;
-      }
-      setLoggedIn(true);
-      setUserEmail(email);
-      setAuthError(null);
-      generateAutoTasks();
-      generateCloseAutoTasks();
-      generateNotifications(email).then(() => loadNotifications());
     };
 
     // Check existing session
