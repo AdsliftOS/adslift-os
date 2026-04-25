@@ -51,8 +51,25 @@ export default function Login({ onLogin, authError }: { onLogin: () => void; aut
             </div>
 
             {displayError && (
-              <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3">
+              <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 space-y-2">
                 <p className="text-xs text-red-500">{displayError}</p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await supabase.auth.signOut();
+                    } catch {}
+                    try {
+                      Object.keys(localStorage)
+                        .filter((k) => k.startsWith("sb-") || k.includes("supabase"))
+                        .forEach((k) => localStorage.removeItem(k));
+                    } catch {}
+                    window.location.href = "/";
+                  }}
+                  className="text-[11px] underline text-red-500/80 hover:text-red-500"
+                >
+                  Session zurücksetzen & neu laden
+                </button>
               </div>
             )}
 
