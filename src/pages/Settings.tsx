@@ -10,33 +10,78 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Palette, Users, Building2, Bell, Trash2, Eclipse, Target, Calendar, CheckCircle2, Unplug, Plus } from "lucide-react";
+import { Sun, Moon, Palette, Users, Building2, Bell, Trash2, Eclipse, Target, Calendar, CheckCircle2, Unplug, Plus, Link2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useSettings } from "@/store/settings";
 import { getAccounts, removeAccount, connectGoogleCalendar } from "@/lib/google-calendar";
 import { getGmailAccounts, removeGmailAccount, connectGmail } from "@/lib/gmail-auth";
 import { supabase } from "@/lib/supabase";
 import type { NotificationType } from "@/store/notifications";
-
-type TeamMember = {
-  id: string;
-  name: string;
-  role: string;
-  email: string;
-  status: "active" | "inactive";
-  utilization: number;
-};
-
-const initialTeam: TeamMember[] = [
-  { id: "1", name: "Alex", role: "Geschäftsführer", email: "info@consulting-og.de", status: "active", utilization: 0 },
-  { id: "2", name: "Daniel", role: "Partner", email: "office@consulting-og.de", status: "active", utilization: 0 },
-];
+import {
+  useTeamMembers,
+  addTeamMember,
+  updateTeamMember,
+  deleteTeamMember,
+} from "@/store/teamMembers";
+import { getCloseOrgUsers, type CloseOrgUser } from "@/lib/close-user-kpis";
 
 export default function Settings() {
   const { theme, setTheme } = useTheme();
   const [appSettings, setAppSettings] = useSettings();
-  const [team, setTeam] = useState<TeamMember[]>(initialTeam);
+  const team = useTeamMembers();
+
+  // Close org users (for mapping)
+  const [closeUsers, setCloseUsers] = useState<CloseOrgUser[]>([]);
+  const [closeLoading, setCloseLoading] = useState(false);
+
+  const loadCloseUsers = useCallback(async () => {
+    setCloseLoading(true);
+    const users = await getCloseOrgUsers();
+    setCloseUsers(users);
+    setCloseLoading(false);
+  }, []);
+
+  useEffect(() => { loadCloseUsers(); }, [loadCloseUsers]);
+
+  // Add member dialog
+  const [addOpen, setAddOpen] = useState(false);
+  const [addForm, setAddForm] = useState({
+    name: "",
+    email: "",
+    role: "Closer",
+    closeUserId: "",
+    commissionRate: 10,
+  });
+
+  const resetAddForm = () => setAddForm({ name: "", email: "", role: "Closer", closeUserId: "", commissionRate: 10 });
+
+  const handleAddMember = async () => {
+    if (!addForm.name.trim() || !addForm.email.trim()) {
+      toast.error("Name und E-Mail sind erforderlich");
+      return;
+    }
+    const id = await addTeamMember({
+      name: addForm.name.trim(),
+      email: addForm.email.trim().toLowerCase(),
+      role: addForm.role,
+      closeUserId: addForm.closeUserId || null,
+      commissionRate: addForm.commissionRate,
+      status: "active",
+    });
+    if (id) {
+      toast.success("Mitarbeiter angelegt");
+      setAddOpen(false);
+      resetAddForm();
+    }
+  };
+
+  const handleDeleteMember = async (id: string, name: string) => {
+    if (!confirm(`${name} wirklich löschen?`)) return;
+    await deleteTeamMember(id);
+    toast.success("Mitarbeiter gelöscht");
+  };
 
   // Notification settings (Supabase-backed)
   const notifTypes: { key: NotificationType; title: string; desc: string }[] = [
@@ -104,10 +149,8 @@ export default function Settings() {
     { value: "anthrazit", label: "Anthrazit", icon: Eclipse, description: "Tiefes Schwarz — echtes Dark" },
   ];
 
-  const toggleMemberStatus = (id: string) => {
-    setTeam((prev) =>
-      prev.map((m) => m.id === id ? { ...m, status: m.status === "active" ? "inactive" : "active" } : m)
-    );
+  const toggleMemberStatus = (id: string, current: "active" | "inactive") => {
+    updateTeamMember(id, { status: current === "active" ? "inactive" : "active" });
   };
 
   return (
@@ -348,11 +391,18 @@ export default function Settings() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-base">Team-Mitglieder</CardTitle>
-                <CardDescription>Verwalte dein Team und deren Rollen.</CardDescription>
+                <CardDescription>
+                  Verwalte dein Team, verknüpfe Close-Konten und setze Provisionssätze.
+                </CardDescription>
               </div>
-              <Badge variant="secondary" className="text-xs">
-                {team.filter((m) => m.status === "active").length} aktiv
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs">
+                  {team.filter((m) => m.status === "active").length} aktiv
+                </Badge>
+                <Button size="sm" onClick={() => { resetAddForm(); setAddOpen(true); }}>
+                  <Plus className="h-4 w-4 mr-1" /> Mitarbeiter
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -361,44 +411,97 @@ export default function Settings() {
                     <TableHead className="text-[11px] uppercase tracking-wider">Name</TableHead>
                     <TableHead className="text-[11px] uppercase tracking-wider">Rolle</TableHead>
                     <TableHead className="text-[11px] uppercase tracking-wider">E-Mail</TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider">Auslastung</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider">Close-User</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider text-right">Provision</TableHead>
                     <TableHead className="text-[11px] uppercase tracking-wider text-center">Status</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {team.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
+                        Noch keine Team-Mitglieder. Klicke oben auf „Mitarbeiter" um den ersten anzulegen.
+                      </TableCell>
+                    </TableRow>
+                  )}
                   {team.map((member, idx) => (
                     <TableRow key={member.id} className={idx % 2 === 1 ? "bg-muted/[0.03]" : ""}>
                       <TableCell>
                         <div className="flex items-center gap-2.5">
                           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                            <span className="text-xs font-bold text-primary">{member.name.split(" ").map((n) => n[0]).join("")}</span>
+                            <span className="text-xs font-bold text-primary">
+                              {member.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                            </span>
                           </div>
-                          <span className="font-medium text-sm">{member.name}</span>
+                          <Input
+                            value={member.name}
+                            onChange={(e) => updateTeamMember(member.id, { name: e.target.value })}
+                            className="h-8 text-sm border-0 bg-transparent focus-visible:bg-muted/30 px-2"
+                          />
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{member.role}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{member.email}</TableCell>
                       <TableCell>
-                        {member.status === "active" ? (
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden max-w-[100px]">
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  member.utilization >= 80 ? "bg-emerald-500" :
-                                  member.utilization >= 50 ? "bg-yellow-500" :
-                                  "bg-red-500"
-                                }`}
-                                style={{ width: `${member.utilization}%` }}
-                              />
-                            </div>
-                            <span className="text-xs tabular-nums text-muted-foreground">{member.utilization}%</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">–</span>
-                        )}
+                        <Select
+                          value={member.role}
+                          onValueChange={(v) => updateTeamMember(member.id, { role: v })}
+                        >
+                          <SelectTrigger className="h-8 text-xs border-0 bg-transparent hover:bg-muted/30 px-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Geschäftsführer">Geschäftsführer</SelectItem>
+                            <SelectItem value="Partner">Partner</SelectItem>
+                            <SelectItem value="Closer">Closer</SelectItem>
+                            <SelectItem value="Setter">Setter</SelectItem>
+                            <SelectItem value="Admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={member.email}
+                          onChange={(e) => updateTeamMember(member.id, { email: e.target.value })}
+                          className="h-8 text-xs border-0 bg-transparent focus-visible:bg-muted/30 px-2 font-mono"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={member.closeUserId || "__none"}
+                          onValueChange={(v) =>
+                            updateTeamMember(member.id, { closeUserId: v === "__none" ? null : v })
+                          }
+                        >
+                          <SelectTrigger className="h-8 text-xs border-0 bg-transparent hover:bg-muted/30 px-2 max-w-[200px]">
+                            <SelectValue placeholder="– nicht verknüpft –" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none">– nicht verknüpft –</SelectItem>
+                            {closeUsers.map((u) => (
+                              <SelectItem key={u.id} value={u.id}>
+                                {u.name} <span className="text-muted-foreground">({u.email})</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="inline-flex items-center gap-1">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={member.commissionRate}
+                            onChange={(e) =>
+                              updateTeamMember(member.id, { commissionRate: parseFloat(e.target.value) || 0 })
+                            }
+                            className="h-8 w-16 text-xs text-right border-0 bg-transparent focus-visible:bg-muted/30 px-2 font-mono"
+                          />
+                          <span className="text-xs text-muted-foreground">%</span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-center">
-                        <button onClick={() => toggleMemberStatus(member.id)}>
+                        <button onClick={() => toggleMemberStatus(member.id, member.status)}>
                           <Badge
                             variant={member.status === "active" ? "default" : "secondary"}
                             className={`text-[10px] cursor-pointer ${member.status === "active" ? "bg-emerald-500 hover:bg-emerald-600" : ""}`}
@@ -407,12 +510,149 @@ export default function Settings() {
                           </Badge>
                         </button>
                       </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteMember(member.id, member.name)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  Close CRM Anbindung
+                </CardTitle>
+                <CardDescription>
+                  Verfügbare Close-User für die Verknüpfung. Aktualisiert sich automatisch.
+                </CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={loadCloseUsers} disabled={closeLoading}>
+                <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${closeLoading ? "animate-spin" : ""}`} />
+                Aktualisieren
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {closeUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {closeLoading ? "Lade Close-User..." : "Keine Close-User gefunden — prüfe deinen API-Key."}
+                </p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {closeUsers.map((u) => {
+                    const linked = team.find((m) => m.closeUserId === u.id);
+                    return (
+                      <div key={u.id} className="flex items-center justify-between rounded-lg border p-2.5 text-xs">
+                        <div className="min-w-0">
+                          <div className="font-medium truncate">{u.name}</div>
+                          <div className="text-[10px] text-muted-foreground font-mono truncate">{u.email}</div>
+                        </div>
+                        {linked ? (
+                          <Badge className="text-[9px] bg-emerald-500/15 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/15">
+                            ↔ {linked.name}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[9px]">frei</Badge>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Add member dialog */}
+          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Neuer Mitarbeiter</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="grid gap-2">
+                  <Label>Name *</Label>
+                  <Input
+                    placeholder="z.B. Max Müller"
+                    value={addForm.name}
+                    onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
+                    autoFocus
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>E-Mail *</Label>
+                  <Input
+                    type="email"
+                    placeholder="max@adslift.de"
+                    value={addForm.email}
+                    onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))}
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Mit dieser E-Mail wird er sich in der App anmelden.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-2">
+                    <Label>Rolle</Label>
+                    <Select
+                      value={addForm.role}
+                      onValueChange={(v) => setAddForm((f) => ({ ...f, role: v }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Closer">Closer</SelectItem>
+                        <SelectItem value="Setter">Setter</SelectItem>
+                        <SelectItem value="Admin">Admin</SelectItem>
+                        <SelectItem value="Geschäftsführer">Geschäftsführer</SelectItem>
+                        <SelectItem value="Partner">Partner</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Provision (%)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={addForm.commissionRate}
+                      onChange={(e) => setAddForm((f) => ({ ...f, commissionRate: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Close-User verknüpfen</Label>
+                  <Select
+                    value={addForm.closeUserId || "__none"}
+                    onValueChange={(v) => setAddForm((f) => ({ ...f, closeUserId: v === "__none" ? "" : v }))}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">– später verknüpfen –</SelectItem>
+                      {closeUsers.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.name} ({u.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAddOpen(false)}>Abbrechen</Button>
+                <Button onClick={handleAddMember}>Anlegen</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* INTEGRATIONEN */}

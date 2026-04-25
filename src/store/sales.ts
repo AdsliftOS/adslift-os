@@ -9,6 +9,7 @@ export type SalesWeek = {
   newLeads: number;
   closed: number;
   dealVolume: number;
+  closerEmail?: string | null;
 };
 
 let weeks: SalesWeek[] = [];
@@ -25,6 +26,7 @@ async function load() {
         id: r.id, weekStart: r.week_start, kw: r.kw, year: r.year,
         newLeads: r.new_leads, closed: r.closed,
         dealVolume: Number(r.deal_volume),
+        closerEmail: r.closer_email || null,
       }));
       emit();
     }
@@ -40,6 +42,7 @@ function weekToRow(w: Partial<SalesWeek>) {
   if (w.newLeads !== undefined) row.new_leads = w.newLeads;
   if (w.closed !== undefined) row.closed = w.closed;
   if (w.dealVolume !== undefined) row.deal_volume = w.dealVolume;
+  if (w.closerEmail !== undefined) row.closer_email = w.closerEmail;
   return row;
 }
 

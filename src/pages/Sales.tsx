@@ -22,6 +22,8 @@ import { useAllCalendarEvents } from "@/store/calendar";
 import { useNoShows } from "@/store/noshows";
 import { isSalesMeeting } from "@/lib/sales-meetings";
 import { getLeadsCreatedBetween } from "@/lib/close-api";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useTeamMembers } from "@/store/teamMembers";
 
 // SalesWeek type imported from @/store/sales
 
@@ -63,7 +65,8 @@ export default function Sales() {
   const [weeks] = useSalesWeeks();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [form, setForm] = useState({ closed: "", dealVolume: "" });
+  const [form, setForm] = useState({ closed: "", dealVolume: "", closerEmail: "" });
+  const teamMembers = useTeamMembers();
   const calendarEvents = useAllCalendarEvents();
   const noshowList = useNoShows();
   const [filterMode, setFilterMode] = useState<FilterMode>("month");
@@ -74,7 +77,7 @@ export default function Sales() {
   // Edit week dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingWeek, setEditingWeek] = useState<SalesWeek | null>(null);
-  const [editForm, setEditForm] = useState({ newLeads: "", closed: "", dealVolume: "" });
+  const [editForm, setEditForm] = useState({ newLeads: "", closed: "", dealVolume: "", closerEmail: "" });
 
   const filterRange = useMemo(() => {
     const base = new Date();
@@ -154,8 +157,9 @@ export default function Sales() {
       weekStart: format(ws, "yyyy-MM-dd"), kw: getISOWeek(ws), year: getYear(ws),
       newLeads: 0,
       closed: parseInt(form.closed) || 0, dealVolume: parseFloat(form.dealVolume) || 0,
+      closerEmail: form.closerEmail || null,
     });
-    setForm({ closed: "", dealVolume: "" });
+    setForm({ closed: "", dealVolume: "", closerEmail: "" });
     setSelectedDate(undefined);
     setDialogOpen(false);
     toast.success(`KW ${getISOWeek(ws)} eingetragen`);
@@ -167,6 +171,7 @@ export default function Sales() {
       newLeads: week.newLeads.toString(),
       closed: week.closed.toString(),
       dealVolume: week.dealVolume.toString(),
+      closerEmail: week.closerEmail || "",
     });
     setEditDialogOpen(true);
   };
@@ -177,6 +182,7 @@ export default function Sales() {
       newLeads: parseInt(editForm.newLeads) || 0,
       closed: parseInt(editForm.closed) || 0,
       dealVolume: parseFloat(editForm.dealVolume) || 0,
+      closerEmail: editForm.closerEmail || null,
     });
     setEditDialogOpen(false);
     setEditingWeek(null);
@@ -484,6 +490,23 @@ export default function Sales() {
                   <Input type="number" min="0" step="100" placeholder="15000" value={form.dealVolume} onChange={(e) => setForm({ ...form, dealVolume: e.target.value })} />
                 </div>
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Closer (für Provision)</Label>
+                <Select
+                  value={form.closerEmail || "__none"}
+                  onValueChange={(v) => setForm({ ...form, closerEmail: v === "__none" ? "" : v })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Optional — wer hat geclosed?" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">– keiner –</SelectItem>
+                    {teamMembers.filter((m) => m.status === "active").map((m) => (
+                      <SelectItem key={m.id} value={m.email}>
+                        {m.name} ({m.commissionRate}%)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -524,6 +547,23 @@ export default function Sales() {
                   <Label className="text-xs">Volumen (€)</Label>
                   <Input type="number" min="0" step="100" placeholder="0" value={editForm.dealVolume} onChange={(e) => setEditForm({ ...editForm, dealVolume: e.target.value })} />
                 </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Closer (für Provision)</Label>
+                <Select
+                  value={editForm.closerEmail || "__none"}
+                  onValueChange={(v) => setEditForm({ ...editForm, closerEmail: v === "__none" ? "" : v })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">– keiner –</SelectItem>
+                    {teamMembers.filter((m) => m.status === "active").map((m) => (
+                      <SelectItem key={m.id} value={m.email}>
+                        {m.name} ({m.commissionRate}%)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

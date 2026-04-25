@@ -38,6 +38,7 @@ import AcademyPortal from "./pages/AcademyPortal";
 import AuthCallback from "./pages/AuthCallback";
 import Login from "./pages/Login";
 import Mail from "./pages/Mail";
+import MyArea from "./pages/MyArea";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -85,7 +86,7 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} themes={["light", "dark", "anthrazit"]}>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} themes={["light", "dark", "anthrazit"]}>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -103,6 +104,7 @@ const App = () => {
                   <AppLayout>
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
+                      <Route path="/me" element={<MyArea />} />
                       <Route path="/projects" element={<ProjectManager />} />
                       <Route path="/clients" element={<Clients />} />
                       <Route path="/finances" element={<Finances />} />
