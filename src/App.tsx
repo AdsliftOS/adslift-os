@@ -138,8 +138,15 @@ const App = () => {
       }
     };
 
-    // Check existing session
-    supabase.auth.getSession().then(({ data: { session } }) => handleSession(session));
+    // Check existing session — wrap in race so a hanging Supabase call can't
+    // freeze the loader. After 4s without an answer we treat it as "no session"
+    // and let the user log in fresh.
+    const sessionTimeout = new Promise<{ data: { session: any } }>((resolve) =>
+      setTimeout(() => resolve({ data: { session: null } }), 4000),
+    );
+    Promise.race([supabase.auth.getSession(), sessionTimeout]).then(
+      ({ data: { session } }) => handleSession(session),
+    );
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
