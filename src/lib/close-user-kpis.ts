@@ -134,12 +134,18 @@ export type CloseOrgUser = {
 };
 
 export async function getCloseOrgUsers(): Promise<CloseOrgUser[]> {
+  // Use /membership not /user — /user leaks external collaborators
+  // (anyone the API key has visibility to). /membership only returns
+  // people who are actually members of YOUR Close organization.
   try {
-    const data = await closeGet("user", { _limit: "100" });
-    return (data.data || []).map((u: any) => ({
-      id: u.id,
-      email: u.email || "",
-      name: [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email || u.id,
+    const data = await closeGet("membership", { _limit: "100" });
+    return (data.data || []).map((m: any) => ({
+      id: m.user_id,
+      email: m.user_email || "",
+      name:
+        [m.user_first_name, m.user_last_name].filter(Boolean).join(" ") ||
+        m.user_email ||
+        m.user_id,
     }));
   } catch (err) {
     console.error("getCloseOrgUsers failed:", err);
