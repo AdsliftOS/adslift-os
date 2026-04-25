@@ -43,33 +43,73 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Authorization gate — only allow login for active members of the
+// team_members table. The new-hire flow is: add the person in
+// Settings → Team (status="active") and they can log in.
+async function isAuthorized(email: string): Promise<boolean> {
+  if (!email) return false;
+  const { data, error } = await supabase
+    .from("team_members")
+    .select("id, status")
+    .eq("email", email.toLowerCase())
+    .maybeSingle();
+  if (error) {
+    console.error("Authorization lookup failed:", error);
+    // Fail-closed: if the table check fails, deny.
+    return false;
+  }
+  return !!data && data.status === "active";
+}
+
 const App = () => {
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null); // null = loading
   const [userEmail, setUserEmail] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const handleSession = async (session: any) => {
+      if (cancelled) return;
+      if (!session) {
+        setLoggedIn(false);
+        setUserEmail("");
+        return;
+      }
+      const email = session.user?.email || "";
+      const ok = await isAuthorized(email);
+      if (cancelled) return;
+      if (!ok) {
+        // Session exists but email is not in the team_members allowlist.
+        // Kick them out immediately.
+        await supabase.auth.signOut();
+        setAuthError(
+          `Zugriff verweigert für ${email}. Bitte bei Alex melden.`,
+        );
+        setLoggedIn(false);
+        setUserEmail("");
+        return;
+      }
+      setLoggedIn(true);
+      setUserEmail(email);
+      setAuthError(null);
+      generateAutoTasks();
+      generateCloseAutoTasks();
+      generateNotifications(email).then(() => loadNotifications());
+    };
+
     // Check existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setLoggedIn(!!session);
-      setUserEmail(session?.user?.email || "");
-    });
+    supabase.auth.getSession().then(({ data: { session } }) => handleSession(session));
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setLoggedIn(!!session);
-      setUserEmail(session?.user?.email || "");
-    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => handleSession(session),
+    );
 
-    // Run auto-task generation and notification generation once on mount (after auth check)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        generateAutoTasks();
-        generateCloseAutoTasks();
-        generateNotifications(session.user?.email || "").then(() => loadNotifications());
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Loading state
@@ -121,7 +161,7 @@ const App = () => {
                     </Routes>
                   </AppLayout>
                 ) : (
-                  <Login onLogin={() => setLoggedIn(true)} />
+                  <Login onLogin={() => setLoggedIn(true)} authError={authError} />
                 )
               } />
             </Routes>
