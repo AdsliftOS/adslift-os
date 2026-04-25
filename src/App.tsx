@@ -86,6 +86,22 @@ const App = () => {
   useEffect(() => {
     let cancelled = false;
 
+    // Last-resort safety net: if we are still in `loggedIn === null` after 8s,
+    // something is very wrong (network, supabase, blocked requests). Drop the
+    // user on the login screen so they can at least retry.
+    const fallbackTimer = setTimeout(() => {
+      if (cancelled) return;
+      setLoggedIn((prev) => {
+        if (prev === null) {
+          setAuthError(
+            "Auth lädt zu lange — bitte Internet-Verbindung prüfen oder Browser-Konsole öffnen.",
+          );
+          return false;
+        }
+        return prev;
+      });
+    }, 8000);
+
     const handleSession = async (session: any) => {
       try {
         if (cancelled) return;
@@ -132,6 +148,7 @@ const App = () => {
 
     return () => {
       cancelled = true;
+      clearTimeout(fallbackTimer);
       subscription.unsubscribe();
     };
   }, []);
