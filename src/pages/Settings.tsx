@@ -570,15 +570,16 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          <Card>
+          {/* PROMINENT: Close-Konten verbinden */}
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/[0.06] to-transparent">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Link2 className="h-4 w-4" />
-                  Close CRM Anbindung
+                  <Link2 className="h-4 w-4 text-primary" />
+                  Close-Konten verbinden
                 </CardTitle>
                 <CardDescription>
-                  Verfügbare Close-User für die Verknüpfung. Aktualisiert sich automatisch.
+                  Wähle pro Mitarbeiter den passenden Close-User aus. Damit fließen seine Anwahlen, Termine, Closes & Pipeline in seinen Mein-Bereich.
                 </CardDescription>
               </div>
               <Button variant="outline" size="sm" onClick={loadCloseUsers} disabled={closeLoading}>
@@ -586,10 +587,100 @@ export default function Settings() {
                 Aktualisieren
               </Button>
             </CardHeader>
+            <CardContent className="space-y-3">
+              {closeUsers.length === 0 && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+                  {closeLoading
+                    ? "Lade Close-User..."
+                    : "Keine Close-User gefunden — prüfe deinen Close-API-Key in Vercel (env CLOSE_API_KEY)."}
+                </div>
+              )}
+              {team.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Noch keine Mitarbeiter angelegt.</p>
+              ) : (
+                <div className="space-y-2">
+                  {team.map((m) => {
+                    const linkedCloseUser = m.closeUserId
+                      ? closeUsers.find((u) => u.id === m.closeUserId)
+                      : null;
+                    return (
+                      <div
+                        key={m.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3"
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-bold text-primary">
+                              {m.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold truncate">{m.name}</div>
+                            <div className="text-[10px] text-muted-foreground font-mono truncate">{m.email}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {linkedCloseUser ? (
+                            <Badge className="text-[10px] bg-emerald-500/15 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/15 gap-1">
+                              <CheckCircle2 className="h-2.5 w-2.5" />
+                              {linkedCloseUser.name}
+                            </Badge>
+                          ) : null}
+                          <Select
+                            value={m.closeUserId || "__none"}
+                            onValueChange={(v) =>
+                              updateTeamMember(m.id, { closeUserId: v === "__none" ? null : v })
+                            }
+                          >
+                            <SelectTrigger
+                              className={`h-9 text-xs min-w-[180px] ${
+                                linkedCloseUser
+                                  ? ""
+                                  : "border-primary bg-primary/10 hover:bg-primary/15 text-primary font-medium"
+                              }`}
+                            >
+                              {linkedCloseUser ? (
+                                <SelectValue />
+                              ) : (
+                                <span className="flex items-center gap-1.5">
+                                  <Link2 className="h-3 w-3" />
+                                  Mit Close verbinden
+                                </span>
+                              )}
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none">– nicht verbunden –</SelectItem>
+                              {closeUsers.map((u) => (
+                                <SelectItem key={u.id} value={u.id}>
+                                  {u.name}{" "}
+                                  <span className="text-muted-foreground">({u.email})</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Available Close users (info card) */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground">
+                  Verfügbare Close-User
+                </CardTitle>
+                <CardDescription>Mitglieder eurer Close-Org "Ochs & Goldmann Consulting"</CardDescription>
+              </div>
+            </CardHeader>
             <CardContent>
               {closeUsers.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  {closeLoading ? "Lade Close-User..." : "Keine Close-User gefunden — prüfe deinen API-Key."}
+                <p className="text-xs text-muted-foreground">
+                  {closeLoading ? "Lade Close-User..." : "Keine Close-User gefunden."}
                 </p>
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2">
