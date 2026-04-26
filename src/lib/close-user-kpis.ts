@@ -48,53 +48,87 @@ const empty: UserKPIs = {
 // Fetch all activities of a subtype within range. Uses Close's subtype
 // endpoints (/activity/call/, /activity/meeting/, /activity/email/) which
 // have richer filtering than the generic /activity?_type= variant.
-async function fetchAllActivities(opts: {
+// Fetch activity records + accurate total count. Close returns
+// `total_results` on the first page so we don't need to paginate just
+// to count. We still fetch up to ~500 records for aggregates like talk
+// time / direction breakdown — using whichever pagination style the
+// endpoint actually honors.
+async function fetchActivities(opts: {
   subtype: "call" | "meeting" | "email";
   user_id: string;
   date_from: string;
   date_to: string;
-}) {
+}): Promise<{ records: any[]; total: number }> {
   const limit = 100;
   const dateField =
     opts.subtype === "call" || opts.subtype === "meeting"
       ? "date_started"
       : "date_created";
 
-  // Cursor-based pagination — Close ignores _skip on /activity/* endpoints,
-  // which previously caused every page to return the same 100 records and
-  // inflated the count to exactly 1000 after 10 loop iterations.
-  const all: any[] = [];
+  const baseParams: Record<string, string> = {
+    user_id: opts.user_id,
+    [`${dateField}__gte`]: opts.date_from,
+    [`${dateField}__lte`]: opts.date_to,
+  };
+
   const seen = new Set<string>();
+  const records: any[] = [];
+  let total = 0;
   let cursor: string | null = null;
-  let safety = 0;
+  let skip = 0;
+  let pages = 0;
+  let lastPageCount = -1;
+
   do {
-    const params: Record<string, string> = {
-      user_id: opts.user_id,
-      [`${dateField}__gte`]: opts.date_from,
-      [`${dateField}__lte`]: opts.date_to,
-      _limit: String(limit),
-    };
+    const params: Record<string, string> = { ...baseParams, _limit: String(limit) };
     if (cursor) params._cursor = cursor;
+    else if (skip > 0) params._skip = String(skip);
 
     const data: any = await closeGet(`activity/${opts.subtype}/`, params);
     const batch: any[] = data?.data || [];
 
+    // Use total_results from first response — most reliable count.
+    if (pages === 0 && typeof data?.total_results === "number") {
+      total = data.total_results;
+    }
+
+    let newItems = 0;
     for (const item of batch) {
       if (item?.id && !seen.has(item.id)) {
         seen.add(item.id);
-        all.push(item);
+        records.push(item);
+        newItems++;
       }
     }
 
-    cursor = data?.cursor || data?.cursor_next || null;
-    if (!cursor) break;
-    if (batch.length < limit) break;
+    pages++;
 
-    safety++;
-    if (safety > 50) break; // hard cap at 5,000 records
+    // Try cursor first (newer Close API), fall back to skip
+    cursor =
+      data?.cursor_next ||
+      data?.next_cursor ||
+      data?.cursor ||
+      null;
+
+    if (!cursor) {
+      // Skip-based fallback. If a full page came back but yielded zero new
+      // records, _skip is being ignored — bail out to avoid the 1000-dup loop.
+      if (newItems === 0 && batch.length === limit) break;
+      if (data?.has_more === false) break;
+      if (batch.length < limit) break;
+      skip += limit;
+    }
+
+    if (records.length >= 500) break;
+    if (pages > 20) break;
+    if (lastPageCount === records.length) break;
+    lastPageCount = records.length;
   } while (true);
 
-  return all;
+  // Fall back to actual fetched records if total_results missing
+  if (total === 0 && records.length > 0) total = records.length;
+
+  return { records, total };
 }
 
 export async function getUserKPIs(
@@ -124,10 +158,10 @@ export async function getUserKPIs(
       errorHint = `Probe-Aufruf failed: ${e?.message || e}`;
     }
 
-    const [calls, meetings, emails, oppsResp] = await Promise.all([
-      fetchAllActivities({ subtype: "call", user_id: closeUserId, date_from: from, date_to: to }),
-      fetchAllActivities({ subtype: "meeting", user_id: closeUserId, date_from: from, date_to: to }),
-      fetchAllActivities({ subtype: "email", user_id: closeUserId, date_from: from, date_to: to }),
+    const [callsResp, meetingsResp, emailsResp, oppsResp] = await Promise.all([
+      fetchActivities({ subtype: "call", user_id: closeUserId, date_from: from, date_to: to }),
+      fetchActivities({ subtype: "meeting", user_id: closeUserId, date_from: from, date_to: to }),
+      fetchActivities({ subtype: "email", user_id: closeUserId, date_from: from, date_to: to }),
       closeGet("opportunity/", {
         user_id: closeUserId,
         date_created__gte: from,
@@ -136,12 +170,16 @@ export async function getUserKPIs(
       }),
     ]);
 
-    const callCount = calls.length;
+    const calls = callsResp.records;
+    const meetings = meetingsResp.records;
+    const emails = emailsResp.records;
+
+    const callCount = callsResp.total;
     const callDurationSec = calls.reduce((s, c) => s + (c.duration || 0), 0);
     const outboundCalls = calls.filter((c) => c.direction === "outbound").length;
     const inboundCalls = calls.filter((c) => c.direction === "inbound").length;
 
-    const meetingsScheduled = meetings.length;
+    const meetingsScheduled = meetingsResp.total;
     const meetingsCompleted = meetings.filter(
       (m) => m.status === "completed" || m.status === "held",
     ).length;
