@@ -50,51 +50,77 @@ export default function Settings() {
     setCloseLoading(true);
     setCloseDiagnostic(null);
 
-    // Try a few endpoint shapes — Close sometimes 404s without a trailing slash
-    const attempts = [
-      "/api/close-proxy?endpoint=membership/&_limit=100",
-      "/api/close-proxy?endpoint=membership&_limit=100",
-    ];
+    const proxyGet = async (endpoint: string) => {
+      const res = await fetch(`/api/close-proxy?endpoint=${encodeURIComponent(endpoint)}`);
+      const text = await res.text();
+      let json: any = null;
+      try { json = JSON.parse(text); } catch {}
+      return { res, json, text };
+    };
 
-    for (const url of attempts) {
-      try {
-        const res = await fetch(url);
-        const text = await res.text();
-        let json: any = null;
-        try { json = JSON.parse(text); } catch {}
-        if (res.ok && json && Array.isArray(json.data) && json.data.length > 0) {
-          const arr = json.data.map((m: any) => ({
-            id: m.user_id,
-            email: m.user_email || "",
+    try {
+      // Step 1: /me/ to grab the current org id
+      const me = await proxyGet("me/");
+      if (!me.res.ok || !me.json) {
+        setCloseDiagnostic(`/me/ → HTTP ${me.res.status}: ${(me.text || "").slice(0, 200)}`);
+        setCloseUsers(KNOWN_CLOSE_FALLBACK);
+        return;
+      }
+
+      const orgId =
+        me.json?.organizations?.[0]?.id ||
+        me.json?.organization_id ||
+        null;
+      if (!orgId) {
+        setCloseDiagnostic(
+          `/me/ ok aber keine org_id gefunden. Raw: ${JSON.stringify(me.json).slice(0, 200)}`,
+        );
+        setCloseUsers(KNOWN_CLOSE_FALLBACK);
+        return;
+      }
+
+      // Step 2: try the per-org membership endpoint, then fall back
+      const attempts = [
+        `organization/${orgId}/membership/`,
+        `organization/${orgId}/`,
+      ];
+      for (const ep of attempts) {
+        const r = await proxyGet(ep);
+        if (!r.res.ok || !r.json) continue;
+        // Could be {data:[...]} (membership list) or {memberships:[...]} (org)
+        const list: any[] =
+          r.json?.data ||
+          r.json?.memberships ||
+          [];
+        if (list.length > 0) {
+          const arr = list.map((m: any) => ({
+            id: m.user_id || m.id,
+            email: m.user_email || m.email || "",
             name:
-              [m.user_first_name, m.user_last_name].filter(Boolean).join(" ") ||
+              [m.user_first_name || m.first_name, m.user_last_name || m.last_name]
+                .filter(Boolean)
+                .join(" ") ||
               m.user_email ||
-              m.user_id,
+              m.email ||
+              m.user_id ||
+              m.id,
           }));
           setCloseUsers(arr);
           setCloseDiagnostic(null);
-          setCloseLoading(false);
           return;
         }
-        // Capture the most informative error we saw
-        if (!json) {
-          setCloseDiagnostic(`HTTP ${res.status}: ${text.slice(0, 200)}`);
-        } else if (!res.ok) {
-          setCloseDiagnostic(
-            `HTTP ${res.status}: ${json?.error || json?.message || JSON.stringify(json).slice(0, 200)}`,
-          );
-        } else {
-          setCloseDiagnostic(`Antwort OK, 0 Members. Raw: ${JSON.stringify(json).slice(0, 200)}`);
-        }
-      } catch (err: any) {
-        setCloseDiagnostic(`Fetch failed: ${err?.message || String(err)}`);
       }
-    }
 
-    // Live call didn't return members — use the verified fallback so the
-    // connection UI is always usable.
-    setCloseUsers(KNOWN_CLOSE_FALLBACK);
-    setCloseLoading(false);
+      setCloseDiagnostic(
+        `org_id=${orgId} gefunden, aber Membership-Endpoint lieferte 0 Einträge. Fallback aktiv.`,
+      );
+      setCloseUsers(KNOWN_CLOSE_FALLBACK);
+    } catch (err: any) {
+      setCloseDiagnostic(`Fetch failed: ${err?.message || String(err)}`);
+      setCloseUsers(KNOWN_CLOSE_FALLBACK);
+    } finally {
+      setCloseLoading(false);
+    }
   }, []);
 
   useEffect(() => { loadCloseUsers(); }, [loadCloseUsers]);
