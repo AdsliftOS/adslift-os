@@ -536,9 +536,53 @@ export default function MyArea({ viewMember, onExitViewAs }: MyAreaProps = {}) {
               </div>
             </CardContent>
           </Card>
+
+          {/* PROVISION — links unter Performance, NICHT unter ToDos */}
+          <Card className="border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-amber-500" />
+                  Provision · {filterLabel}
+                </CardTitle>
+                <Badge variant="outline" className="text-[10px]">{me.commissionRate}%</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Eyebrow>Deals</Eyebrow>
+                  <div className="text-lg font-bold tabular-nums mt-1">{myCommission.deals}</div>
+                </div>
+                <div>
+                  <Eyebrow>Volumen</Eyebrow>
+                  <div className="text-lg font-bold tabular-nums mt-1">{fmtEURFull(myCommission.volume)}</div>
+                </div>
+                <div>
+                  <Eyebrow tone="amber">Auszahlung</Eyebrow>
+                  <KpiNumber size="md" tone="amber" className="mt-1">{fmtEURFull(myCommission.commission)}</KpiNumber>
+                </div>
+              </div>
+              <div className="border-t border-amber-500/10 pt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <Eyebrow>Pipeline-Wert</Eyebrow>
+                  <div className="text-sm font-semibold tabular-nums mt-1">{fmtEUR(kpis?.activeValue ?? 0)}</div>
+                </div>
+                <div>
+                  <Eyebrow tone="amber">Möglich</Eyebrow>
+                  <div className="text-sm font-semibold tabular-nums mt-1 text-amber-500">
+                    {fmtEUR((kpis?.activeValue ?? 0) * (me.commissionRate / 100))}
+                  </div>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                {me.commissionRate}% Provision · automatisch aus dem Sales Tracker, wenn du als Closer markiert bist.
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* RIGHT COLUMN — ToDos + Provision */}
+        {/* RIGHT COLUMN — ToDos */}
         <div className="space-y-4">
           {/* Stats row */}
           <div className="grid gap-2 grid-cols-2">
@@ -674,49 +718,6 @@ export default function MyArea({ viewMember, onExitViewAs }: MyAreaProps = {}) {
             </Card>
           )}
 
-          {/* PROVISION — kompakt unter ToDos */}
-          <Card className="border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-amber-500" />
-                  Provision · {filterLabel}
-                </CardTitle>
-                <Badge variant="outline" className="text-[10px]">{me.commissionRate}%</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Eyebrow>Deals</Eyebrow>
-                  <div className="text-lg font-bold tabular-nums mt-1">{myCommission.deals}</div>
-                </div>
-                <div>
-                  <Eyebrow>Volumen</Eyebrow>
-                  <div className="text-lg font-bold tabular-nums mt-1">{fmtEURFull(myCommission.volume)}</div>
-                </div>
-                <div>
-                  <Eyebrow tone="amber">Auszahlung</Eyebrow>
-                  <KpiNumber size="md" tone="amber" className="mt-1">{fmtEURFull(myCommission.commission)}</KpiNumber>
-                </div>
-              </div>
-              <div className="border-t border-amber-500/10 pt-3 grid grid-cols-2 gap-3">
-                <div>
-                  <Eyebrow>Pipeline-Wert</Eyebrow>
-                  <div className="text-sm font-semibold tabular-nums mt-1">{fmtEUR(kpis?.activeValue ?? 0)}</div>
-                </div>
-                <div>
-                  <Eyebrow tone="amber">Möglich</Eyebrow>
-                  <div className="text-sm font-semibold tabular-nums mt-1 text-amber-500">
-                    {fmtEUR((kpis?.activeValue ?? 0) * (me.commissionRate / 100))}
-                  </div>
-                </div>
-              </div>
-              <p className="text-[10px] text-muted-foreground leading-relaxed">
-                {me.commissionRate}% Provision · automatisch aus dem Sales Tracker, wenn du als Closer markiert bist.
-              </p>
-            </CardContent>
-          </Card>
         </div>
       </div>
 
