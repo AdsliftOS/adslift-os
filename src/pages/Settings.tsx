@@ -35,12 +35,50 @@ export default function Settings() {
   // Close org users (for mapping)
   const [closeUsers, setCloseUsers] = useState<CloseOrgUser[]>([]);
   const [closeLoading, setCloseLoading] = useState(false);
+  const [closeDiagnostic, setCloseDiagnostic] = useState<string | null>(null);
 
   const loadCloseUsers = useCallback(async () => {
     setCloseLoading(true);
-    const users = await getCloseOrgUsers();
-    setCloseUsers(users);
-    setCloseLoading(false);
+    setCloseDiagnostic(null);
+    try {
+      // Direct call so we can capture the raw error/response for the user
+      const res = await fetch("/api/close-proxy?endpoint=membership&_limit=100");
+      const text = await res.text();
+      let json: any = null;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        setCloseDiagnostic(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+        setCloseUsers([]);
+        return;
+      }
+      if (!res.ok) {
+        setCloseDiagnostic(
+          `HTTP ${res.status}: ${json?.error || json?.message || JSON.stringify(json).slice(0, 200)}`,
+        );
+        setCloseUsers([]);
+        return;
+      }
+      const arr = (json?.data || []).map((m: any) => ({
+        id: m.user_id,
+        email: m.user_email || "",
+        name:
+          [m.user_first_name, m.user_last_name].filter(Boolean).join(" ") ||
+          m.user_email ||
+          m.user_id,
+      }));
+      setCloseUsers(arr);
+      if (arr.length === 0) {
+        setCloseDiagnostic(
+          `Antwort OK, aber 0 Members. Raw: ${JSON.stringify(json).slice(0, 200)}`,
+        );
+      }
+    } catch (err: any) {
+      setCloseDiagnostic(`Fetch failed: ${err?.message || String(err)}`);
+      setCloseUsers([]);
+    } finally {
+      setCloseLoading(false);
+    }
   }, []);
 
   useEffect(() => { loadCloseUsers(); }, [loadCloseUsers]);
@@ -589,10 +627,17 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-3">
               {closeUsers.length === 0 && (
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
-                  {closeLoading
-                    ? "Lade Close-User..."
-                    : "Keine Close-User gefunden — prüfe deinen Close-API-Key in Vercel (env CLOSE_API_KEY)."}
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs space-y-2">
+                  <div>
+                    {closeLoading
+                      ? "Lade Close-User..."
+                      : "Keine Close-User gefunden — Diagnose unten."}
+                  </div>
+                  {closeDiagnostic && !closeLoading && (
+                    <div className="font-mono text-[10px] bg-black/20 rounded p-2 border border-amber-500/20 text-amber-200/90 break-all whitespace-pre-wrap">
+                      {closeDiagnostic}
+                    </div>
+                  )}
                 </div>
               )}
               {team.length === 0 ? (
