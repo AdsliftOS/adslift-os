@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Palette, Users, Building2, Bell, Trash2, Eclipse, Target, Calendar, CheckCircle2, Unplug, Plus, Link2, RefreshCw } from "lucide-react";
+import { Sun, Moon, Palette, Users, Building2, Bell, Trash2, Eclipse, Target, Calendar, CheckCircle2, Unplug, Plus, Link2, RefreshCw, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useSettings } from "@/store/settings";
 import { getAccounts, removeAccount, connectGoogleCalendar } from "@/lib/google-calendar";
@@ -466,24 +466,67 @@ export default function Settings() {
                         />
                       </TableCell>
                       <TableCell>
-                        <Select
-                          value={member.closeUserId || "__none"}
-                          onValueChange={(v) =>
-                            updateTeamMember(member.id, { closeUserId: v === "__none" ? null : v })
+                        {(() => {
+                          const linkedCloseUser = member.closeUserId
+                            ? closeUsers.find((u) => u.id === member.closeUserId)
+                            : null;
+                          if (linkedCloseUser) {
+                            return (
+                              <div className="flex items-center gap-2">
+                                <Badge className="text-[10px] bg-emerald-500/15 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/15 gap-1">
+                                  <Link2 className="h-2.5 w-2.5" />
+                                  {linkedCloseUser.name}
+                                </Badge>
+                                <Select
+                                  value={member.closeUserId || ""}
+                                  onValueChange={(v) =>
+                                    updateTeamMember(member.id, { closeUserId: v === "__none" ? null : v })
+                                  }
+                                >
+                                  <SelectTrigger className="h-7 w-7 p-0 border-0 bg-transparent hover:bg-muted/30 [&>svg]:hidden flex items-center justify-center">
+                                    <Pencil className="h-3 w-3 text-muted-foreground" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__none">– trennen –</SelectItem>
+                                    {closeUsers.map((u) => (
+                                      <SelectItem key={u.id} value={u.id}>
+                                        {u.name} ({u.email})
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            );
                           }
-                        >
-                          <SelectTrigger className="h-8 text-xs border-0 bg-transparent hover:bg-muted/30 px-2 max-w-[200px]">
-                            <SelectValue placeholder="– nicht verknüpft –" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none">– nicht verknüpft –</SelectItem>
-                            {closeUsers.map((u) => (
-                              <SelectItem key={u.id} value={u.id}>
-                                {u.name} <span className="text-muted-foreground">({u.email})</span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          // Not linked yet — show a clear "Verbinden" button
+                          if (closeUsers.length === 0) {
+                            return (
+                              <span className="text-[10px] text-muted-foreground italic">
+                                {closeLoading ? "lade..." : "keine Close-User"}
+                              </span>
+                            );
+                          }
+                          return (
+                            <Select
+                              value=""
+                              onValueChange={(v) =>
+                                v && updateTeamMember(member.id, { closeUserId: v })
+                              }
+                            >
+                              <SelectTrigger className="h-7 px-2 text-[11px] border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 text-amber-600 max-w-[200px]">
+                                <Link2 className="h-3 w-3 mr-1" />
+                                <span>Mit Close verbinden</span>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {closeUsers.map((u) => (
+                                  <SelectItem key={u.id} value={u.id}>
+                                    {u.name} ({u.email})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="inline-flex items-center gap-1">
