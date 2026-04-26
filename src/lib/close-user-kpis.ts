@@ -45,9 +45,11 @@ const empty: UserKPIs = {
   activeValue: 0,
 };
 
-// Fetch all activities of a type within range, paged by skip/limit
+// Fetch all activities of a subtype within range. Uses Close's subtype
+// endpoints (/activity/call/, /activity/meeting/, /activity/email/) which
+// have richer filtering than the generic /activity?_type= variant.
 async function fetchAllActivities(opts: {
-  type: string;
+  subtype: "call" | "meeting" | "email";
   user_id: string;
   date_from: string;
   date_to: string;
@@ -56,9 +58,7 @@ async function fetchAllActivities(opts: {
   let skip = 0;
   const limit = 100;
   while (skip < 1000) {
-    // Close requires trailing slash on most endpoints — bare /activity 404s.
-    const data = await closeGet("activity/", {
-      _type: opts.type,
+    const data = await closeGet(`activity/${opts.subtype}/`, {
       user_id: opts.user_id,
       date_created__gte: opts.date_from,
       date_created__lte: opts.date_to,
@@ -88,24 +88,22 @@ export async function getUserKPIs(
   let rawTotals = { calls: 0, meetings: 0, opportunities: 0 };
   try {
     // First: a sanity probe without the user_id filter — tells us whether the
-    // activity endpoint and the date range have ANY data in the org. If this
-    // is also 0, the date range is the problem (or the proxy is wrong).
+    // activity endpoint and the date range have ANY data in the org.
     try {
-      const probe = await closeGet("activity/", {
-        _type: "Call",
+      const probe = await closeGet("activity/call/", {
         date_created__gte: from,
         date_created__lte: to,
         _limit: "1",
       });
-      rawTotals.calls = probe?.total_results || 0;
+      rawTotals.calls = probe?.total_results || (probe?.data?.length ?? 0);
     } catch (e: any) {
       errorHint = `Probe-Aufruf failed: ${e?.message || e}`;
     }
 
     const [calls, meetings, emails, oppsResp] = await Promise.all([
-      fetchAllActivities({ type: "Call", user_id: closeUserId, date_from: from, date_to: to }),
-      fetchAllActivities({ type: "Meeting", user_id: closeUserId, date_from: from, date_to: to }),
-      fetchAllActivities({ type: "Email", user_id: closeUserId, date_from: from, date_to: to }),
+      fetchAllActivities({ subtype: "call", user_id: closeUserId, date_from: from, date_to: to }),
+      fetchAllActivities({ subtype: "meeting", user_id: closeUserId, date_from: from, date_to: to }),
+      fetchAllActivities({ subtype: "email", user_id: closeUserId, date_from: from, date_to: to }),
       closeGet("opportunity/", {
         user_id: closeUserId,
         date_created__gte: from,
