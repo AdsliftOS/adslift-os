@@ -60,15 +60,15 @@ async function fetchActivities(opts: {
   date_to: string;
 }): Promise<{ records: any[]; total: number }> {
   const limit = 100;
-  const dateField =
-    opts.subtype === "call" || opts.subtype === "meeting"
-      ? "date_started"
-      : "date_created";
-
+  // Close REST /activity/{call,meeting,email}/ only honors date_created__*
+  // as a query filter. date_started exists as a record field but is NOT
+  // accepted as a filter param — passing it silently returns all-time
+  // records, which collides with the 500 hard-cap and makes every period
+  // show "500".
   const baseParams: Record<string, string> = {
     user_id: opts.user_id,
-    [`${dateField}__gte`]: opts.date_from,
-    [`${dateField}__lte`]: opts.date_to,
+    date_created__gte: opts.date_from,
+    date_created__lte: opts.date_to,
   };
 
   const seen = new Set<string>();
@@ -149,8 +149,8 @@ export async function getUserKPIs(
     // activity endpoint and the date range have ANY data in the org.
     try {
       const probe = await closeGet("activity/call/", {
-        date_started__gte: from,
-        date_started__lte: to,
+        date_created__gte: from,
+        date_created__lte: to,
         _limit: "1",
       });
       rawTotals.calls = probe?.total_results || (probe?.data?.length ?? 0);
