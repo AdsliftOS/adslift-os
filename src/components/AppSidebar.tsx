@@ -21,6 +21,7 @@ import { useLocation, matchPath } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
+import { useCurrentMember, isLeadershipRole } from "@/store/teamMembers";
 import {
   Sidebar,
   SidebarContent,
@@ -107,6 +108,14 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const [user, setUser] = useState<{ email: string; initials: string } | null>(null);
+  const me = useCurrentMember();
+  const leadership = isLeadershipRole(me?.role);
+  // Setter/Closer only see Mein Bereich + Kalender. Default to leadership view
+  // until we know the role, otherwise admins briefly see a stripped sidebar.
+  const visibleWorkspaceItems = me === null || leadership
+    ? workspaceItems.filter((i) => leadership ? i.url !== "/me" : true)
+    : workspaceItems.filter((i) => i.url === "/me" || i.url === "/calendar");
+  const visibleGrowthItems = me === null || leadership ? growthItems : [];
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -159,7 +168,7 @@ export function AppSidebar() {
           )}
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
-              {workspaceItems.map((item) => (
+              {visibleWorkspaceItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent data-[active=true]:bg-transparent">
                     <NavItemLink item={item} collapsed={collapsed} />
@@ -170,6 +179,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {visibleGrowthItems.length > 0 && (
         <SidebarGroup className="p-0">
           {!collapsed && (
             <SidebarGroupLabel className="px-3 text-[9px] font-bold uppercase tracking-ui text-muted-foreground/60">
@@ -178,7 +188,7 @@ export function AppSidebar() {
           )}
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
-              {growthItems.map((item) => (
+              {visibleGrowthItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent data-[active=true]:bg-transparent">
                     <NavItemLink item={item} collapsed={collapsed} />
@@ -188,11 +198,13 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="px-2 py-3 gap-2 border-t border-white/[0.06]">
         {/* Settings + Logout */}
         <SidebarMenu className="gap-0.5">
+          {(me === null || leadership) && (
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent data-[active=true]:bg-transparent">
               <NavLink to="/settings" className={navItemBase} activeClassName={navItemActive}>
@@ -201,6 +213,7 @@ export function AppSidebar() {
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent">
               <button onClick={() => supabase.auth.signOut()} className={navItemBase + " w-full"}>

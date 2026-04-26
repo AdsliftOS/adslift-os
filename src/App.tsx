@@ -9,7 +9,8 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
   }
 }
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { useCurrentMember, isLeadershipRole } from "@/store/teamMembers";
 import { ThemeProvider } from "next-themes";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -42,6 +43,43 @@ import MyArea from "./pages/MyArea";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+// Routes filtered by role. Setters/Closer get only /me and /calendar; any
+// other URL bounces them back to /me. Leadership keeps everything.
+function RoleAwareRoutes() {
+  const me = useCurrentMember();
+  const leadership = me === null || isLeadershipRole(me.role);
+
+  if (!leadership) {
+    return (
+      <Routes>
+        <Route path="/me" element={<MyArea />} />
+        <Route path="/calendar" element={<ErrorBoundary><Calendar /></ErrorBoundary>} />
+        <Route path="*" element={<Navigate to="/me" replace />} />
+      </Routes>
+    );
+  }
+
+  return (
+    <Routes>
+      <Route path="/" element={<Dashboard />} />
+      <Route path="/me" element={<Navigate to="/" replace />} />
+      <Route path="/projects" element={<ProjectManager />} />
+      <Route path="/clients" element={<Clients />} />
+      <Route path="/finances" element={<Finances />} />
+      <Route path="/settings" element={<Settings />} />
+      <Route path="/time" element={<TimeTracking />} />
+      <Route path="/sales" element={<Sales />} />
+      <Route path="/meta-ads" element={<MetaAds />} />
+      <Route path="/calendar" element={<ErrorBoundary><Calendar /></ErrorBoundary>} />
+      <Route path="/tasks" element={<Tasks />} />
+      <Route path="/mail" element={<ErrorBoundary><Mail /></ErrorBoundary>} />
+      <Route path="/files" element={<Files />} />
+      <Route path="/academy-admin" element={<ErrorBoundary><Academy /></ErrorBoundary>} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
 
 const App = () => {
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null); // null = loading
@@ -102,23 +140,7 @@ const App = () => {
               <Route path="*" element={
                 loggedIn ? (
                   <AppLayout>
-                    <Routes>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/me" element={<MyArea />} />
-                      <Route path="/projects" element={<ProjectManager />} />
-                      <Route path="/clients" element={<Clients />} />
-                      <Route path="/finances" element={<Finances />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="/time" element={<TimeTracking />} />
-                      <Route path="/sales" element={<Sales />} />
-                      <Route path="/meta-ads" element={<MetaAds />} />
-                      <Route path="/calendar" element={<ErrorBoundary><Calendar /></ErrorBoundary>} />
-                      <Route path="/tasks" element={<Tasks />} />
-                      <Route path="/mail" element={<ErrorBoundary><Mail /></ErrorBoundary>} />
-                  <Route path="/files" element={<Files />} />
-                      <Route path="/academy-admin" element={<ErrorBoundary><Academy /></ErrorBoundary>} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
+                    <RoleAwareRoutes />
                   </AppLayout>
                 ) : (
                   <Login onLogin={() => setLoggedIn(true)} />

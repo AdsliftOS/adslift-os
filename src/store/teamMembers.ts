@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -105,4 +105,32 @@ export function useTeamMembers(): TeamMember[] {
 export function getMemberByEmail(email: string | null | undefined): TeamMember | null {
   if (!email) return null;
   return members.find((m) => m.email.toLowerCase() === email.toLowerCase()) || null;
+}
+
+// Roles that get the leadership UI (full nav, no /me).
+const LEADERSHIP_ROLES = new Set(["Geschäftsführer", "Partner", "Admin"]);
+
+export function isLeadershipRole(role: string | undefined | null): boolean {
+  if (!role) return false;
+  return LEADERSHIP_ROLES.has(role);
+}
+
+// Hook: returns the team_member row for the currently logged-in Supabase user.
+// `null` while loading or if the user isn't in team_members yet.
+export function useCurrentMember(): TeamMember | null {
+  const all = useSyncExternalStore(subscribe, getSnapshot);
+  const [email, setEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setEmail(session?.user?.email?.toLowerCase() || null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_e, session) => setEmail(session?.user?.email?.toLowerCase() || null),
+    );
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (!email) return null;
+  return all.find((m) => m.email.toLowerCase() === email) || null;
 }
