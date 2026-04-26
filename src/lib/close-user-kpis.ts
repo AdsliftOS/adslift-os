@@ -52,7 +52,8 @@ async function fetchAllActivities(opts: {
   let skip = 0;
   const limit = 100;
   while (skip < 1000) {
-    const data = await closeGet("activity", {
+    // Close requires trailing slash on most endpoints — bare /activity 404s.
+    const data = await closeGet("activity/", {
       _type: opts.type,
       user_id: opts.user_id,
       date_created__gte: opts.date_from,
@@ -84,7 +85,7 @@ export async function getUserKPIs(
       fetchAllActivities({ type: "Call", user_id: closeUserId, date_from: from, date_to: to }),
       fetchAllActivities({ type: "Meeting", user_id: closeUserId, date_from: from, date_to: to }),
       fetchAllActivities({ type: "Email", user_id: closeUserId, date_from: from, date_to: to }),
-      closeGet("opportunity", {
+      closeGet("opportunity/", {
         user_id: closeUserId,
         date_created__gte: from,
         date_created__lte: to,
