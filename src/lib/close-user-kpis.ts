@@ -54,30 +54,46 @@ async function fetchAllActivities(opts: {
   date_from: string;
   date_to: string;
 }) {
-  const all: any[] = [];
-  let skip = 0;
   const limit = 100;
-  // Calls: filter on date_started (when the call actually happened) so
-  // delayed record creation doesn't push activity into the wrong week.
-  // Meetings: same — use date_started for the actual meeting time.
-  // Emails: date_created is fine.
   const dateField =
     opts.subtype === "call" || opts.subtype === "meeting"
       ? "date_started"
       : "date_created";
-  while (skip < 1000) {
-    const data = await closeGet(`activity/${opts.subtype}/`, {
+
+  // Cursor-based pagination — Close ignores _skip on /activity/* endpoints,
+  // which previously caused every page to return the same 100 records and
+  // inflated the count to exactly 1000 after 10 loop iterations.
+  const all: any[] = [];
+  const seen = new Set<string>();
+  let cursor: string | null = null;
+  let safety = 0;
+  do {
+    const params: Record<string, string> = {
       user_id: opts.user_id,
       [`${dateField}__gte`]: opts.date_from,
       [`${dateField}__lte`]: opts.date_to,
       _limit: String(limit),
-      _skip: String(skip),
-    });
-    const batch = data.data || [];
-    all.push(...batch);
+    };
+    if (cursor) params._cursor = cursor;
+
+    const data: any = await closeGet(`activity/${opts.subtype}/`, params);
+    const batch: any[] = data?.data || [];
+
+    for (const item of batch) {
+      if (item?.id && !seen.has(item.id)) {
+        seen.add(item.id);
+        all.push(item);
+      }
+    }
+
+    cursor = data?.cursor || data?.cursor_next || null;
+    if (!cursor) break;
     if (batch.length < limit) break;
-    skip += limit;
-  }
+
+    safety++;
+    if (safety > 50) break; // hard cap at 5,000 records
+  } while (true);
+
   return all;
 }
 
