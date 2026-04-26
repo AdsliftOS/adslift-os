@@ -81,22 +81,35 @@ function fmtEURFull(value: number) {
   }).format(value);
 }
 
-export default function MyArea() {
+type MyAreaProps = {
+  /** When set, renders the dashboard for this team member instead of the
+   *  logged-in user (admin "view as" mode). */
+  viewMember?: { email: string } | null;
+  /** Optional back-button handler when in view-as mode. */
+  onExitViewAs?: () => void;
+};
+
+export default function MyArea({ viewMember, onExitViewAs }: MyAreaProps = {}) {
   const [appSettings] = useSettings();
   const team = useTeamMembers();
   const [salesWeeks] = useSalesWeeks();
-  const [userEmail, setUserEmail] = useState<string>("");
+  const [sessionEmail, setSessionEmail] = useState<string>("");
   const [filterMode, setFilterMode] = useState<FilterMode>("month");
   const [filterOffset, setFilterOffset] = useState(0);
   const [kpis, setKpis] = useState<UserKPIs | null>(null);
   const [kpisLoading, setKpisLoading] = useState(false);
 
-  // Detect logged-in user
+  // Detect logged-in user (only used when not in view-as mode)
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUserEmail(session?.user?.email || "");
+      setSessionEmail(session?.user?.email || "");
     });
   }, []);
+
+  // The "user" we're rendering for: either the impersonated viewMember
+  // (admin viewing a setter) or the logged-in session user.
+  const userEmail = viewMember?.email || sessionEmail;
+  const isViewAs = !!viewMember;
 
   const me = useMemo(() => getMemberByEmail(userEmail), [userEmail, team]);
   const myTodos = useEmployeeTodos(userEmail);
@@ -253,6 +266,22 @@ export default function MyArea() {
 
   return (
     <div className="space-y-6">
+      {/* View-as banner */}
+      {isViewAs && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/[0.06] px-4 py-2.5">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-primary/80">Admin-Ansicht</span>
+            <span className="text-muted-foreground">— du betrachtest den Bereich von</span>
+            <span className="font-semibold">{me.name}</span>
+          </div>
+          {onExitViewAs && (
+            <Button variant="outline" size="sm" onClick={onExitViewAs}>
+              ← Zurück zur Übersicht
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4">
@@ -260,7 +289,9 @@ export default function MyArea() {
             {me.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Hi {me.name.split(" ")[0]}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {isViewAs ? me.name : `Hi ${me.name.split(" ")[0]}`}
+            </h1>
             <div className="flex items-center gap-2 mt-1">
               <Badge variant="secondary" className="text-[10px]">{me.role}</Badge>
               {me.closeUserId ? (
