@@ -57,11 +57,19 @@ async function fetchAllActivities(opts: {
   const all: any[] = [];
   let skip = 0;
   const limit = 100;
+  // Calls: filter on date_started (when the call actually happened) so
+  // delayed record creation doesn't push activity into the wrong week.
+  // Meetings: same — use date_started for the actual meeting time.
+  // Emails: date_created is fine.
+  const dateField =
+    opts.subtype === "call" || opts.subtype === "meeting"
+      ? "date_started"
+      : "date_created";
   while (skip < 1000) {
     const data = await closeGet(`activity/${opts.subtype}/`, {
       user_id: opts.user_id,
-      date_created__gte: opts.date_from,
-      date_created__lte: opts.date_to,
+      [`${dateField}__gte`]: opts.date_from,
+      [`${dateField}__lte`]: opts.date_to,
       _limit: String(limit),
       _skip: String(skip),
     });
@@ -91,8 +99,8 @@ export async function getUserKPIs(
     // activity endpoint and the date range have ANY data in the org.
     try {
       const probe = await closeGet("activity/call/", {
-        date_created__gte: from,
-        date_created__lte: to,
+        date_started__gte: from,
+        date_started__lte: to,
         _limit: "1",
       });
       rawTotals.calls = probe?.total_results || (probe?.data?.length ?? 0);
