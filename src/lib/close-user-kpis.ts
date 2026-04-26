@@ -25,6 +25,10 @@ export type UserKPIs = {
   opportunitiesActive: number;
   wonValue: number; // cents
   activeValue: number; // cents
+  /** Diagnostic — first error encountered while fetching, if any */
+  errorHint?: string | null;
+  /** Diagnostic — raw counts before user_id filtering, to detect filter mismatches */
+  rawTotals?: { calls: number; meetings: number; opportunities: number };
 };
 
 const empty: UserKPIs = {
@@ -80,7 +84,24 @@ export async function getUserKPIs(
   const from = `${dateFrom}T00:00:00Z`;
   const to = `${dateTo}T23:59:59Z`;
 
+  let errorHint: string | null = null;
+  let rawTotals = { calls: 0, meetings: 0, opportunities: 0 };
   try {
+    // First: a sanity probe without the user_id filter — tells us whether the
+    // activity endpoint and the date range have ANY data in the org. If this
+    // is also 0, the date range is the problem (or the proxy is wrong).
+    try {
+      const probe = await closeGet("activity/", {
+        _type: "Call",
+        date_created__gte: from,
+        date_created__lte: to,
+        _limit: "1",
+      });
+      rawTotals.calls = probe?.total_results || 0;
+    } catch (e: any) {
+      errorHint = `Probe-Aufruf failed: ${e?.message || e}`;
+    }
+
     const [calls, meetings, emails, oppsResp] = await Promise.all([
       fetchAllActivities({ type: "Call", user_id: closeUserId, date_from: from, date_to: to }),
       fetchAllActivities({ type: "Meeting", user_id: closeUserId, date_from: from, date_to: to }),
@@ -121,10 +142,12 @@ export async function getUserKPIs(
       opportunitiesActive: active.length,
       wonValue: won.reduce((s: number, o: any) => s + (o.value || 0), 0),
       activeValue: active.reduce((s: number, o: any) => s + (o.value || 0), 0),
+      errorHint,
+      rawTotals,
     };
-  } catch (err) {
+  } catch (err: any) {
     console.error("getUserKPIs failed:", err);
-    return { ...empty };
+    return { ...empty, errorHint: err?.message || String(err), rawTotals };
   }
 }
 

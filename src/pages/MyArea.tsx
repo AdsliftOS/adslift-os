@@ -315,6 +315,41 @@ export default function MyArea() {
         </Card>
       )}
 
+      {me.closeUserId && kpis && (kpis.errorHint || kpis.callCount === 0) && (
+        <Card className="border-amber-500/20 bg-amber-500/[0.03]">
+          <CardContent className="p-3 text-xs space-y-1">
+            <div className="flex items-center gap-2 text-amber-500 font-medium">
+              <AlertCircle className="h-3.5 w-3.5" />
+              KPI-Diagnose
+            </div>
+            <div className="font-mono text-[10px] text-muted-foreground space-y-0.5">
+              <div>Zeitraum: {filterLabel}</div>
+              <div>Close-User-ID: {me.closeUserId}</div>
+              <div>
+                Calls in Zeitraum (gesamt Org, ohne User-Filter):{" "}
+                <span className="text-foreground">{kpis.rawTotals?.calls ?? "?"}</span>
+              </div>
+              <div>
+                Calls für diesen User: <span className="text-foreground">{kpis.callCount}</span>
+              </div>
+              {kpis.errorHint && (
+                <div className="text-rose-400">Fehler: {kpis.errorHint}</div>
+              )}
+              {!kpis.errorHint && kpis.rawTotals?.calls === 0 && (
+                <div className="text-amber-300">
+                  Keine Calls im Zeitraum — wechsle oben Woche/Monat zu einem Zeitraum mit Aktivität.
+                </div>
+              )}
+              {!kpis.errorHint && (kpis.rawTotals?.calls ?? 0) > 0 && kpis.callCount === 0 && (
+                <div className="text-amber-300">
+                  Org hat Calls aber keiner ist diesem User zugeordnet — falsche Verknüpfung?
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-3">
         {/* LEFT COLUMN — Performance */}
         <div className="lg:col-span-2 space-y-4">
