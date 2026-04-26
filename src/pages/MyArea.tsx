@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -25,7 +24,6 @@ import {
   CreditCard,
   ListTodo,
   AlertCircle,
-  TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -317,31 +315,11 @@ export default function MyArea() {
         </Card>
       )}
 
-      <Tabs defaultValue="performance">
-        <TabsList>
-          <TabsTrigger value="performance" className="gap-1.5">
-            <TrendingUp className="h-3.5 w-3.5" />
-            Performance
-          </TabsTrigger>
-          <TabsTrigger value="todos" className="gap-1.5">
-            <ListTodo className="h-3.5 w-3.5" />
-            ToDos
-            {openTodos.length > 0 && (
-              <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">
-                {openTodos.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="provision" className="gap-1.5">
-            <DollarSign className="h-3.5 w-3.5" />
-            Provision
-          </TabsTrigger>
-        </TabsList>
-
-        {/* PERFORMANCE TAB */}
-        <TabsContent value="performance" className="space-y-4 mt-4">
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* LEFT COLUMN — Performance */}
+        <div className="lg:col-span-2 space-y-4">
           {/* Top KPI grid */}
-          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
             <KpiCard
               eyebrow="Anwahlen"
               icon={PhoneCall}
@@ -391,7 +369,7 @@ export default function MyArea() {
           </div>
 
           {/* Goals + extras */}
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-3">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm">Anwahlen-Ziel ({filterMode === "week" ? "Woche" : "Monat"})</CardTitle>
@@ -492,12 +470,12 @@ export default function MyArea() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
 
-        {/* TODOS TAB */}
-        <TabsContent value="todos" className="space-y-4 mt-4">
+        {/* RIGHT COLUMN — ToDos + Provision */}
+        <div className="space-y-4">
           {/* Stats row */}
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+          <div className="grid gap-2 grid-cols-2">
             <StatPill label="Heute fällig" value={todayCount} tone="primary" />
             <StatPill label="Überfällig" value={overdueCount} tone="danger" />
             <StatPill label="Offen gesamt" value={openTodos.length} tone="muted" />
@@ -629,69 +607,52 @@ export default function MyArea() {
               </CardContent>
             </Card>
           )}
-        </TabsContent>
 
-        {/* PROVISION TAB */}
-        <TabsContent value="provision" className="space-y-4 mt-4">
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="text-base">Deine Provision · {filterLabel}</CardTitle>
-                <CardDescription>
-                  {me.commissionRate}% von Deals, bei denen du als Closer hinterlegt bist.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Eyebrow>Deals</Eyebrow>
-                    <KpiNumber size="lg" className="mt-2">{myCommission.deals}</KpiNumber>
-                  </div>
-                  <div>
-                    <Eyebrow>Volumen</Eyebrow>
-                    <KpiNumber size="lg" className="mt-2">{fmtEURFull(myCommission.volume)}</KpiNumber>
-                  </div>
-                  <div>
-                    <Eyebrow tone="amber">Provision</Eyebrow>
-                    <KpiNumber size="lg" tone="amber" className="mt-2">{fmtEURFull(myCommission.commission)}</KpiNumber>
-                  </div>
+          {/* PROVISION — kompakt unter ToDos */}
+          <Card className="border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-amber-500" />
+                  Provision · {filterLabel}
+                </CardTitle>
+                <Badge variant="outline" className="text-[10px]">{me.commissionRate}%</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Eyebrow>Deals</Eyebrow>
+                  <div className="text-lg font-bold tabular-nums mt-1">{myCommission.deals}</div>
                 </div>
-                <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    Provision wird automatisch berechnet aus dem <strong>Sales Tracker</strong>.
-                    Wenn ein Deal in einer Kalenderwoche eingetragen wird und du als Closer markiert bist, fließt das Volumen hier ein.
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Provisionssatz: <strong>{me.commissionRate}%</strong> — änderbar unter Einstellungen → Team.
-                  </p>
+                <div>
+                  <Eyebrow>Volumen</Eyebrow>
+                  <div className="text-lg font-bold tabular-nums mt-1">{fmtEURFull(myCommission.volume)}</div>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Aktuelle Pipeline</CardTitle>
-                <CardDescription>Voraussichtliche Provision aus offenen Deals</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
+                <div>
+                  <Eyebrow tone="amber">Auszahlung</Eyebrow>
+                  <KpiNumber size="md" tone="amber" className="mt-1">{fmtEURFull(myCommission.commission)}</KpiNumber>
+                </div>
+              </div>
+              <div className="border-t border-amber-500/10 pt-3 grid grid-cols-2 gap-3">
                 <div>
                   <Eyebrow>Pipeline-Wert</Eyebrow>
-                  <KpiNumber size="md" className="mt-2">{fmtEUR(kpis?.activeValue ?? 0)}</KpiNumber>
+                  <div className="text-sm font-semibold tabular-nums mt-1">{fmtEUR(kpis?.activeValue ?? 0)}</div>
                 </div>
                 <div>
-                  <Eyebrow tone="amber">Mögliche Provision</Eyebrow>
-                  <KpiNumber size="md" tone="amber" className="mt-2">
+                  <Eyebrow tone="amber">Möglich</Eyebrow>
+                  <div className="text-sm font-semibold tabular-nums mt-1 text-amber-500">
                     {fmtEUR((kpis?.activeValue ?? 0) * (me.commissionRate / 100))}
-                  </KpiNumber>
+                  </div>
                 </div>
-                <div className="text-[10px] text-muted-foreground">
-                  Wenn alle aktiven Deals durchgehen.
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                {me.commissionRate}% Provision · automatisch aus dem Sales Tracker, wenn du als Closer markiert bist.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* New ToDo Dialog */}
       <Dialog open={todoDialogOpen} onOpenChange={setTodoDialogOpen}>
