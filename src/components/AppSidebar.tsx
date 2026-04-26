@@ -15,6 +15,7 @@ import {
   LogOut,
   ChevronRight,
   UserCircle,
+  UsersRound,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, matchPath } from "react-router-dom";
@@ -47,6 +48,7 @@ type NavItem = {
 const workspaceItems: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
   { title: "Mein Bereich", url: "/me", icon: UserCircle, badge: "new" },
+  { title: "Team", url: "/team", icon: UsersRound },
   { title: "Projekte", url: "/projects", icon: FolderKanban },
   { title: "Kunden", url: "/clients", icon: Users },
   { title: "Kalender", url: "/calendar", icon: Calendar },
@@ -114,7 +116,11 @@ export function AppSidebar() {
   // until we know the role, otherwise admins briefly see a stripped sidebar.
   const visibleWorkspaceItems = me === null || leadership
     ? workspaceItems.filter((i) => leadership ? i.url !== "/me" : true)
-    : workspaceItems.filter((i) => i.url === "/me" || i.url === "/calendar");
+    : workspaceItems.filter((i) => i.url === "/me" || i.url === "/calendar"); // setter/closer view
+  // Hide /team for non-leadership in case of unknown role state.
+  const finalWorkspaceItems = leadership
+    ? visibleWorkspaceItems
+    : visibleWorkspaceItems.filter((i) => i.url !== "/team");
   const visibleGrowthItems = me === null || leadership ? growthItems : [];
 
   useEffect(() => {
@@ -168,7 +174,7 @@ export function AppSidebar() {
           )}
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
-              {visibleWorkspaceItems.map((item) => (
+              {finalWorkspaceItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent data-[active=true]:bg-transparent">
                     <NavItemLink item={item} collapsed={collapsed} />

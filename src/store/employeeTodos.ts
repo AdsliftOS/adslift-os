@@ -139,3 +139,7 @@ export function useEmployeeTodos(userEmail: string | null): EmployeeTodo[] {
   if (!userEmail) return [];
   return all.filter((t) => t.userEmail.toLowerCase() === userEmail.toLowerCase());
 }
+
+export function useAllEmployeeTodos(): EmployeeTodo[] {
+  return useSyncExternalStore(subscribe, getSnapshot);
+}

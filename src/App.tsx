@@ -40,6 +40,7 @@ import AuthCallback from "./pages/AuthCallback";
 import Login from "./pages/Login";
 import Mail from "./pages/Mail";
 import MyArea from "./pages/MyArea";
+import TeamOverview from "./pages/TeamOverview";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,7 @@ function RoleAwareRoutes() {
     <Routes>
       <Route path="/" element={<Dashboard />} />
       <Route path="/me" element={<Navigate to="/" replace />} />
+      <Route path="/team" element={<TeamOverview />} />
       <Route path="/projects" element={<ProjectManager />} />
       <Route path="/clients" element={<Clients />} />
       <Route path="/finances" element={<Finances />} />
