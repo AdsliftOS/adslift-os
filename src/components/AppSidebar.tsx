@@ -16,6 +16,7 @@ import {
   ChevronRight,
   UserCircle,
   UsersRound,
+  Sparkles,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, matchPath } from "react-router-dom";
@@ -50,6 +51,7 @@ const workspaceItems: NavItem[] = [
   { title: "Mein Bereich", url: "/me", icon: UserCircle, badge: "new" },
   { title: "Team", url: "/team", icon: UsersRound },
   { title: "Projekte", url: "/projects", icon: FolderKanban },
+  { title: "Pipeline", url: "/pipeline", icon: Sparkles, badge: "new" },
   { title: "Kunden", url: "/clients", icon: Users },
   { title: "Kalender", url: "/calendar", icon: Calendar },
   { title: "Aufgaben", url: "/tasks", icon: CircleCheckBig },
@@ -120,7 +122,7 @@ export function AppSidebar() {
   // Hide /team for non-leadership in case of unknown role state.
   const finalWorkspaceItems = leadership
     ? visibleWorkspaceItems
-    : visibleWorkspaceItems.filter((i) => i.url !== "/team");
+    : visibleWorkspaceItems.filter((i) => i.url !== "/team" && i.url !== "/pipeline");
   const visibleGrowthItems = me === null || leadership ? growthItems : [];
 
   useEffect(() => {

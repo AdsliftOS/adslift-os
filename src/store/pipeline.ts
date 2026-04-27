@@ -1,0 +1,353 @@
+import { useSyncExternalStore } from "react";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+
+// ─── Types ───────────────────────────────────────────────────────────
+
+export type StepTemplate = {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  color: string;
+  isDefault: boolean;
+  sortOrder: number;
+};
+
+export type StepStatus = "todo" | "active" | "done" | "skipped";
+
+export type ProjectStep = {
+  id: string;
+  projectId: string;
+  templateId: string | null;
+  name: string;
+  icon: string;
+  description: string;
+  position: number;
+  status: StepStatus;
+  data: Record<string, any>;
+  startedAt: string | null;
+  completedAt: string | null;
+};
+
+export type ProjectStatus = "draft" | "active" | "paused" | "done";
+
+export type PipelineProject = {
+  id: string;
+  name: string;
+  clientId: string | null;
+  clientEmail: string | null;
+  adAccountId: string | null;
+  status: ProjectStatus;
+  startDate: string | null;
+  customerPortalToken: string | null;
+  createdByEmail: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// ─── Templates store ─────────────────────────────────────────────────
+
+let templates: StepTemplate[] = [];
+const tplListeners = new Set<() => void>();
+const tplEmit = () => tplListeners.forEach((l) => l());
+const tplSubscribe = (l: () => void) => { tplListeners.add(l); return () => tplListeners.delete(l); };
+const tplGetSnapshot = () => templates;
+
+function rowToTemplate(r: any): StepTemplate {
+  return {
+    id: r.id,
+    name: r.name,
+    icon: r.icon || "box",
+    description: r.description || "",
+    color: r.color || "#1c7ed6",
+    isDefault: !!r.is_default,
+    sortOrder: r.sort_order || 0,
+  };
+}
+
+export async function loadStepTemplates() {
+  const { data, error } = await supabase
+    .from("pipeline_step_templates")
+    .select("*")
+    .order("sort_order", { ascending: true });
+  if (!error && data) {
+    templates = data.map(rowToTemplate);
+    tplEmit();
+  }
+}
+loadStepTemplates();
+
+export async function addStepTemplate(t: Omit<StepTemplate, "id" | "isDefault">) {
+  const { data, error } = await supabase
+    .from("pipeline_step_templates")
+    .insert({
+      name: t.name,
+      icon: t.icon,
+      description: t.description,
+      color: t.color,
+      is_default: false,
+      sort_order: t.sortOrder,
+    })
+    .select()
+    .single();
+  if (!error && data) {
+    templates = [...templates, rowToTemplate(data)];
+    tplEmit();
+    return data.id;
+  }
+  toast.error("Template konnte nicht angelegt werden");
+  return null;
+}
+
+export async function deleteStepTemplate(id: string) {
+  templates = templates.filter((t) => t.id !== id);
+  tplEmit();
+  await supabase.from("pipeline_step_templates").delete().eq("id", id);
+}
+
+export function useStepTemplates(): StepTemplate[] {
+  return useSyncExternalStore(tplSubscribe, tplGetSnapshot);
+}
+
+// ─── Projects store ──────────────────────────────────────────────────
+
+let projects: PipelineProject[] = [];
+const prjListeners = new Set<() => void>();
+const prjEmit = () => prjListeners.forEach((l) => l());
+const prjSubscribe = (l: () => void) => { prjListeners.add(l); return () => prjListeners.delete(l); };
+const prjGetSnapshot = () => projects;
+
+function rowToProject(r: any): PipelineProject {
+  return {
+    id: r.id,
+    name: r.name,
+    clientId: r.client_id || null,
+    clientEmail: r.client_email || null,
+    adAccountId: r.ad_account_id || null,
+    status: r.status || "draft",
+    startDate: r.start_date || null,
+    customerPortalToken: r.customer_portal_token || null,
+    createdByEmail: r.created_by_email || null,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at || r.created_at,
+  };
+}
+
+export async function loadPipelineProjects() {
+  const { data, error } = await supabase
+    .from("pipeline_projects")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (!error && data) {
+    projects = data.map(rowToProject);
+    prjEmit();
+  }
+}
+loadPipelineProjects();
+
+function randomToken() {
+  return [...crypto.getRandomValues(new Uint8Array(18))]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+export async function addPipelineProject(p: {
+  name: string;
+  clientId: string | null;
+  clientEmail: string | null;
+  adAccountId: string | null;
+  createdByEmail: string | null;
+}) {
+  const { data, error } = await supabase
+    .from("pipeline_projects")
+    .insert({
+      name: p.name,
+      client_id: p.clientId,
+      client_email: p.clientEmail,
+      ad_account_id: p.adAccountId,
+      status: "draft",
+      customer_portal_token: randomToken(),
+      created_by_email: p.createdByEmail,
+    })
+    .select()
+    .single();
+  if (!error && data) {
+    projects = [rowToProject(data), ...projects];
+    prjEmit();
+    return data.id;
+  }
+  console.error("addPipelineProject failed:", error);
+  toast.error("Projekt konnte nicht angelegt werden");
+  return null;
+}
+
+export async function updatePipelineProject(id: string, updates: Partial<PipelineProject>) {
+  const row: any = {};
+  if (updates.name !== undefined) row.name = updates.name;
+  if (updates.clientId !== undefined) row.client_id = updates.clientId;
+  if (updates.clientEmail !== undefined) row.client_email = updates.clientEmail;
+  if (updates.adAccountId !== undefined) row.ad_account_id = updates.adAccountId;
+  if (updates.status !== undefined) row.status = updates.status;
+  if (updates.startDate !== undefined) row.start_date = updates.startDate;
+  row.updated_at = new Date().toISOString();
+
+  projects = projects.map((p) => (p.id === id ? { ...p, ...updates } : p));
+  prjEmit();
+
+  const { error } = await supabase.from("pipeline_projects").update(row).eq("id", id);
+  if (error) {
+    toast.error("Projekt konnte nicht gespeichert werden");
+    await loadPipelineProjects();
+  }
+}
+
+export async function deletePipelineProject(id: string) {
+  projects = projects.filter((p) => p.id !== id);
+  prjEmit();
+  await supabase.from("pipeline_projects").delete().eq("id", id);
+}
+
+export function usePipelineProjects(): PipelineProject[] {
+  return useSyncExternalStore(prjSubscribe, prjGetSnapshot);
+}
+
+// ─── Steps store ─────────────────────────────────────────────────────
+
+let steps: ProjectStep[] = [];
+const stpListeners = new Set<() => void>();
+const stpEmit = () => stpListeners.forEach((l) => l());
+const stpSubscribe = (l: () => void) => { stpListeners.add(l); return () => stpListeners.delete(l); };
+const stpGetSnapshot = () => steps;
+
+function rowToStep(r: any): ProjectStep {
+  return {
+    id: r.id,
+    projectId: r.project_id,
+    templateId: r.template_id || null,
+    name: r.name,
+    icon: r.icon || "box",
+    description: r.description || "",
+    position: r.position || 0,
+    status: r.status || "todo",
+    data: r.data || {},
+    startedAt: r.started_at || null,
+    completedAt: r.completed_at || null,
+  };
+}
+
+export async function loadProjectSteps() {
+  const { data, error } = await supabase
+    .from("pipeline_steps")
+    .select("*")
+    .order("position", { ascending: true });
+  if (!error && data) {
+    steps = data.map(rowToStep);
+    stpEmit();
+  }
+}
+loadProjectSteps();
+
+export async function addStepFromTemplate(projectId: string, template: StepTemplate, position: number) {
+  const { data, error } = await supabase
+    .from("pipeline_steps")
+    .insert({
+      project_id: projectId,
+      template_id: template.id,
+      name: template.name,
+      icon: template.icon,
+      description: template.description,
+      position,
+      status: "todo",
+    })
+    .select()
+    .single();
+  if (!error && data) {
+    steps = [...steps, rowToStep(data)];
+    stpEmit();
+    return data.id;
+  }
+  toast.error("Step konnte nicht hinzugefügt werden");
+  return null;
+}
+
+export async function addCustomStep(
+  projectId: string,
+  s: { name: string; icon?: string; description?: string },
+  position: number,
+) {
+  const { data, error } = await supabase
+    .from("pipeline_steps")
+    .insert({
+      project_id: projectId,
+      template_id: null,
+      name: s.name,
+      icon: s.icon || "box",
+      description: s.description || "",
+      position,
+      status: "todo",
+    })
+    .select()
+    .single();
+  if (!error && data) {
+    steps = [...steps, rowToStep(data)];
+    stpEmit();
+    return data.id;
+  }
+  toast.error("Custom-Step konnte nicht angelegt werden");
+  return null;
+}
+
+export async function updateProjectStep(id: string, updates: Partial<ProjectStep>) {
+  const row: any = {};
+  if (updates.name !== undefined) row.name = updates.name;
+  if (updates.icon !== undefined) row.icon = updates.icon;
+  if (updates.description !== undefined) row.description = updates.description;
+  if (updates.position !== undefined) row.position = updates.position;
+  if (updates.status !== undefined) {
+    row.status = updates.status;
+    if (updates.status === "active" && !steps.find((s) => s.id === id)?.startedAt) {
+      row.started_at = new Date().toISOString();
+    }
+    if (updates.status === "done") {
+      row.completed_at = new Date().toISOString();
+    }
+  }
+  if (updates.data !== undefined) row.data = updates.data;
+
+  steps = steps.map((s) => (s.id === id ? { ...s, ...updates } : s));
+  stpEmit();
+
+  const { error } = await supabase.from("pipeline_steps").update(row).eq("id", id);
+  if (error) await loadProjectSteps();
+}
+
+export async function deleteProjectStep(id: string) {
+  steps = steps.filter((s) => s.id !== id);
+  stpEmit();
+  await supabase.from("pipeline_steps").delete().eq("id", id);
+}
+
+export async function reorderSteps(projectId: string, orderedIds: string[]) {
+  // Optimistic
+  const map = new Map(orderedIds.map((id, i) => [id, i]));
+  steps = steps.map((s) =>
+    s.projectId === projectId && map.has(s.id) ? { ...s, position: map.get(s.id)! } : s,
+  );
+  stpEmit();
+
+  // Persist sequentially — small N, simple
+  await Promise.all(
+    orderedIds.map((id, i) =>
+      supabase.from("pipeline_steps").update({ position: i }).eq("id", id),
+    ),
+  );
+}
+
+export function useProjectSteps(projectId: string | null): ProjectStep[] {
+  const all = useSyncExternalStore(stpSubscribe, stpGetSnapshot);
+  if (!projectId) return [];
+  return all
+    .filter((s) => s.projectId === projectId)
+    .sort((a, b) => a.position - b.position);
+}
