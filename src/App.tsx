@@ -41,6 +41,7 @@ import Login from "./pages/Login";
 import Mail from "./pages/Mail";
 import MyArea from "./pages/MyArea";
 import Pipeline from "./pages/Pipeline";
+import PipelinePortal from "./pages/PipelinePortal";
 import TeamOverview from "./pages/TeamOverview";
 import NotFound from "./pages/NotFound";
 
@@ -139,6 +140,7 @@ const App = () => {
               <Route path="/onboarding/finanzberater" element={<OnboardingFinanzberater />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/academy" element={<AcademyPortal />} />
+              <Route path="/p/:token" element={<PipelinePortal />} />
 
               {/* Everything else requires login */}
               <Route path="*" element={

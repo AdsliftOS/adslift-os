@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import {
   Trash2,
   GripVertical,
   ChevronLeft,
+  ChevronRight,
   Check,
   Play,
   Pause,
@@ -26,8 +27,21 @@ import {
   Sparkles,
   Mail,
   Building2,
+  Upload,
+  FileText,
+  Image as ImageIcon,
+  ExternalLink,
+  Copy,
+  Eye,
+  Send,
+  TrendingUp,
+  Calendar,
+  X,
+  PanelRight,
+  Paperclip,
+  Code,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, differenceInDays, addDays, isToday, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -48,7 +62,16 @@ import {
   type StepTemplate,
   type ProjectStep,
 } from "@/store/pipeline";
+import {
+  useStepFiles,
+  useFileCountByStep,
+  addStepFile,
+  deleteStepFile,
+  type StepFile,
+} from "@/store/pipelineFiles";
 import { cn } from "@/lib/utils";
+
+// ─── Constants ──────────────────────────────────────────────────────
 
 const ICONS: Record<string, typeof Box> = {
   box: Box,
@@ -61,18 +84,57 @@ const ICONS: Record<string, typeof Box> = {
   sparkles: Sparkles,
 };
 
-const STATUS_META: Record<StepStatus, { label: string; color: string; icon: typeof Box }> = {
-  todo:    { label: "Offen",        color: "text-muted-foreground border-muted-foreground/30 bg-muted/30",         icon: CircleDashed },
-  active:  { label: "Aktiv",        color: "text-blue-600 border-blue-500/40 bg-blue-500/10",                       icon: Play },
-  done:    { label: "Erledigt",     color: "text-emerald-600 border-emerald-500/40 bg-emerald-500/10",              icon: Check },
-  skipped: { label: "Übersprungen", color: "text-rose-500 border-rose-500/30 bg-rose-500/5",                        icon: Pause },
+const STATUS_GRADIENT: Record<StepStatus, string> = {
+  todo: "from-slate-500/20 to-slate-500/5",
+  active: "from-blue-500/30 to-blue-500/5",
+  done: "from-emerald-500/30 to-emerald-500/5",
+  skipped: "from-rose-500/20 to-rose-500/5",
 };
+
+const STATUS_RING: Record<StepStatus, string> = {
+  todo: "ring-slate-400/30",
+  active: "ring-blue-500/60 shadow-[0_0_24px_-4px_rgba(59,130,246,0.4)]",
+  done: "ring-emerald-500/50",
+  skipped: "ring-rose-500/30",
+};
+
+const STATUS_BADGE: Record<StepStatus, { label: string; className: string; icon: typeof Box }> = {
+  todo: {
+    label: "Offen",
+    className: "bg-slate-500/15 text-slate-500 border-slate-500/30",
+    icon: CircleDashed,
+  },
+  active: {
+    label: "Aktiv",
+    className: "bg-blue-500/15 text-blue-500 border-blue-500/40",
+    icon: Play,
+  },
+  done: {
+    label: "Erledigt",
+    className: "bg-emerald-500/15 text-emerald-500 border-emerald-500/40",
+    icon: Check,
+  },
+  skipped: {
+    label: "Übersprungen",
+    className: "bg-rose-500/15 text-rose-500 border-rose-500/30",
+    icon: Pause,
+  },
+};
+
+const PROJECT_STATUS_META: Record<string, { label: string; className: string }> = {
+  draft: { label: "Draft", className: "bg-slate-500/15 text-slate-500 border-slate-500/30" },
+  active: { label: "Live", className: "bg-blue-500/15 text-blue-500 border-blue-500/40" },
+  paused: { label: "Pausiert", className: "bg-amber-500/15 text-amber-500 border-amber-500/40" },
+  done: { label: "Abgeschlossen", className: "bg-emerald-500/15 text-emerald-500 border-emerald-500/40" },
+};
+
+// ─── Main Page ──────────────────────────────────────────────────────
 
 export default function Pipeline() {
   const projects = usePipelineProjects();
   const templates = useStepTemplates();
   const [clients] = useClients();
-
+  const [filter, setFilter] = useState<"all" | "draft" | "active" | "done">("all");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({ name: "", clientId: "", adAccountId: "" });
@@ -89,175 +151,273 @@ export default function Pipeline() {
     [projects, selectedProjectId],
   );
 
-  // ── List view ──────────────────────────────────────────────────────
-  if (!selectedProject) {
+  const filtered = useMemo(() => {
+    if (filter === "all") return projects;
+    return projects.filter((p) => p.status === filter);
+  }, [projects, filter]);
+
+  if (selectedProject) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-2xl font-semibold tracking-tight">Pipeline</h1>
-              <Badge variant="outline" className="text-[10px]">Sandbox v2</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Neue Projektansicht mit Baukasten-Pipeline. Läuft parallel zum alten /projects.
-            </p>
-          </div>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            Neues Projekt
-          </Button>
-        </div>
-
-        {projects.length === 0 ? (
-          <Card>
-            <CardContent className="p-10 text-center space-y-3">
-              <Sparkles className="h-10 w-10 mx-auto text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">
-                Noch keine Projekte. Lege das erste an um den Baukasten zu sehen.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((p) => {
-              const client = clients.find((c) => c.id === p.clientId);
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => setSelectedProjectId(p.id)}
-                  className="group text-left rounded-xl border bg-card hover:border-primary/50 hover:shadow-lg transition-all overflow-hidden"
-                >
-                  <div className="p-5 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold truncate">{p.name}</h3>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "text-[10px]",
-                          p.status === "active" && "bg-blue-500/10 text-blue-600 border-blue-500/30",
-                          p.status === "done" && "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
-                          p.status === "paused" && "bg-amber-500/10 text-amber-600 border-amber-500/30",
-                        )}
-                      >
-                        {p.status}
-                      </Badge>
-                    </div>
-                    {client && (
-                      <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                        <Building2 className="h-3 w-3" />
-                        {client.name}
-                      </div>
-                    )}
-                    {p.clientEmail && (
-                      <div className="text-xs text-muted-foreground flex items-center gap-1.5 truncate">
-                        <Mail className="h-3 w-3" />
-                        <span className="truncate">{p.clientEmail}</span>
-                      </div>
-                    )}
-                    <div className="text-[10px] text-muted-foreground pt-1">
-                      Erstellt {format(new Date(p.createdAt), "dd.MM.yyyy", { locale: de })}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Create dialog */}
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Neues Projekt anlegen</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid gap-2">
-                <Label>Projektname *</Label>
-                <Input
-                  placeholder="z.B. Müller GmbH — Webdesign Setup"
-                  value={createForm.name}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
-                  autoFocus
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Kunde</Label>
-                <Select
-                  value={createForm.clientId || "__none"}
-                  onValueChange={(v) => setCreateForm((f) => ({ ...f, clientId: v === "__none" ? "" : v }))}
-                >
-                  <SelectTrigger><SelectValue placeholder="Kunde auswählen" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none">– kein Kunde –</SelectItem>
-                    {clients.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name} {c.email && <span className="text-muted-foreground ml-1">({c.email})</span>}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {createForm.clientId && (() => {
-                  const c = clients.find((x) => x.id === createForm.clientId);
-                  return c?.email ? (
-                    <p className="text-[10px] text-muted-foreground">
-                      ✓ E-Mail wird automatisch übernommen: <strong>{c.email}</strong>
-                    </p>
-                  ) : null;
-                })()}
-              </div>
-              <div className="grid gap-2">
-                <Label>Werbekonto-ID (optional)</Label>
-                <Input
-                  placeholder="act_1234567890"
-                  value={createForm.adAccountId}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, adAccountId: e.target.value }))}
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  Meta Ad-Account-ID für späteren Metadaten-Transfer
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>Abbrechen</Button>
-              <Button
-                onClick={async () => {
-                  if (!createForm.name.trim()) return toast.error("Projektname ist erforderlich");
-                  const client = clients.find((c) => c.id === createForm.clientId);
-                  const id = await addPipelineProject({
-                    name: createForm.name.trim(),
-                    clientId: createForm.clientId || null,
-                    clientEmail: client?.email || null,
-                    adAccountId: createForm.adAccountId.trim() || null,
-                    createdByEmail: createdByEmail || null,
-                  });
-                  if (id) {
-                    setCreateOpen(false);
-                    setCreateForm({ name: "", clientId: "", adAccountId: "" });
-                    setSelectedProjectId(id);
-                  }
-                }}
-              >
-                Anlegen
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+      <PipelineDetail
+        projectId={selectedProject.id}
+        onBack={() => setSelectedProjectId(null)}
+        templates={templates}
+      />
     );
   }
 
-  // ── Detail view (Pipeline-Builder) ─────────────────────────────────
+  // ── List view ──────────────────────────────────────────────────────
   return (
-    <PipelineDetail
-      projectId={selectedProject.id}
-      onBack={() => setSelectedProjectId(null)}
-      templates={templates}
-    />
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-2xl font-semibold tracking-tight">Pipeline</h1>
+            <Badge variant="outline" className="text-[10px]">Sandbox v2</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Baukasten-Pipeline mit visuellem Flow · HTML-Upload pro Step · Kunden-Portal
+          </p>
+        </div>
+        <Button size="sm" onClick={() => setCreateOpen(true)} className="shadow-md">
+          <Plus className="h-4 w-4 mr-1" />
+          Neues Projekt
+        </Button>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex items-center gap-1 border-b">
+        {([
+          { key: "all", label: `Alle (${projects.length})` },
+          { key: "draft", label: `Draft (${projects.filter((p) => p.status === "draft").length})` },
+          { key: "active", label: `Live (${projects.filter((p) => p.status === "active").length})` },
+          { key: "done", label: `Done (${projects.filter((p) => p.status === "done").length})` },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setFilter(t.key)}
+            className={cn(
+              "px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors",
+              filter === t.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="p-12 text-center space-y-4">
+            <div className="h-16 w-16 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+              <Sparkles className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <p className="font-medium">Noch keine Projekte</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                Lege das erste Projekt an. Du wählst den Kunden, baust die Pipeline aus 6 vordefinierten Steps oder mit Custom-Steps.
+              </p>
+            </div>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Erstes Projekt
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((p) => (
+            <ProjectCard
+              key={p.id}
+              project={p}
+              client={clients.find((c) => c.id === p.clientId) || null}
+              onClick={() => setSelectedProjectId(p.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Create dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Neues Projekt anlegen</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label>Projektname *</Label>
+              <Input
+                placeholder="z.B. Müller GmbH — Q3 Lead-Gen"
+                value={createForm.name}
+                onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
+                autoFocus
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Kunde</Label>
+              <Select
+                value={createForm.clientId || "__none"}
+                onValueChange={(v) => setCreateForm((f) => ({ ...f, clientId: v === "__none" ? "" : v }))}
+              >
+                <SelectTrigger><SelectValue placeholder="Kunde auswählen" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">– kein Kunde –</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} {c.email && <span className="text-muted-foreground ml-1">({c.email})</span>}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {createForm.clientId && (() => {
+                const c = clients.find((x) => x.id === createForm.clientId);
+                return c?.email ? (
+                  <p className="text-[10px] text-emerald-500 flex items-center gap-1">
+                    <Check className="h-3 w-3" />
+                    E-Mail wird übernommen: <strong>{c.email}</strong>
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-amber-500">
+                    Kunde hat keine E-Mail hinterlegt — Report-Versand später nicht möglich
+                  </p>
+                );
+              })()}
+            </div>
+            <div className="grid gap-2">
+              <Label>Werbekonto-ID (optional)</Label>
+              <Input
+                placeholder="act_1234567890"
+                value={createForm.adAccountId}
+                onChange={(e) => setCreateForm((f) => ({ ...f, adAccountId: e.target.value }))}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Meta Ad-Account-ID für späteren Live-KPI-Transfer
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>Abbrechen</Button>
+            <Button
+              onClick={async () => {
+                if (!createForm.name.trim()) return toast.error("Projektname ist erforderlich");
+                const client = clients.find((c) => c.id === createForm.clientId);
+                const id = await addPipelineProject({
+                  name: createForm.name.trim(),
+                  clientId: createForm.clientId || null,
+                  clientEmail: client?.email || null,
+                  adAccountId: createForm.adAccountId.trim() || null,
+                  createdByEmail: createdByEmail || null,
+                });
+                if (id) {
+                  setCreateOpen(false);
+                  setCreateForm({ name: "", clientId: "", adAccountId: "" });
+                  setSelectedProjectId(id);
+                }
+              }}
+            >
+              Anlegen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
-// ─── Detail view ─────────────────────────────────────────────────────
+// ─── Project Card ───────────────────────────────────────────────────
+
+function ProjectCard({
+  project,
+  client,
+  onClick,
+}: {
+  project: ReturnType<typeof usePipelineProjects>[number];
+  client: { name: string } | null;
+  onClick: () => void;
+}) {
+  const steps = useProjectSteps(project.id);
+  const completed = steps.filter((s) => s.status === "done").length;
+  const active = steps.filter((s) => s.status === "active").length;
+  const progress = steps.length > 0 ? Math.round((completed / steps.length) * 100) : 0;
+  const statusMeta = PROJECT_STATUS_META[project.status] || PROJECT_STATUS_META.draft;
+
+  return (
+    <button
+      onClick={onClick}
+      className="group text-left rounded-2xl border bg-card hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/5 transition-all overflow-hidden"
+    >
+      <div className="relative p-5">
+        {/* gradient accent */}
+        <div
+          className={cn(
+            "absolute inset-x-0 top-0 h-1 bg-gradient-to-r",
+            project.status === "active"
+              ? "from-blue-500 via-blue-400 to-blue-500"
+              : project.status === "done"
+              ? "from-emerald-500 to-emerald-400"
+              : project.status === "paused"
+              ? "from-amber-500 to-amber-400"
+              : "from-slate-500/40 to-slate-500/20",
+          )}
+        />
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <h3 className="font-semibold leading-tight line-clamp-2">{project.name}</h3>
+          <Badge variant="outline" className={cn("text-[10px] shrink-0", statusMeta.className)}>
+            {statusMeta.label}
+          </Badge>
+        </div>
+        <div className="space-y-1.5 text-xs text-muted-foreground">
+          {client && (
+            <div className="flex items-center gap-1.5">
+              <Building2 className="h-3 w-3" />
+              <span className="truncate">{client.name}</span>
+            </div>
+          )}
+          {project.clientEmail && (
+            <div className="flex items-center gap-1.5">
+              <Mail className="h-3 w-3" />
+              <span className="truncate">{project.clientEmail}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Mini step preview */}
+        {steps.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center gap-0.5">
+              {steps.slice(0, 8).map((s) => (
+                <div
+                  key={s.id}
+                  className={cn(
+                    "flex-1 h-1.5 rounded-full",
+                    s.status === "done" && "bg-emerald-500",
+                    s.status === "active" && "bg-blue-500",
+                    s.status === "todo" && "bg-muted",
+                    s.status === "skipped" && "bg-rose-300/50",
+                  )}
+                />
+              ))}
+              {steps.length > 8 && (
+                <span className="text-[9px] text-muted-foreground ml-1">+{steps.length - 8}</span>
+              )}
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
+              <span>{completed}/{steps.length} Steps</span>
+              <span>{progress}%</span>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="px-5 py-2 bg-muted/30 text-[10px] text-muted-foreground border-t flex items-center justify-between group-hover:bg-primary/5 transition-colors">
+        <span>{active > 0 ? `${active} aktiv` : "Klick → öffnen"}</span>
+        <ChevronRight className="h-3 w-3 opacity-50 group-hover:translate-x-0.5 transition-transform" />
+      </div>
+    </button>
+  );
+}
+
+// ─── Project Detail (Pipeline-Builder + Live-View) ──────────────────
 
 function PipelineDetail({
   projectId,
@@ -271,13 +431,15 @@ function PipelineDetail({
   const projects = usePipelineProjects();
   const project = projects.find((p) => p.id === projectId);
   const steps = useProjectSteps(projectId);
+  const fileCounts = useFileCountByStep();
   const [clients] = useClients();
   const client = project?.clientId ? clients.find((c) => c.id === project.clientId) : null;
 
   const [addOpen, setAddOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
   const [customForm, setCustomForm] = useState({ name: "", description: "" });
-  const [editingStep, setEditingStep] = useState<ProjectStep | null>(null);
+  const [editingStepId, setEditingStepId] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Drag & Drop
   const [dragId, setDragId] = useState<string | null>(null);
@@ -294,24 +456,12 @@ function PipelineDetail({
     );
   }
 
+  const editingStep = steps.find((s) => s.id === editingStepId) || null;
+  const completedCount = steps.filter((s) => s.status === "done").length;
+  const activeCount = steps.filter((s) => s.status === "active").length;
+  const progress = steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0;
   const usedTemplateIds = new Set(steps.map((s) => s.templateId).filter(Boolean));
   const availableTemplates = templates.filter((t) => !usedTemplateIds.has(t.id));
-
-  const handleAddTemplate = async (t: StepTemplate) => {
-    await addStepFromTemplate(projectId, t, steps.length);
-    setAddOpen(false);
-  };
-
-  const handleAddCustom = async () => {
-    if (!customForm.name.trim()) return toast.error("Name erforderlich");
-    await addCustomStep(
-      projectId,
-      { name: customForm.name.trim(), description: customForm.description.trim() },
-      steps.length,
-    );
-    setCustomForm({ name: "", description: "" });
-    setCustomOpen(false);
-  };
 
   const handleDrop = async (targetId: string) => {
     if (!dragId || dragId === targetId) return;
@@ -326,165 +476,235 @@ function PipelineDetail({
     setDragOverId(null);
   };
 
-  const completedCount = steps.filter((s) => s.status === "done").length;
-  const progress = steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0;
+  const portalUrl = project.customerPortalToken
+    ? `${window.location.origin}/p/${project.customerPortalToken}`
+    : null;
+
+  const isLive = project.status === "active";
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="space-y-1">
-          <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 h-7 text-xs">
-            <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Alle Projekte
-          </Button>
+      <div className="space-y-3">
+        <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 h-7 text-xs">
+          <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Alle Projekte
+        </Button>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
+              <Badge
+                variant="outline"
+                className={cn("text-[11px]", PROJECT_STATUS_META[project.status]?.className)}
+              >
+                {PROJECT_STATUS_META[project.status]?.label || project.status}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+              {client && (
+                <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{client.name}</span>
+              )}
+              {project.clientEmail && (
+                <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{project.clientEmail}</span>
+              )}
+              {project.adAccountId && (
+                <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded">{project.adAccountId}</span>
+              )}
+              <span>· erstellt {format(new Date(project.createdAt), "dd.MM.yyyy", { locale: de })}</span>
+            </div>
+          </div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
-            <Badge variant="outline" className="text-[10px]">{project.status}</Badge>
+            <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
+              <PanelRight className="h-3.5 w-3.5 mr-1" /> Kunden-Portal
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!project.clientEmail}
+              onClick={() => toast.info("Report-Versand kommt in Phase 3")}
+            >
+              <Send className="h-3.5 w-3.5 mr-1" /> Report senden
+            </Button>
+            <Select
+              value={project.status}
+              onValueChange={(v) => updatePipelineProject(projectId, { status: v as any })}
+            >
+              <SelectTrigger className="h-9 w-32 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="active">Live</SelectItem>
+                <SelectItem value="paused">Pausiert</SelectItem>
+                <SelectItem value="done">Abgeschlossen</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-destructive"
+              onClick={async () => {
+                if (!confirm(`Projekt "${project.name}" wirklich löschen?`)) return;
+                await deletePipelineProject(projectId);
+                onBack();
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-            {client && (
-              <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{client.name}</span>
-            )}
-            {project.clientEmail && (
-              <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{project.clientEmail}</span>
-            )}
-            {project.adAccountId && (
-              <span className="font-mono text-[10px]">{project.adAccountId}</span>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select
-            value={project.status}
-            onValueChange={(v) => updatePipelineProject(projectId, { status: v as any })}
-          >
-            <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="paused">Paused</SelectItem>
-              <SelectItem value="done">Done</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-destructive"
-            onClick={async () => {
-              if (!confirm("Projekt wirklich löschen?")) return;
-              await deletePipelineProject(projectId);
-              onBack();
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 
-      {/* Progress bar */}
-      {steps.length > 0 && (
-        <div className="rounded-lg border bg-card p-4 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-mono text-muted-foreground uppercase tracking-wider">Fortschritt</span>
-            <span className="font-semibold">{completedCount} / {steps.length} Steps · {progress}%</span>
+      {/* KPI Banner — for live projects */}
+      {isLive && (
+        <div className="rounded-2xl border bg-gradient-to-br from-blue-500/[0.08] via-blue-500/[0.03] to-transparent p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingUp className="h-4 w-4 text-blue-500" />
+            <h3 className="text-sm font-semibold">Live-KPIs</h3>
+            <Badge variant="outline" className="text-[10px]">aus Meta Ads — Phase 3</Badge>
           </div>
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all"
-              style={{ width: `${progress}%` }}
-            />
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
+            {[
+              { label: "Leads", value: "—" },
+              { label: "Spend", value: "—" },
+              { label: "CPL", value: "—" },
+              { label: "CTR", value: "—" },
+              { label: "ROAS", value: "—" },
+              { label: "Frequency", value: "—" },
+            ].map((k) => (
+              <div key={k.label} className="rounded-lg bg-card border p-3">
+                <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">{k.label}</div>
+                <div className="text-xl font-bold tabular-nums text-muted-foreground/40">{k.value}</div>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Pipeline canvas — flow style with cards & connectors */}
-      <div className="rounded-2xl border bg-gradient-to-br from-background via-muted/20 to-background p-6">
+      {/* Progress + Stats */}
+      {steps.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-4">
+          <Stat label="Fortschritt" value={`${progress}%`} sub={`${completedCount}/${steps.length} Steps`} tone="primary" />
+          <Stat label="Aktiv" value={activeCount} sub="Steps in Bearbeitung" tone={activeCount > 0 ? "blue" : "muted"} />
+          <Stat label="Erledigt" value={completedCount} sub="abgeschlossen" tone="success" />
+          <Stat label="Offen" value={steps.filter((s) => s.status === "todo").length} sub="warten" tone="muted" />
+        </div>
+      )}
+
+      {/* Pipeline Canvas — visual flow with cards & connectors */}
+      <div className="rounded-2xl border bg-gradient-to-br from-background via-muted/10 to-background overflow-hidden">
+        <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold">Projekt-Pipeline</h3>
+            <span className="text-[11px] text-muted-foreground">
+              {steps.length === 0 ? "leer" : `${steps.length} Steps · drag zum Sortieren`}
+            </span>
+          </div>
+          {steps.length > 0 && (
+            <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+              <Plus className="h-3.5 w-3.5 mr-1" /> Step
+            </Button>
+          )}
+        </div>
+
         {steps.length === 0 ? (
-          <div className="text-center py-12 space-y-4">
-            <Sparkles className="h-10 w-10 mx-auto text-muted-foreground/40" />
+          <div className="text-center py-16 px-6 space-y-4">
+            <div className="h-16 w-16 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+              <Sparkles className="h-8 w-8 text-primary" />
+            </div>
             <div>
               <p className="font-medium">Pipeline ist leer</p>
-              <p className="text-xs text-muted-foreground mt-1">Füge deinen ersten Step hinzu</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                Wähle Steps aus dem Baukasten oder bau eigene. Reihenfolge per Drag&amp;Drop änderbar.
+              </p>
             </div>
             <Button onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4 mr-1" /> Erster Step
             </Button>
           </div>
         ) : (
-          <div className="flex items-stretch gap-3 overflow-x-auto pb-2 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded">
-            {steps.map((s, idx) => (
-              <div key={s.id} className="flex items-stretch gap-3 shrink-0">
-                <StepCard
-                  step={s}
-                  index={idx}
-                  isDragOver={dragOverId === s.id}
-                  isDragging={dragId === s.id}
-                  onDragStart={() => setDragId(s.id)}
-                  onDragEnd={() => { setDragId(null); setDragOverId(null); }}
-                  onDragOver={() => setDragOverId(s.id)}
-                  onDragLeave={() => dragOverId === s.id && setDragOverId(null)}
-                  onDrop={() => handleDrop(s.id)}
-                  onClick={() => setEditingStep(s)}
-                />
-                {idx < steps.length - 1 && (
-                  <div className="flex items-center self-center shrink-0">
-                    <div className="h-[2px] w-6 bg-gradient-to-r from-muted-foreground/30 to-muted-foreground/60" />
-                    <div className="h-2 w-2 rotate-45 border-r-2 border-t-2 border-muted-foreground/60 -ml-1" />
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* Add-button card at end */}
-            <button
-              onClick={() => setAddOpen(true)}
-              className="shrink-0 w-[180px] rounded-xl border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary/5 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary transition-colors py-8"
-            >
-              <Plus className="h-6 w-6" />
-              <span className="text-xs font-medium">Step hinzufügen</span>
-            </button>
+          <div className="p-6 overflow-x-auto">
+            <div className="flex items-stretch gap-2 min-w-fit">
+              {steps.map((s, idx) => (
+                <div key={s.id} className="flex items-stretch gap-2 shrink-0">
+                  <StepCard
+                    step={s}
+                    index={idx}
+                    fileCount={fileCounts.get(s.id) || 0}
+                    isDragOver={dragOverId === s.id}
+                    isDragging={dragId === s.id}
+                    onDragStart={() => setDragId(s.id)}
+                    onDragEnd={() => { setDragId(null); setDragOverId(null); }}
+                    onDragOver={() => setDragOverId(s.id)}
+                    onDragLeave={() => dragOverId === s.id && setDragOverId(null)}
+                    onDrop={() => handleDrop(s.id)}
+                    onClick={() => setEditingStepId(s.id)}
+                  />
+                  {idx < steps.length - 1 && <Connector status={s.status} />}
+                </div>
+              ))}
+              <button
+                onClick={() => setAddOpen(true)}
+                className="shrink-0 w-[200px] rounded-xl border-2 border-dashed border-muted-foreground/25 hover:border-primary hover:bg-primary/5 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary transition-all py-8"
+              >
+                <div className="h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center">
+                  <Plus className="h-5 w-5" />
+                </div>
+                <span className="text-xs font-medium">Step hinzufügen</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
+
+      {/* Gantt-Timeline — for live projects with running steps */}
+      {isLive && steps.length > 0 && <GanttTimeline steps={steps} />}
 
       {/* Add step dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Step zum Baukasten hinzufügen</DialogTitle>
+            <DialogTitle>Step hinzufügen</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">
+                Aus Baukasten wählen
+              </p>
               {availableTemplates.length === 0 ? (
-                <p className="text-sm text-muted-foreground sm:col-span-2 text-center py-4">
-                  Alle Default-Templates sind schon im Projekt. Bau einen Custom-Step.
+                <p className="text-sm text-muted-foreground text-center py-4 bg-muted/30 rounded-lg">
+                  Alle Default-Templates sind schon im Projekt.
                 </p>
               ) : (
-                availableTemplates.map((t) => {
-                  const Icon = ICONS[t.icon] || Box;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => handleAddTemplate(t)}
-                      className="text-left rounded-lg border p-3 hover:border-primary hover:bg-primary/5 transition-all"
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <div
-                          className="h-7 w-7 rounded-lg flex items-center justify-center"
-                          style={{ backgroundColor: t.color + "22", color: t.color }}
-                        >
-                          <Icon className="h-4 w-4" />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {availableTemplates.map((t) => {
+                    const Icon = ICONS[t.icon] || Box;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={async () => {
+                          await addStepFromTemplate(projectId, t, steps.length);
+                          setAddOpen(false);
+                        }}
+                        className="text-left rounded-xl border p-3 hover:border-primary hover:bg-primary/5 hover:shadow-md transition-all"
+                      >
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div
+                            className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: t.color + "22", color: t.color }}
+                          >
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div className="font-semibold text-sm leading-tight">{t.name}</div>
                         </div>
-                        <div className="font-medium text-sm">{t.name}</div>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground line-clamp-2">{t.description}</p>
-                    </button>
-                  );
-                })
+                        <p className="text-[11px] text-muted-foreground line-clamp-2">{t.description}</p>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
             <div className="border-t pt-3">
-              <Button variant="outline" size="sm" onClick={() => { setAddOpen(false); setCustomOpen(true); }}>
+              <Button variant="outline" size="sm" className="w-full" onClick={() => { setAddOpen(false); setCustomOpen(true); }}>
                 <Plus className="h-3.5 w-3.5 mr-1" /> Eigenen Step bauen
               </Button>
             </div>
@@ -520,89 +740,83 @@ function PipelineDetail({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCustomOpen(false)}>Abbrechen</Button>
-            <Button onClick={handleAddCustom}>Step anlegen</Button>
+            <Button
+              onClick={async () => {
+                if (!customForm.name.trim()) return toast.error("Name erforderlich");
+                await addCustomStep(
+                  projectId,
+                  { name: customForm.name.trim(), description: customForm.description.trim() },
+                  steps.length,
+                );
+                setCustomForm({ name: "", description: "" });
+                setCustomOpen(false);
+              }}
+            >
+              Step anlegen
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit step dialog */}
-      <Dialog open={!!editingStep} onOpenChange={(o) => !o && setEditingStep(null)}>
+      {/* Step detail panel (with file upload) */}
+      {editingStep && (
+        <StepDetailDialog
+          step={editingStep}
+          onClose={() => setEditingStepId(null)}
+          onDeleted={() => setEditingStepId(null)}
+        />
+      )}
+
+      {/* Share / customer portal dialog */}
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Step bearbeiten</DialogTitle>
+            <DialogTitle>Kunden-Portal</DialogTitle>
           </DialogHeader>
-          {editingStep && (
-            <div className="space-y-4">
-              <div className="grid gap-2">
-                <Label>Name</Label>
-                <Input
-                  value={editingStep.name}
-                  onChange={(e) => setEditingStep({ ...editingStep, name: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Beschreibung</Label>
-                <Textarea
-                  value={editingStep.description}
-                  onChange={(e) => setEditingStep({ ...editingStep, description: e.target.value })}
-                  rows={3}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Status</Label>
-                <Select
-                  value={editingStep.status}
-                  onValueChange={(v) => setEditingStep({ ...editingStep, status: v as StepStatus })}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(["todo", "active", "done", "skipped"] as StepStatus[]).map((s) => (
-                      <SelectItem key={s} value={s}>{STATUS_META[s].label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              className="text-muted-foreground hover:text-destructive mr-auto"
-              onClick={async () => {
-                if (!editingStep) return;
-                if (!confirm("Step löschen?")) return;
-                await deleteProjectStep(editingStep.id);
-                setEditingStep(null);
-              }}
-            >
-              <Trash2 className="h-4 w-4 mr-1" /> Löschen
-            </Button>
-            <Button variant="outline" onClick={() => setEditingStep(null)}>Abbrechen</Button>
-            <Button
-              onClick={async () => {
-                if (!editingStep) return;
-                await updateProjectStep(editingStep.id, {
-                  name: editingStep.name,
-                  description: editingStep.description,
-                  status: editingStep.status,
-                });
-                setEditingStep(null);
-              }}
-            >
-              Speichern
-            </Button>
-          </DialogFooter>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Dein Kunde sieht diese Seite read-only mit dem aktuellen Pipeline-Stand und allen hochgeladenen Files.
+            </p>
+            {portalUrl ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <Input value={portalUrl} readOnly className="font-mono text-xs" />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(portalUrl);
+                      toast.success("Link kopiert");
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={portalUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Token-basiert — kein Login nötig. Wer den Link hat, sieht das Projekt.
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-amber-500">Kein Portal-Token. Speichere das Projekt einmal neu.</p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
 
-// ─── Step card ───────────────────────────────────────────────────────
+// ─── Step Card ──────────────────────────────────────────────────────
 
 function StepCard({
   step,
   index,
+  fileCount,
   isDragOver,
   isDragging,
   onDragStart,
@@ -614,6 +828,7 @@ function StepCard({
 }: {
   step: ProjectStep;
   index: number;
+  fileCount: number;
   isDragOver: boolean;
   isDragging: boolean;
   onDragStart: () => void;
@@ -624,8 +839,8 @@ function StepCard({
   onClick: () => void;
 }) {
   const Icon = ICONS[step.icon] || Box;
-  const statusMeta = STATUS_META[step.status];
-  const StatusIcon = statusMeta.icon;
+  const status = STATUS_BADGE[step.status];
+  const StatusIcon = status.icon;
 
   return (
     <div
@@ -635,51 +850,525 @@ function StepCard({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
-      onDragOver={(e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-        onDragOver();
-      }}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; onDragOver(); }}
       onDragLeave={onDragLeave}
-      onDrop={(e) => {
-        e.preventDefault();
-        onDrop();
-      }}
+      onDrop={(e) => { e.preventDefault(); onDrop(); }}
       onClick={onClick}
       className={cn(
-        "shrink-0 w-[200px] rounded-xl border-2 bg-card cursor-pointer transition-all overflow-hidden group relative",
-        statusMeta.color,
-        isDragging && "opacity-40",
-        isDragOver && "ring-2 ring-primary ring-offset-2 scale-[1.02]",
+        "shrink-0 w-[220px] rounded-2xl border-2 border-transparent bg-card cursor-pointer overflow-hidden group relative ring-1",
+        STATUS_RING[step.status],
+        isDragging && "opacity-30 scale-95",
+        isDragOver && "ring-2 ring-primary ring-offset-2 scale-[1.03]",
+        "transition-all duration-200",
       )}
     >
-      {/* Drag handle */}
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* gradient header */}
+      <div className={cn("h-2 bg-gradient-to-r", STATUS_GRADIENT[step.status])} />
+
+      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
         <GripVertical className="h-3.5 w-3.5 text-muted-foreground/60" />
       </div>
 
       <div className="p-4 space-y-3">
         <div className="flex items-start gap-2">
-          <div className="text-[10px] font-mono text-muted-foreground/60 mt-0.5">
-            {String(index + 1).padStart(2, "0")}
-          </div>
           <div
-            className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0 bg-current/10"
+            className={cn(
+              "h-10 w-10 rounded-xl flex items-center justify-center shrink-0",
+              step.status === "active" && "bg-blue-500/15 text-blue-500",
+              step.status === "done" && "bg-emerald-500/15 text-emerald-500",
+              step.status === "todo" && "bg-muted text-muted-foreground",
+              step.status === "skipped" && "bg-rose-500/15 text-rose-500",
+            )}
           >
-            <Icon className="h-4.5 w-4.5" style={{ width: 18, height: 18 }} />
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
+              Step {String(index + 1).padStart(2, "0")}
+            </div>
+            <div className="font-semibold text-sm leading-tight mt-0.5 line-clamp-2">{step.name}</div>
           </div>
         </div>
-        <div>
-          <div className="font-semibold text-sm leading-tight">{step.name}</div>
-          {step.description && (
-            <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{step.description}</p>
+
+        {step.description && (
+          <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">{step.description}</p>
+        )}
+
+        <div className="flex items-center justify-between pt-2 border-t border-current/5">
+          <Badge variant="outline" className={cn("text-[10px] gap-1 py-0", status.className)}>
+            <StatusIcon className="h-2.5 w-2.5" />
+            {status.label}
+          </Badge>
+          {fileCount > 0 && (
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <Paperclip className="h-2.5 w-2.5" />
+              {fileCount}
+            </span>
           )}
         </div>
-        <div className="flex items-center gap-1 text-[10px] font-medium pt-1 border-t border-current/10">
-          <StatusIcon className="h-3 w-3" />
-          {statusMeta.label}
+      </div>
+    </div>
+  );
+}
+
+// ─── Connector ──────────────────────────────────────────────────────
+
+function Connector({ status }: { status: StepStatus }) {
+  const color =
+    status === "done"
+      ? "from-emerald-500/60 to-emerald-500/40"
+      : status === "active"
+      ? "from-blue-500/60 to-blue-500/40"
+      : "from-muted-foreground/30 to-muted-foreground/20";
+  return (
+    <div className="flex items-center self-center shrink-0 px-1">
+      <div className={cn("h-[3px] w-8 rounded-full bg-gradient-to-r", color)} />
+      <div
+        className={cn(
+          "h-2 w-2 rotate-45 border-r-[2.5px] border-t-[2.5px] -ml-1.5",
+          status === "done" && "border-emerald-500/60",
+          status === "active" && "border-blue-500/60",
+          (status === "todo" || status === "skipped") && "border-muted-foreground/40",
+        )}
+      />
+    </div>
+  );
+}
+
+// ─── Step Detail Dialog ─────────────────────────────────────────────
+
+function StepDetailDialog({
+  step,
+  onClose,
+  onDeleted,
+}: {
+  step: ProjectStep;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const files = useStepFiles(step.id);
+  const [name, setName] = useState(step.name);
+  const [description, setDescription] = useState(step.description);
+  const [status, setStatus] = useState<StepStatus>(step.status);
+  const [uploadOpen, setUploadOpen] = useState(false);
+
+  // Sync if external step changes
+  useEffect(() => {
+    setName(step.name);
+    setDescription(step.description);
+    setStatus(step.status);
+  }, [step.id]);
+
+  const Icon = ICONS[step.icon] || Box;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <div className="flex items-start gap-3">
+            <div
+              className={cn(
+                "h-12 w-12 rounded-xl flex items-center justify-center shrink-0 mt-0.5",
+                status === "active" && "bg-blue-500/15 text-blue-500",
+                status === "done" && "bg-emerald-500/15 text-emerald-500",
+                status === "todo" && "bg-muted text-muted-foreground",
+                status === "skipped" && "bg-rose-500/15 text-rose-500",
+              )}
+            >
+              <Icon className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <DialogTitle className="text-lg">{step.name}</DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Step bearbeiten · Files anhängen</p>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="grid gap-2">
+            <Label>Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="grid gap-2">
+            <Label>Beschreibung</Label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label>Status</Label>
+            <Select value={status} onValueChange={(v) => setStatus(v as StepStatus)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(["todo", "active", "done", "skipped"] as StepStatus[]).map((s) => (
+                  <SelectItem key={s} value={s}>{STATUS_BADGE[s].label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Files section */}
+          <div className="border-t pt-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1.5">
+                <Paperclip className="h-3.5 w-3.5" />
+                Files / Creatives / Adcopies
+              </Label>
+              <Button size="sm" variant="outline" onClick={() => setUploadOpen(true)}>
+                <Upload className="h-3.5 w-3.5 mr-1" /> Hochladen
+              </Button>
+            </div>
+            {files.length === 0 ? (
+              <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 p-6 text-center text-xs text-muted-foreground">
+                Noch keine Dateien hochgeladen. HTML / Bilder / PDFs werden für den Kunden im Portal sichtbar.
+              </div>
+            ) : (
+              <ul className="divide-y rounded-lg border">
+                {files.map((f) => (
+                  <FileRow key={f.id} file={f} />
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="ghost"
+            className="text-muted-foreground hover:text-destructive mr-auto"
+            onClick={async () => {
+              if (!confirm("Step löschen?")) return;
+              await deleteProjectStep(step.id);
+              onDeleted();
+            }}
+          >
+            <Trash2 className="h-4 w-4 mr-1" /> Löschen
+          </Button>
+          <Button variant="outline" onClick={onClose}>Abbrechen</Button>
+          <Button
+            onClick={async () => {
+              await updateProjectStep(step.id, { name, description, status });
+              onClose();
+            }}
+          >
+            Speichern
+          </Button>
+        </DialogFooter>
+
+        {uploadOpen && (
+          <UploadDialog stepId={step.id} onClose={() => setUploadOpen(false)} />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── File Row ───────────────────────────────────────────────────────
+
+function FileRow({ file }: { file: StepFile }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const Icon = file.type === "html" ? Code : file.type === "image" ? ImageIcon : FileText;
+  return (
+    <li className="px-3 py-2 flex items-center gap-2 group hover:bg-muted/30">
+      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm truncate">{file.filename}</div>
+        <div className="text-[10px] text-muted-foreground">
+          {file.type} · {format(new Date(file.createdAt), "dd.MM.yyyy HH:mm", { locale: de })}
         </div>
       </div>
+      {(file.content || file.url) && (
+        <Button size="sm" variant="ghost" onClick={() => setPreviewOpen(true)}>
+          <Eye className="h-3.5 w-3.5" />
+        </Button>
+      )}
+      <Button
+        size="sm"
+        variant="ghost"
+        className="text-muted-foreground hover:text-destructive"
+        onClick={async () => {
+          if (!confirm(`"${file.filename}" löschen?`)) return;
+          await deleteStepFile(file.id);
+        }}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </Button>
+
+      {previewOpen && (
+        <Dialog open onOpenChange={(o) => !o && setPreviewOpen(false)}>
+          <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle>{file.filename}</DialogTitle>
+            </DialogHeader>
+            {file.type === "html" && file.content ? (
+              <iframe srcDoc={file.content} className="w-full h-[60vh] rounded border bg-white" sandbox="" />
+            ) : file.type === "image" && file.url ? (
+              <img src={file.url} alt={file.filename} className="max-w-full rounded" />
+            ) : file.url ? (
+              <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                Datei öffnen
+              </a>
+            ) : (
+              <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded">{file.content}</pre>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
+    </li>
+  );
+}
+
+// ─── Upload Dialog ──────────────────────────────────────────────────
+
+function UploadDialog({ stepId, onClose }: { stepId: string; onClose: () => void }) {
+  const [filename, setFilename] = useState("");
+  const [content, setContent] = useState("");
+  const [type, setType] = useState<StepFile["type"]>("html");
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [uploaderEmail, setUploaderEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUploaderEmail(session?.user?.email || null);
+    });
+  }, []);
+
+  const handleFile = (file: File) => {
+    setFilename(file.name);
+    if (file.name.endsWith(".html") || file.name.endsWith(".htm")) {
+      setType("html");
+      const reader = new FileReader();
+      reader.onload = (e) => setContent(String(e.target?.result || ""));
+      reader.readAsText(file);
+    } else if (file.type.startsWith("image/")) {
+      setType("image");
+      const reader = new FileReader();
+      reader.onload = (e) => setContent(String(e.target?.result || ""));
+      reader.readAsDataURL(file);
+    } else {
+      setType("other");
+      const reader = new FileReader();
+      reader.onload = (e) => setContent(String(e.target?.result || ""));
+      reader.readAsText(file);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Datei hochladen</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div
+            onDrop={(e) => {
+              e.preventDefault();
+              const file = e.dataTransfer.files[0];
+              if (file) handleFile(file);
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            onClick={() => fileInput.current?.click()}
+            className="rounded-xl border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary/5 p-8 text-center cursor-pointer transition-colors"
+          >
+            <Upload className="h-8 w-8 mx-auto text-muted-foreground/60 mb-2" />
+            <p className="text-sm font-medium">HTML / Bild / PDF hochladen</p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Drop hier oder Klick zum Auswählen
+            </p>
+            <input
+              ref={fileInput}
+              type="file"
+              accept=".html,.htm,image/*,.pdf,.txt"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFile(file);
+              }}
+            />
+          </div>
+          {filename && (
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+              <div className="text-xs">
+                <strong>{filename}</strong> · {type}
+              </div>
+              {type === "html" && (
+                <div className="text-[10px] text-muted-foreground">
+                  Inline-Preview im Portal verfügbar.
+                </div>
+              )}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-1">
+              <Label className="text-xs">Dateiname</Label>
+              <Input value={filename} onChange={(e) => setFilename(e.target.value)} />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Typ</Label>
+              <Select value={type} onValueChange={(v) => setType(v as StepFile["type"])}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="html">HTML</SelectItem>
+                  <SelectItem value="image">Image</SelectItem>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                  <SelectItem value="other">Andere</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Abbrechen</Button>
+          <Button
+            disabled={!filename || !content}
+            onClick={async () => {
+              const isImage = type === "image";
+              await addStepFile({
+                stepId,
+                filename: filename.trim(),
+                type,
+                content: isImage ? null : content,
+                url: isImage ? content : null,
+                uploadedByEmail: uploaderEmail,
+              });
+              onClose();
+            }}
+          >
+            Hochladen
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Gantt Timeline ─────────────────────────────────────────────────
+
+function GanttTimeline({ steps }: { steps: ProjectStep[] }) {
+  const stepsWithDates = steps.filter((s) => s.startedAt);
+  if (stepsWithDates.length === 0) {
+    return (
+      <div className="rounded-2xl border bg-muted/10 p-5 space-y-2">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Timeline (Gantt)</h3>
+          <Badge variant="outline" className="text-[10px]">füllt sich beim Aktivieren von Steps</Badge>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Sobald Steps auf "Aktiv" gesetzt werden, erscheint hier die Lauf-Visualisierung.
+        </p>
+      </div>
+    );
+  }
+
+  // Calculate range
+  const earliestStart = stepsWithDates
+    .map((s) => parseISO(s.startedAt!))
+    .reduce((a, b) => (a < b ? a : b));
+  const latestEnd = stepsWithDates
+    .map((s) => (s.completedAt ? parseISO(s.completedAt) : new Date()))
+    .reduce((a, b) => (a > b ? a : b));
+  const totalDays = Math.max(differenceInDays(latestEnd, earliestStart) + 1, 1);
+
+  const today = new Date();
+  const todayOffset = differenceInDays(today, earliestStart);
+  const todayPct = (todayOffset / totalDays) * 100;
+
+  return (
+    <div className="rounded-2xl border bg-gradient-to-br from-blue-500/[0.04] via-transparent to-transparent p-5 space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-blue-500" />
+          <h3 className="text-sm font-semibold">Timeline (Gantt)</h3>
+          <Badge variant="outline" className="text-[10px]">
+            {format(earliestStart, "dd.MM.", { locale: de })} – {format(latestEnd, "dd.MM.yyyy", { locale: de })}
+          </Badge>
+        </div>
+        <span className="text-[10px] text-muted-foreground">{totalDays} Tage gesamt</span>
+      </div>
+
+      <div className="relative">
+        {/* Today marker */}
+        {todayOffset >= 0 && todayOffset <= totalDays && (
+          <div
+            className="absolute top-0 bottom-0 w-px bg-rose-500 z-10 pointer-events-none"
+            style={{ left: `${todayPct}%` }}
+          >
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-rose-500 uppercase tracking-wider whitespace-nowrap">
+              Heute
+            </div>
+          </div>
+        )}
+
+        {/* Tracks */}
+        <div className="space-y-2 pt-4">
+          {stepsWithDates.map((s) => {
+            const start = parseISO(s.startedAt!);
+            const end = s.completedAt ? parseISO(s.completedAt) : new Date();
+            const startOffset = differenceInDays(start, earliestStart);
+            const duration = Math.max(differenceInDays(end, start), 0.5);
+            const leftPct = (startOffset / totalDays) * 100;
+            const widthPct = (duration / totalDays) * 100;
+            const Icon = ICONS[s.icon] || Box;
+
+            return (
+              <div key={s.id} className="flex items-center gap-3">
+                <div className="w-32 truncate text-xs flex items-center gap-1.5 shrink-0">
+                  <Icon className="h-3 w-3 text-muted-foreground" />
+                  {s.name}
+                </div>
+                <div className="flex-1 h-7 rounded-md bg-muted/30 relative overflow-hidden">
+                  <div
+                    className={cn(
+                      "absolute top-0 bottom-0 rounded-md",
+                      s.status === "done"
+                        ? "bg-gradient-to-r from-emerald-500 to-emerald-400"
+                        : s.status === "active"
+                        ? "bg-gradient-to-r from-blue-500 to-blue-400 animate-pulse"
+                        : "bg-gradient-to-r from-slate-400 to-slate-300",
+                    )}
+                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                    title={`${format(start, "dd.MM.")} – ${format(end, "dd.MM.")}`}
+                  />
+                </div>
+                <div className="text-[10px] text-muted-foreground tabular-nums w-16 text-right shrink-0">
+                  {Math.round(duration)}d
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Stat tile ──────────────────────────────────────────────────────
+
+function Stat({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: number | string;
+  sub?: string;
+  tone: "primary" | "blue" | "success" | "muted";
+}) {
+  const colors = {
+    primary: "border-primary/30 bg-primary/[0.06]",
+    blue: "border-blue-500/30 bg-blue-500/[0.06]",
+    success: "border-emerald-500/30 bg-emerald-500/[0.06]",
+    muted: "border-muted-foreground/15 bg-muted/30",
+  };
+  return (
+    <div className={cn("rounded-xl border p-4", colors[tone])}>
+      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-2xl font-bold tabular-nums mt-1">{value}</div>
+      {sub && <div className="text-[10px] text-muted-foreground mt-0.5">{sub}</div>}
     </div>
   );
 }
