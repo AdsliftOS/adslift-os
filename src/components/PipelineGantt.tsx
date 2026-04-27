@@ -43,12 +43,13 @@ const ICONS: Record<string, typeof BoxIcon> = {
 
 type ViewMode = "day" | "week" | "month";
 
-// Pixel-width per day for each zoom level. Month default is wide enough to
-// fit a full year on a standard ~1400px viewport without aggressive squashing.
-const DAY_WIDTH: Record<ViewMode, number> = {
-  day: 64,   // full detail — daily numbers visible
-  week: 32,  // sweet spot — quarters fit comfortably
-  month: 14, // full-year overview — ~5,100px / year
+// Fixed pixel widths for zoom levels that scroll horizontally.
+// Month mode is special — see `dayWidth` calc below: it fits the full year
+// into whatever width the container has (auto-fit).
+const FIXED_DAY_WIDTH: Record<ViewMode, number | "auto"> = {
+  day: 64,    // full detail — scrolls horizontally
+  week: 32,   // ~quarter visible — scrolls horizontally
+  month: "auto", // full year fits container width — no scroll
 };
 
 const TRACK_HEIGHT = 44;
@@ -78,7 +79,25 @@ export function PipelineGantt({ steps }: { steps: ProjectStep[] }) {
 
   const totalDays = differenceInDays(range.end, range.start) + 1;
   const today = startOfDay(new Date());
-  const dayWidth = DAY_WIDTH[viewMode];
+
+  // Track scroller width so month mode can auto-fit
+  const [scrollerWidth, setScrollerWidth] = useState<number>(0);
+  useEffect(() => {
+    if (!scrollerRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setScrollerWidth(entry.contentRect.width);
+      }
+    });
+    ro.observe(scrollerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  const fixed = FIXED_DAY_WIDTH[viewMode];
+  const dayWidth =
+    fixed === "auto"
+      ? Math.max(2, (scrollerWidth - TRACK_LABEL_WIDTH) / totalDays)
+      : fixed;
   const totalWidth = totalDays * dayWidth;
 
   // Build day grid
