@@ -69,6 +69,7 @@ import {
   deleteStepFile,
   type StepFile,
 } from "@/store/pipelineFiles";
+import { PipelineGantt } from "@/components/PipelineGantt";
 import { cn } from "@/lib/utils";
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -656,8 +657,8 @@ function PipelineDetail({
         )}
       </div>
 
-      {/* Gantt-Timeline — for live projects with running steps */}
-      {isLive && steps.length > 0 && <GanttTimeline steps={steps} />}
+      {/* Gantt-Timeline — proper calendar-style for live projects */}
+      {isLive && steps.length > 0 && <PipelineGantt steps={steps} />}
 
       {/* Add step dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -1241,107 +1242,6 @@ function UploadDialog({ stepId, onClose }: { stepId: string; onClose: () => void
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// ─── Gantt Timeline ─────────────────────────────────────────────────
-
-function GanttTimeline({ steps }: { steps: ProjectStep[] }) {
-  const stepsWithDates = steps.filter((s) => s.startedAt);
-  if (stepsWithDates.length === 0) {
-    return (
-      <div className="rounded-2xl border bg-muted/10 p-5 space-y-2">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold">Timeline (Gantt)</h3>
-          <Badge variant="outline" className="text-[10px]">füllt sich beim Aktivieren von Steps</Badge>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Sobald Steps auf "Aktiv" gesetzt werden, erscheint hier die Lauf-Visualisierung.
-        </p>
-      </div>
-    );
-  }
-
-  // Calculate range
-  const earliestStart = stepsWithDates
-    .map((s) => parseISO(s.startedAt!))
-    .reduce((a, b) => (a < b ? a : b));
-  const latestEnd = stepsWithDates
-    .map((s) => (s.completedAt ? parseISO(s.completedAt) : new Date()))
-    .reduce((a, b) => (a > b ? a : b));
-  const totalDays = Math.max(differenceInDays(latestEnd, earliestStart) + 1, 1);
-
-  const today = new Date();
-  const todayOffset = differenceInDays(today, earliestStart);
-  const todayPct = (todayOffset / totalDays) * 100;
-
-  return (
-    <div className="rounded-2xl border bg-gradient-to-br from-blue-500/[0.04] via-transparent to-transparent p-5 space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-blue-500" />
-          <h3 className="text-sm font-semibold">Timeline (Gantt)</h3>
-          <Badge variant="outline" className="text-[10px]">
-            {format(earliestStart, "dd.MM.", { locale: de })} – {format(latestEnd, "dd.MM.yyyy", { locale: de })}
-          </Badge>
-        </div>
-        <span className="text-[10px] text-muted-foreground">{totalDays} Tage gesamt</span>
-      </div>
-
-      <div className="relative">
-        {/* Today marker */}
-        {todayOffset >= 0 && todayOffset <= totalDays && (
-          <div
-            className="absolute top-0 bottom-0 w-px bg-rose-500 z-10 pointer-events-none"
-            style={{ left: `${todayPct}%` }}
-          >
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-rose-500 uppercase tracking-wider whitespace-nowrap">
-              Heute
-            </div>
-          </div>
-        )}
-
-        {/* Tracks */}
-        <div className="space-y-2 pt-4">
-          {stepsWithDates.map((s) => {
-            const start = parseISO(s.startedAt!);
-            const end = s.completedAt ? parseISO(s.completedAt) : new Date();
-            const startOffset = differenceInDays(start, earliestStart);
-            const duration = Math.max(differenceInDays(end, start), 0.5);
-            const leftPct = (startOffset / totalDays) * 100;
-            const widthPct = (duration / totalDays) * 100;
-            const Icon = ICONS[s.icon] || Box;
-
-            return (
-              <div key={s.id} className="flex items-center gap-3">
-                <div className="w-32 truncate text-xs flex items-center gap-1.5 shrink-0">
-                  <Icon className="h-3 w-3 text-muted-foreground" />
-                  {s.name}
-                </div>
-                <div className="flex-1 h-7 rounded-md bg-muted/30 relative overflow-hidden">
-                  <div
-                    className={cn(
-                      "absolute top-0 bottom-0 rounded-md",
-                      s.status === "done"
-                        ? "bg-gradient-to-r from-emerald-500 to-emerald-400"
-                        : s.status === "active"
-                        ? "bg-gradient-to-r from-blue-500 to-blue-400 animate-pulse"
-                        : "bg-gradient-to-r from-slate-400 to-slate-300",
-                    )}
-                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                    title={`${format(start, "dd.MM.")} – ${format(end, "dd.MM.")}`}
-                  />
-                </div>
-                <div className="text-[10px] text-muted-foreground tabular-nums w-16 text-right shrink-0">
-                  {Math.round(duration)}d
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
   );
 }
 
