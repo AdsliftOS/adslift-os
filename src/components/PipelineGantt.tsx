@@ -8,6 +8,8 @@ import {
   startOfWeek,
   startOfMonth,
   endOfMonth,
+  startOfYear,
+  endOfYear,
   isSameMonth,
   isSameDay,
   getDay,
@@ -41,41 +43,38 @@ const ICONS: Record<string, typeof BoxIcon> = {
 
 type ViewMode = "day" | "week" | "month";
 
+// Pixel-width per day for each zoom level. Month default is wide enough to
+// fit a full year on a standard ~1400px viewport without aggressive squashing.
 const DAY_WIDTH: Record<ViewMode, number> = {
-  day: 56,
-  week: 28,
-  month: 12,
+  day: 64,   // full detail — daily numbers visible
+  week: 32,  // sweet spot — quarters fit comfortably
+  month: 14, // full-year overview — ~5,100px / year
 };
 
 const TRACK_HEIGHT = 44;
 const TRACK_LABEL_WIDTH = 220;
 
 export function PipelineGantt({ steps }: { steps: ProjectStep[] }) {
-  const [viewMode, setViewMode] = useState<ViewMode>("week");
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const scrollerRef = useRef<HTMLDivElement>(null);
 
-  // Determine timeline range
-  const range = useMemo(() => {
-    const today = startOfDay(new Date());
+  // Always show a full calendar year. User can navigate years with arrows.
+  // Auto-jumps to year of earliest step on mount.
+  useEffect(() => {
     const stepsWithStart = steps.filter((s) => s.startedAt);
-    if (stepsWithStart.length === 0) {
-      // No active steps — show 30 days centered on today
-      return {
-        start: subDays(today, 14),
-        end: addDays(today, 16),
-      };
-    }
-    const earliest = stepsWithStart
-      .map((s) => parseISO(s.startedAt!))
-      .reduce((a, b) => (a < b ? a : b));
-    const latest = stepsWithStart
-      .map((s) => (s.completedAt ? parseISO(s.completedAt) : today))
-      .reduce((a, b) => (a > b ? a : b));
-    return {
-      start: subDays(startOfDay(earliest), 3),
-      end: addDays(startOfDay(latest), 7),
-    };
+    if (stepsWithStart.length === 0) return;
+    const earliestYear = Math.min(
+      ...stepsWithStart.map((s) => parseISO(s.startedAt!).getFullYear()),
+    );
+    if (earliestYear < currentYear) setCurrentYear(earliestYear);
   }, [steps]);
+
+  const range = useMemo(() => {
+    const yearStart = startOfYear(new Date(currentYear, 0, 1));
+    const yearEnd = endOfYear(yearStart);
+    return { start: yearStart, end: yearEnd };
+  }, [currentYear]);
 
   const totalDays = differenceInDays(range.end, range.start) + 1;
   const today = startOfDay(new Date());
@@ -122,18 +121,24 @@ export function PipelineGantt({ steps }: { steps: ProjectStep[] }) {
     return groups;
   }, [days]);
 
-  // Auto-scroll to today on mount
+  // Auto-scroll to today (or year start if today not in range)
   useEffect(() => {
     if (!scrollerRef.current) return;
     const todayOffset = differenceInDays(today, range.start);
     if (todayOffset >= 0 && todayOffset <= totalDays) {
-      const targetX = todayOffset * dayWidth - 200;
+      const targetX = todayOffset * dayWidth - scrollerRef.current.clientWidth / 3;
       scrollerRef.current.scrollLeft = Math.max(0, targetX);
+    } else {
+      scrollerRef.current.scrollLeft = 0;
     }
-  }, [viewMode]);
+  }, [viewMode, currentYear]);
 
   const scrollToToday = () => {
     if (!scrollerRef.current) return;
+    if (today.getFullYear() !== currentYear) {
+      setCurrentYear(today.getFullYear());
+      return;
+    }
     const todayOffset = differenceInDays(today, range.start);
     const targetX = todayOffset * dayWidth - scrollerRef.current.clientWidth / 2;
     scrollerRef.current.scrollTo({ left: Math.max(0, targetX), behavior: "smooth" });
@@ -149,11 +154,27 @@ export function PipelineGantt({ steps }: { steps: ProjectStep[] }) {
           <div className="h-8 w-8 rounded-lg bg-blue-500/15 text-blue-500 flex items-center justify-center">
             <Calendar className="h-4 w-4" />
           </div>
-          <div>
-            <h3 className="text-sm font-semibold leading-tight">Timeline</h3>
-            <p className="text-[10px] text-muted-foreground">
-              {format(range.start, "dd.MM.yyyy", { locale: de })} – {format(range.end, "dd.MM.yyyy", { locale: de })} · {totalDays} Tage
-            </p>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0"
+              onClick={() => setCurrentYear((y) => y - 1)}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <div className="text-center min-w-[80px]">
+              <div className="text-base font-bold leading-none tabular-nums">{currentYear}</div>
+              <div className="text-[9px] text-muted-foreground mt-0.5">{totalDays} Tage</div>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0"
+              onClick={() => setCurrentYear((y) => y + 1)}
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -185,8 +206,11 @@ export function PipelineGantt({ steps }: { steps: ProjectStep[] }) {
               className="sticky left-0 z-30 bg-card border-r shrink-0"
               style={{ width: TRACK_LABEL_WIDTH }}
             >
-              {/* Spacer matching header height (month + week + day) */}
-              <div className="h-[78px] border-b bg-muted/30 flex items-end px-3 pb-1.5">
+              {/* Spacer matching header height — month-mode hides the KW row */}
+              <div
+                className="border-b bg-muted/30 flex items-end px-3 pb-1.5"
+                style={{ height: viewMode === "month" ? 64 : 88 }}
+              >
                 <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
                   Steps · {stepsToRender.length}
                 </span>
@@ -237,18 +261,20 @@ export function PipelineGantt({ steps }: { steps: ProjectStep[] }) {
                 ))}
               </div>
 
-              {/* Header — weeks */}
-              <div className="flex h-6 border-b bg-muted/15">
-                {weekGroups.map((g) => (
-                  <div
-                    key={`${g.week}-${g.start}`}
-                    className="flex items-center justify-center text-[10px] font-mono text-muted-foreground border-r"
-                    style={{ width: g.count * dayWidth }}
-                  >
-                    KW {g.week}
-                  </div>
-                ))}
-              </div>
+              {/* Header — weeks (hidden in month view to avoid clutter) */}
+              {viewMode !== "month" && (
+                <div className="flex h-6 border-b bg-muted/15">
+                  {weekGroups.map((g) => (
+                    <div
+                      key={`${g.week}-${g.start}`}
+                      className="flex items-center justify-center text-[10px] font-mono text-muted-foreground border-r"
+                      style={{ width: g.count * dayWidth }}
+                    >
+                      KW {g.week}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Header — days */}
               <div className="flex h-[32px] border-b bg-card relative">
@@ -256,31 +282,39 @@ export function PipelineGantt({ steps }: { steps: ProjectStep[] }) {
                   const isFirstOfMonth = d.getDate() === 1;
                   const weekend = isWeekend(d);
                   const todayCell = isToday(d);
+                  // Month mode: skip per-day labels (too cramped) — show
+                  // only every-7th day number subtly
+                  const showLabel = viewMode !== "month" || d.getDay() === 1; // Mondays only in month
                   return (
                     <div
                       key={i}
                       className={cn(
-                        "flex flex-col items-center justify-center border-r text-[9px] tabular-nums shrink-0",
+                        "flex flex-col items-center justify-center text-[9px] tabular-nums shrink-0",
                         weekend && "bg-muted/30",
-                        isFirstOfMonth && "border-l border-l-foreground/20",
+                        isFirstOfMonth && "border-l border-l-foreground/25",
                         todayCell && "bg-rose-500/10",
+                        // Only show right border in day view; week/month would be too dense
+                        viewMode === "day" && "border-r",
                       )}
                       style={{ width: dayWidth }}
                     >
-                      {viewMode !== "month" && (
+                      {viewMode === "day" && (
                         <span className="font-mono uppercase text-[8px] text-muted-foreground/70">
                           {format(d, "EEEEE", { locale: de })}
                         </span>
                       )}
-                      <span
-                        className={cn(
-                          "font-semibold tabular-nums",
-                          todayCell && "text-rose-500 font-bold",
-                          weekend && !todayCell && "text-muted-foreground/60",
-                        )}
-                      >
-                        {d.getDate()}
-                      </span>
+                      {showLabel && (
+                        <span
+                          className={cn(
+                            "font-semibold tabular-nums",
+                            viewMode === "month" && "text-[8px] text-muted-foreground/50",
+                            todayCell && "text-rose-500 font-bold",
+                            weekend && !todayCell && viewMode === "day" && "text-muted-foreground/60",
+                          )}
+                        >
+                          {d.getDate()}
+                        </span>
+                      )}
                     </div>
                   );
                 })}
@@ -297,10 +331,13 @@ export function PipelineGantt({ steps }: { steps: ProjectStep[] }) {
                       <div
                         key={i}
                         className={cn(
-                          "border-r",
-                          weekend && "bg-muted/20",
+                          weekend && viewMode !== "month" && "bg-muted/20",
+                          // Only Sundays get a faint divider in week view
+                          viewMode === "week" && d.getDay() === 0 && "border-r border-r-muted-foreground/10",
+                          // Day view: divider every day
+                          viewMode === "day" && "border-r border-r-muted-foreground/10",
+                          // Month view: only first-of-month divider
                           isFirstOfMonth && "border-l border-l-foreground/15",
-                          i === days.length - 1 && "border-r-0",
                         )}
                         style={{ width: dayWidth }}
                       />
