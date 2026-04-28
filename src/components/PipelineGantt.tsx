@@ -77,6 +77,7 @@ export function PipelineGantt({
   const [source, setSource] = useState<"steps" | "campaigns" | "both">(
     campaigns.length > 0 ? "campaigns" : "steps",
   );
+  const [campaignFilter, setCampaignFilter] = useState<"active" | "all">("active");
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   // Auto-jump to a year that contains data (earliest if past, today's
@@ -204,7 +205,11 @@ export function PipelineGantt({
       startedAt: s.startedAt,
       completedAt: s.completedAt,
     }));
-    const campaignBars: GanttBar[] = campaigns.map((c) => ({
+    const filteredCampaigns =
+      campaignFilter === "active"
+        ? campaigns.filter((c) => c.effectiveStatus === "ACTIVE")
+        : campaigns;
+    const campaignBars: GanttBar[] = filteredCampaigns.map((c) => ({
       id: `cmp-${c.id}`,
       name: c.name,
       icon: "megaphone",
@@ -223,7 +228,7 @@ export function PipelineGantt({
     if (source === "steps") return stepBars;
     if (source === "campaigns") return campaignBars;
     return [...campaignBars, ...stepBars];
-  }, [source, steps, campaigns]);
+  }, [source, steps, campaigns, campaignFilter]);
 
   const stepsToRender = bars; // for layout
 
@@ -294,6 +299,25 @@ export function PipelineGantt({
               </ToggleGroupItem>
             </ToggleGroup>
           )}
+          {/* Campaign status filter — only when campaigns are part of the view */}
+          {(source === "campaigns" || source === "both") && campaigns.length > 0 && (() => {
+            const activeCount = campaigns.filter((c) => c.effectiveStatus === "ACTIVE").length;
+            return (
+              <ToggleGroup
+                type="single"
+                value={campaignFilter}
+                onValueChange={(v) => v && setCampaignFilter(v as any)}
+                size="sm"
+              >
+                <ToggleGroupItem value="active" className="text-xs px-2.5">
+                  Nur aktiv ({activeCount})
+                </ToggleGroupItem>
+                <ToggleGroupItem value="all" className="text-xs px-2.5">
+                  Alle ({campaigns.length})
+                </ToggleGroupItem>
+              </ToggleGroup>
+            );
+          })()}
           <ToggleGroup
             type="single"
             value={viewMode}
