@@ -645,7 +645,7 @@ function PipelineDetail({
                     onDrop={() => handleDrop(s.id)}
                     onClick={() => setEditingStepId(s.id)}
                   />
-                  {idx < steps.length - 1 && <Connector status={s.status} />}
+                  <Connector status={s.status} />
                 </div>
               ))}
               <button
