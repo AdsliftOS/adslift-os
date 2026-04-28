@@ -507,6 +507,7 @@ function PipelineDetail({
   const [customForm, setCustomForm] = useState({ name: "", description: "" });
   const [editingStepId, setEditingStepId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Drag & Drop
   const [dragId, setDragId] = useState<string | null>(null);
@@ -604,34 +605,7 @@ function PipelineDetail({
               variant="outline"
               size="sm"
               disabled={!project.clientEmail}
-              onClick={() => {
-                if (!project.clientEmail) return;
-                const portalUrl = project.customerPortalToken
-                  ? `${window.location.origin}/p/${project.customerPortalToken}`
-                  : "";
-                const subject = `Update zum Projekt: ${project.name}`;
-                const body = [
-                  `Hi,`,
-                  ``,
-                  `hier dein aktueller Stand zum Projekt "${project.name}".`,
-                  ``,
-                  portalUrl
-                    ? `Du kannst den kompletten Verlauf jederzeit hier einsehen:\n${portalUrl}`
-                    : "",
-                  ``,
-                  `Status: ${PROJECT_STATUS_META[project.status]?.label || project.status}`,
-                  steps.length > 0
-                    ? `Fortschritt: ${completedCount}/${steps.length} Steps abgeschlossen (${progress}%)`
-                    : "",
-                  ``,
-                  `Bei Fragen einfach antworten.`,
-                  ``,
-                  `Beste Grüße`,
-                ].filter(Boolean).join("\n");
-                const mailto = `mailto:${encodeURIComponent(project.clientEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                window.location.href = mailto;
-                toast.success("E-Mail wird im Mail-Client geöffnet");
-              }}
+              onClick={() => setReportOpen(true)}
             >
               <Send className="h-3.5 w-3.5 mr-1" /> Report senden
             </Button>
@@ -776,6 +750,7 @@ function PipelineDetail({
           steps={steps}
           onJumpToSetup={() => setMode("setup")}
           onOpenStep={(stepId) => setEditingStepId(stepId)}
+          onOpenReport={() => setReportOpen(true)}
         />
       )}
 
@@ -857,6 +832,16 @@ function PipelineDetail({
           onDeleted={() => setEditingStepId(null)}
         />
       )}
+
+      {/* Report send dialog */}
+      <ReportDialog
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+        project={project}
+        steps={steps}
+        completedCount={completedCount}
+        progress={progress}
+      />
 
       {/* Share / customer portal dialog */}
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
@@ -1562,6 +1547,149 @@ function ProjectAdAccountPicker({
   );
 }
 
+// ─── Report Dialog ──────────────────────────────────────────────────
+
+function ReportDialog({
+  open,
+  onOpenChange,
+  project,
+  steps,
+  completedCount,
+  progress,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  project: ReturnType<typeof usePipelineProjects>[number];
+  steps: ProjectStep[];
+  completedCount: number;
+  progress: number;
+}) {
+  const portalUrl = project.customerPortalToken
+    ? `${window.location.origin}/p/${project.customerPortalToken}`
+    : "";
+
+  const initialSubject = `Update zum Projekt: ${project.name}`;
+  const initialBody = useMemo(
+    () =>
+      [
+        `Hi,`,
+        ``,
+        `hier dein aktueller Stand zum Projekt "${project.name}".`,
+        ``,
+        `Status: ${PROJECT_STATUS_META[project.status]?.label || project.status}`,
+        steps.length > 0
+          ? `Fortschritt: ${completedCount}/${steps.length} Steps abgeschlossen (${progress}%)`
+          : "",
+        ``,
+        portalUrl
+          ? `Du kannst den kompletten Verlauf jederzeit hier einsehen:\n${portalUrl}`
+          : "",
+        ``,
+        `Bei Fragen einfach antworten.`,
+        ``,
+        `Beste Grüße`,
+      ].filter((l) => l !== undefined).join("\n"),
+    [project.id, project.name, project.status, completedCount, progress, portalUrl, steps.length],
+  );
+
+  const [to, setTo] = useState(project.clientEmail || "");
+  const [subject, setSubject] = useState(initialSubject);
+  const [body, setBody] = useState(initialBody);
+
+  // Reset form on each open
+  useEffect(() => {
+    if (open) {
+      setTo(project.clientEmail || "");
+      setSubject(initialSubject);
+      setBody(initialBody);
+    }
+  }, [open, project.id, initialBody, initialSubject, project.clientEmail]);
+
+  const buildMailto = () =>
+    `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+  const openInMailClient = () => {
+    if (!to.trim()) {
+      toast.error("Empfänger fehlt");
+      return;
+    }
+    // Open in a new tab so the current page doesn't navigate to a blank
+    // page if the OS has no mail client registered
+    const a = document.createElement("a");
+    a.href = buildMailto();
+    a.rel = "noopener noreferrer";
+    a.target = "_blank";
+    a.click();
+    toast.success("Mail-Client wird geöffnet");
+  };
+
+  const copyToClipboard = async () => {
+    const fullText = `An: ${to}\nBetreff: ${subject}\n\n${body}`;
+    try {
+      await navigator.clipboard.writeText(fullText);
+      toast.success("In Zwischenablage kopiert");
+    } catch {
+      toast.error("Konnte nicht kopieren");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Send className="h-4 w-4" />
+            Report an Kunde senden
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="grid gap-2">
+            <Label className="text-xs">An</Label>
+            <Input
+              type="email"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              placeholder="kunde@firma.de"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label className="text-xs">Betreff</Label>
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label className="text-xs">Nachricht</Label>
+            <Textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={12}
+              className="font-mono text-xs"
+            />
+          </div>
+          <div className="rounded-lg bg-muted/30 p-3 text-[11px] text-muted-foreground">
+            <strong>Mail-Client öffnen</strong> nutzt deine Standard-App (Gmail / Apple Mail / Outlook).
+            Falls du keinen Client hast, mit <strong>Kopieren</strong> alles in die Zwischenablage übertragen
+            und in deinem Webmail einfügen.
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Abbrechen
+          </Button>
+          <Button variant="outline" onClick={copyToClipboard}>
+            <Copy className="h-3.5 w-3.5 mr-1" /> Kopieren
+          </Button>
+          <Button onClick={openInMailClient}>
+            <Send className="h-3.5 w-3.5 mr-1" /> Im Mail-Client öffnen
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Add Step Dialog with category tabs ─────────────────────────────
 
 const CATEGORY_META: Record<
@@ -2186,11 +2314,13 @@ function OperationsView({
   steps,
   onJumpToSetup,
   onOpenStep,
+  onOpenReport,
 }: {
   project: ReturnType<typeof usePipelineProjects>[number];
   steps: ProjectStep[];
   onJumpToSetup: () => void;
   onOpenStep: (stepId: string) => void;
+  onOpenReport: () => void;
 }) {
   const monitoringStep = steps.find((s) =>
     s.name.toLowerCase().includes("monitoring") ||
@@ -2212,23 +2342,7 @@ function OperationsView({
             className="w-full justify-start"
             variant="outline"
             disabled={!project.clientEmail}
-            onClick={() => {
-              if (!project.clientEmail) return;
-              const portalUrl = project.customerPortalToken
-                ? `${window.location.origin}/p/${project.customerPortalToken}`
-                : "";
-              const subject = `Update zum Projekt: ${project.name}`;
-              const body = [
-                `Hi,`,
-                ``,
-                `hier dein aktueller Stand zum Projekt "${project.name}".`,
-                ``,
-                portalUrl ? `Verlauf: ${portalUrl}` : "",
-                ``,
-                `Beste Grüße`,
-              ].filter(Boolean).join("\n");
-              window.location.href = `mailto:${encodeURIComponent(project.clientEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            }}
+            onClick={() => onOpenReport()}
           >
             <Send className="h-4 w-4 mr-2" />
             Report an Kunde senden
