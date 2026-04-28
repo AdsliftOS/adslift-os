@@ -78,28 +78,18 @@ export function PipelineGantt({
 }) {
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
-  const [source, setSource] = useState<"steps" | "campaigns" | "both">(() => {
-    if (defaultSource) {
-      // Honor caller's preference but fall back if it would be empty
-      if (defaultSource === "campaigns" && campaigns.length === 0 && steps.length > 0) return "steps";
-      if (defaultSource === "steps" && steps.length === 0 && campaigns.length > 0) return "campaigns";
-      return defaultSource;
-    }
-    return campaigns.length > 0 ? "campaigns" : "steps";
-  });
+  const [source, setSource] = useState<"steps" | "campaigns" | "both">(
+    defaultSource || (campaigns.length > 0 ? "campaigns" : "steps"),
+  );
   const [campaignFilter, setCampaignFilter] = useState<"active" | "all">("active");
   const scrollerRef = useRef<HTMLDivElement>(null);
 
-  // Sync source when caller swaps defaultSource (Setup<->Operations toggle)
+  // Always honor the caller's explicit defaultSource — campaigns load async
+  // so we should NOT fall back to steps just because the array is briefly
+  // empty on first render. If the requested source ends up empty, the
+  // empty-state UI handles it.
   useEffect(() => {
-    if (!defaultSource) return;
-    if (defaultSource === "campaigns" && campaigns.length === 0 && steps.length > 0) {
-      setSource("steps");
-    } else if (defaultSource === "steps" && steps.length === 0 && campaigns.length > 0) {
-      setSource("campaigns");
-    } else {
-      setSource(defaultSource);
-    }
+    if (defaultSource) setSource(defaultSource);
   }, [defaultSource]);
 
   // Auto-jump to a year that contains data (earliest if past, today's
