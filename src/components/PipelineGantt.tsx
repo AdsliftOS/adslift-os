@@ -534,10 +534,18 @@ export function PipelineGantt({
                 {/* Bars */}
                 {stepsToRender.map((s, i) => {
                   const start = s.startedAt ? parseISO(s.startedAt) : null;
+                  const isOngoing = !s.completedAt && s.status === "active";
+                  // Bar visually extends through today's cell when ongoing.
+                  // Tooltip shows the actual "end" (today) without the +1 trick.
+                  const tooltipEnd = s.completedAt
+                    ? parseISO(s.completedAt)
+                    : isOngoing
+                    ? today
+                    : null;
                   const end = s.completedAt
                     ? parseISO(s.completedAt)
-                    : s.status === "active"
-                    ? today
+                    : isOngoing
+                    ? addDays(today, 1)
                     : null;
 
                   const hasRange = start && end;
@@ -551,12 +559,16 @@ export function PipelineGantt({
                       {hasRange && (() => {
                         const startOffset = differenceInDays(start, range.start);
                         const duration = Math.max(differenceInDays(end, start), 0.5);
+                        // Inclusive day count for the tooltip
+                        const inclusiveDays = tooltipEnd
+                          ? Math.max(differenceInDays(tooltipEnd, start) + 1, 1)
+                          : Math.round(duration);
                         const left = startOffset * dayWidth;
                         const width = Math.max(duration * dayWidth, dayWidth / 2);
-                        const tooltip = `${s.name}\n${format(start, "dd.MM.yyyy")} – ${format(
-                          end,
-                          "dd.MM.yyyy",
-                        )} (${Math.round(duration)} Tage)`;
+                        const endLabel = tooltipEnd
+                          ? format(tooltipEnd, "dd.MM.yyyy")
+                          : "läuft";
+                        const tooltip = `${s.name}\n${format(start, "dd.MM.yyyy")} – ${endLabel} (${inclusiveDays} Tage)`;
 
                         return (
                           <div
