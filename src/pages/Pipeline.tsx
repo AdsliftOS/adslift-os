@@ -75,6 +75,15 @@ import {
   type StepFile,
 } from "@/store/pipelineFiles";
 import { PipelineGantt } from "@/components/PipelineGantt";
+import {
+  getProjectKPIs,
+  listMetaAccounts,
+  fmtEUR,
+  fmtNum,
+  type ProjectKPIs,
+  type MetaAccount,
+  type Preset,
+} from "@/lib/meta-ads-project";
 import { cn } from "@/lib/utils";
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -145,12 +154,23 @@ export default function Pipeline() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({ name: "", clientId: "", adAccountId: "" });
   const [createdByEmail, setCreatedByEmail] = useState<string>("");
+  const [metaAccounts, setMetaAccounts] = useState<MetaAccount[]>([]);
+  const [metaLoading, setMetaLoading] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setCreatedByEmail(session?.user?.email || "");
     });
   }, []);
+
+  // Load Meta-Accounts when create dialog opens
+  useEffect(() => {
+    if (!createOpen || metaAccounts.length > 0) return;
+    setMetaLoading(true);
+    listMetaAccounts()
+      .then(setMetaAccounts)
+      .finally(() => setMetaLoading(false));
+  }, [createOpen]);
 
   const selectedProject = useMemo(
     () => projects.find((p) => p.id === selectedProjectId) || null,
@@ -291,14 +311,37 @@ export default function Pipeline() {
               })()}
             </div>
             <div className="grid gap-2">
-              <Label>Werbekonto-ID (optional)</Label>
-              <Input
-                placeholder="act_1234567890"
-                value={createForm.adAccountId}
-                onChange={(e) => setCreateForm((f) => ({ ...f, adAccountId: e.target.value }))}
-              />
+              <Label>Meta Werbekonto</Label>
+              {metaAccounts.length > 0 ? (
+                <Select
+                  value={createForm.adAccountId || "__none"}
+                  onValueChange={(v) => setCreateForm((f) => ({ ...f, adAccountId: v === "__none" ? "" : v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Werbekonto auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">– kein Werbekonto –</SelectItem>
+                    {metaAccounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name}
+                        <span className="text-muted-foreground ml-2 font-mono text-[10px]">{a.id}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  placeholder={metaLoading ? "Lade Meta-Accounts..." : "act_1234567890"}
+                  value={createForm.adAccountId}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, adAccountId: e.target.value }))}
+                  disabled={metaLoading}
+                />
+              )}
               <p className="text-[10px] text-muted-foreground">
-                Meta Ad-Account-ID für späteren Live-KPI-Transfer
+                {metaAccounts.length > 0
+                  ? `${metaAccounts.length} Werbekonten gefunden — Live-KPIs erscheinen direkt nach Anlage`
+                  : "Meta Ad-Account-ID für Live-KPIs (Leads / Spend / CPL / CTR ...)"}
               </p>
             </div>
           </div>
@@ -522,9 +565,7 @@ function PipelineDetail({
               {project.clientEmail && (
                 <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{project.clientEmail}</span>
               )}
-              {project.adAccountId && (
-                <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded">{project.adAccountId}</span>
-              )}
+              <ProjectAdAccountPicker project={project} />
               <span>· erstellt {format(new Date(project.createdAt), "dd.MM.yyyy", { locale: de })}</span>
             </div>
           </div>
@@ -1336,6 +1377,64 @@ function Stat({
   );
 }
 
+// ─── Ad-Account inline picker ───────────────────────────────────────
+
+function ProjectAdAccountPicker({
+  project,
+}: {
+  project: ReturnType<typeof usePipelineProjects>[number];
+}) {
+  const [accounts, setAccounts] = useState<MetaAccount[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open || accounts.length > 0) return;
+    setLoading(true);
+    listMetaAccounts()
+      .then(setAccounts)
+      .finally(() => setLoading(false));
+  }, [open]);
+
+  if (!open && !project.adAccountId) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 rounded-full border border-dashed border-amber-500/40 px-2 py-0.5 text-[10px] text-amber-600 hover:bg-amber-500/10 transition-colors"
+      >
+        <Megaphone className="h-2.5 w-2.5" />
+        Werbekonto verknüpfen
+      </button>
+    );
+  }
+
+  return (
+    <Select
+      value={project.adAccountId || "__none"}
+      onValueChange={async (v) => {
+        await updatePipelineProject(project.id, { adAccountId: v === "__none" ? null : v });
+        toast.success("Werbekonto aktualisiert");
+        setOpen(false);
+      }}
+      onOpenChange={(o) => o && setOpen(true)}
+    >
+      <SelectTrigger className="h-6 w-auto border-0 bg-muted hover:bg-muted/70 text-[10px] font-mono px-2 py-0 gap-1">
+        <Megaphone className="h-2.5 w-2.5" />
+        <SelectValue placeholder="Werbekonto" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="__none">– trennen –</SelectItem>
+        {loading && <div className="px-2 py-2 text-xs text-muted-foreground">Lade...</div>}
+        {accounts.map((a) => (
+          <SelectItem key={a.id} value={a.id}>
+            {a.name} <span className="font-mono text-[10px] text-muted-foreground ml-1">{a.id}</span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 // ─── Mode tab (Setup / Operations) ──────────────────────────────────
 
 function ModeTab({
@@ -1410,51 +1509,106 @@ function OperationsHeader({
     ? Math.max(0, Math.floor((Date.now() - new Date(project.startDate).getTime()) / 86400000))
     : Math.max(0, Math.floor((Date.now() - new Date(project.createdAt).getTime()) / 86400000));
 
+  // Live KPIs from Meta Ads
+  const [preset, setPreset] = useState<Preset>("this_month");
+  const [kpis, setKpis] = useState<ProjectKPIs | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const refresh = async () => {
+    if (!project.adAccountId) return;
+    setLoading(true);
+    const data = await getProjectKPIs(project.adAccountId, preset);
+    setKpis(data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.adAccountId, preset]);
+
+  const hasError = kpis?.error;
+  const hasData = kpis && !kpis.error && (kpis.leads > 0 || kpis.spend > 0 || kpis.impressions > 0);
+
   return (
     <div className="space-y-4">
       {/* Big live KPI block */}
       <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/[0.08] via-blue-500/[0.04] to-transparent p-6">
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
           <div className="h-9 w-9 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
             <Activity className="h-5 w-5" />
           </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-[160px]">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base font-semibold">Live-KPIs</h3>
-              {liveAdsActive ? (
-                <Badge className="text-[10px] bg-emerald-500/15 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/15 gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Live
-                </Badge>
+              {project.adAccountId ? (
+                hasData ? (
+                  <Badge className="text-[10px] bg-emerald-500/15 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/15 gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Live · Meta Ads
+                  </Badge>
+                ) : hasError ? (
+                  <Badge variant="outline" className="text-[10px] text-rose-500 border-rose-500/30">
+                    Fehler
+                  </Badge>
+                ) : loading ? (
+                  <Badge variant="outline" className="text-[10px]">Lade...</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px]">Keine Daten</Badge>
+                )
               ) : (
-                <Badge variant="outline" className="text-[10px]">Nicht aktiv</Badge>
+                <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/30">
+                  Werbekonto nicht verknüpft
+                </Badge>
               )}
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              Daten aus Meta Ads — Phase 3 Anbindung folgt
-            </p>
+            {project.adAccountId && (
+              <p className="text-[11px] text-muted-foreground font-mono">
+                {project.adAccountId}
+                {hasError && <span className="text-rose-400 ml-2">{kpis.error}</span>}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>
+              <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Heute</SelectItem>
+                <SelectItem value="yesterday">Gestern</SelectItem>
+                <SelectItem value="last_7d">Letzte 7 Tage</SelectItem>
+                <SelectItem value="this_month">Dieser Monat</SelectItem>
+                <SelectItem value="last_30d">Letzte 30 Tage</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={refresh}
+              disabled={loading || !project.adAccountId}
+            >
+              <TrendingUp className={cn("h-3.5 w-3.5", loading && "animate-pulse")} />
+            </Button>
           </div>
         </div>
+
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-          {[
-            { label: "Leads", value: "—", sub: "heute" },
-            { label: "Spend", value: "—", sub: "diese Woche" },
-            { label: "CPL", value: "—", sub: "Ø 7 Tage" },
-            { label: "CTR", value: "—", sub: "%" },
-            { label: "ROAS", value: "—", sub: "x" },
-            { label: "Frequency", value: "—", sub: "" },
-          ].map((k) => (
-            <div key={k.label} className="rounded-xl bg-card border p-3 hover:shadow-md transition-shadow">
-              <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                {k.label}
-              </div>
-              <div className="text-2xl font-bold tabular-nums text-muted-foreground/40">{k.value}</div>
-              {k.sub && (
-                <div className="text-[10px] text-muted-foreground mt-0.5">{k.sub}</div>
-              )}
-            </div>
-          ))}
+          <KpiTile label="Leads" value={kpis?.leads} loading={loading} sub={hasData ? "Anzahl" : ""} />
+          <KpiTile label="Spend" value={kpis?.spend} format="eur" loading={loading} sub={hasData ? "EUR gesamt" : ""} />
+          <KpiTile label="CPL" value={kpis?.cpl} format="eur" loading={loading} sub={hasData ? "Ø pro Lead" : ""} />
+          <KpiTile label="CTR" value={kpis?.ctr} format="pct" loading={loading} sub={hasData ? "%" : ""} />
+          <KpiTile label="CPM" value={kpis?.cpm} format="eur" loading={loading} sub={hasData ? "EUR / 1k Imp." : ""} />
+          <KpiTile label="Frequency" value={kpis?.frequency} format="num1" loading={loading} sub={hasData ? "" : ""} />
         </div>
+
+        {/* Secondary metrics row */}
+        {hasData && (
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 mt-3 pt-3 border-t border-foreground/5">
+            <SmallMetric label="Impressions" value={fmtNum(kpis!.impressions)} />
+            <SmallMetric label="Reach" value={fmtNum(kpis!.reach)} />
+            <SmallMetric label="Clicks" value={fmtNum(kpis!.clicks)} />
+            <SmallMetric label="CPC" value={fmtEUR(kpis!.cpc)} />
+          </div>
+        )}
       </div>
 
       {/* Run-time stats */}
@@ -1474,6 +1628,63 @@ function OperationsHeader({
           tone={liveAdsActive ? "blue" : "muted"}
         />
       </div>
+    </div>
+  );
+}
+
+function KpiTile({
+  label,
+  value,
+  format = "num",
+  loading,
+  sub,
+  hasData,
+}: {
+  label: string;
+  value: number | undefined;
+  format?: "num" | "eur" | "pct" | "num1";
+  loading?: boolean;
+  sub?: string;
+  hasData?: boolean;
+}) {
+  const isMissing = value === undefined || value === null || (typeof value === "number" && Number.isNaN(value));
+  const display = isMissing
+    ? "—"
+    : format === "eur"
+    ? fmtEUR(value as number)
+    : format === "pct"
+    ? `${(value as number).toFixed(2)}%`
+    : format === "num1"
+    ? (value as number).toFixed(2)
+    : fmtNum(value as number);
+
+  return (
+    <div className="rounded-xl bg-card border p-3 hover:shadow-md transition-shadow">
+      <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+        {label}
+      </div>
+      {loading ? (
+        <div className="h-7 w-20 rounded bg-muted/50 animate-pulse" />
+      ) : (
+        <div
+          className={cn(
+            "text-2xl font-bold tabular-nums",
+            isMissing && "text-muted-foreground/40",
+          )}
+        >
+          {display}
+        </div>
+      )}
+      {sub && <div className="text-[10px] text-muted-foreground mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+function SmallMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-sm font-semibold tabular-nums mt-0.5">{value}</div>
     </div>
   );
 }
