@@ -37,6 +37,8 @@ import {
   type ProjectKPIs,
   type Campaign,
 } from "@/lib/meta-ads-project";
+import { PipelineGantt } from "@/components/PipelineGantt";
+import type { ProjectStep as PipelineStep } from "@/store/pipeline";
 
 const ICONS: Record<string, typeof Box> = {
   box: Box, users: Users, gift: Gift, settings: Settings,
@@ -131,11 +133,12 @@ export default function PipelinePortal() {
       }
       setLoading(false);
 
-      // Fetch live Meta data if account is connected
+      // Fetch live Meta data if account is connected — keep ALL campaigns so
+      // the Gantt can show full history; the panel below filters to ACTIVE.
       if (p.ad_account_id) {
         getProjectKPIs(p.ad_account_id, "this_month").then(setKpis);
         getProjectCampaigns(p.ad_account_id, "this_month").then(({ campaigns: cs }) =>
-          setCampaigns(cs.filter((c) => c.effectiveStatus === "ACTIVE")),
+          setCampaigns(cs),
         );
       }
     })();
@@ -239,8 +242,8 @@ export default function PipelinePortal() {
           </div>
         )}
 
-        {/* Active campaigns */}
-        {campaigns.length > 0 && (
+        {/* Active campaigns — only ACTIVE in the panel; gantt above shows all */}
+        {campaigns.filter((c) => c.effectiveStatus === "ACTIVE").length > 0 && (
           <div className="rounded-2xl border bg-card overflow-hidden">
             <div className="px-5 py-3 border-b border-border/40 flex items-center gap-2">
               <img
@@ -249,10 +252,12 @@ export default function PipelinePortal() {
                 className="h-4 w-4"
               />
               <h3 className="text-sm font-bold">Aktive Anzeigen</h3>
-              <Badge variant="outline" className="text-[10px] ml-1">{campaigns.length}</Badge>
+              <Badge variant="outline" className="text-[10px] ml-1">
+                {campaigns.filter((c) => c.effectiveStatus === "ACTIVE").length}
+              </Badge>
             </div>
             <ul className="divide-y divide-border/40">
-              {campaigns.slice(0, 8).map((c) => {
+              {campaigns.filter((c) => c.effectiveStatus === "ACTIVE").slice(0, 8).map((c) => {
                 const start = c.startTime || c.createdTime;
                 const days = start ? Math.max(0, Math.floor((Date.now() - new Date(start).getTime()) / 86400000)) : 0;
                 return (
@@ -297,6 +302,27 @@ export default function PipelinePortal() {
               })}
             </ul>
           </div>
+        )}
+
+        {/* Timeline / Gantt — same calendar view the team sees */}
+        {(steps.length > 0 || campaigns.length > 0) && (
+          <PipelineGantt
+            steps={steps.map<PipelineStep>((s) => ({
+              id: s.id,
+              projectId: project.id,
+              templateId: null,
+              name: s.name,
+              icon: s.icon,
+              description: s.description,
+              position: s.position,
+              status: s.status,
+              data: {},
+              startedAt: s.startedAt,
+              completedAt: s.completedAt,
+            }))}
+            campaigns={campaigns}
+            defaultSource={campaigns.length > 0 ? "campaigns" : "steps"}
+          />
         )}
 
         {/* Progress */}

@@ -389,7 +389,7 @@ export function PipelineGantt({
       {bars.length > 0 && <div className="relative">
         <div
           ref={scrollerRef}
-          className="overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded"
+          className="overflow-x-auto overflow-y-auto max-h-[640px] min-h-[420px] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-track]:bg-transparent"
         >
           <div className="flex">
             {/* Sticky left label column */}

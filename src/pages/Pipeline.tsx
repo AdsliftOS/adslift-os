@@ -397,13 +397,28 @@ function ProjectCard({
   return (
     <button
       onClick={onClick}
-      className="group text-left rounded-2xl border bg-card hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/5 transition-all overflow-hidden"
+      className={cn(
+        "group text-left rounded-2xl border bg-card hover:shadow-xl transition-all overflow-hidden relative",
+        project.status === "active" && "hover:border-blue-500/60 hover:shadow-blue-500/10",
+        project.status === "done" && "hover:border-emerald-500/60 hover:shadow-emerald-500/10",
+        project.status === "paused" && "hover:border-amber-500/60 hover:shadow-amber-500/10",
+        project.status === "draft" && "hover:border-primary/60 hover:shadow-primary/10",
+      )}
     >
+      {/* subtle radial gradient bg per status */}
+      <div
+        className={cn(
+          "absolute inset-0 opacity-40 pointer-events-none",
+          project.status === "active" && "bg-gradient-to-br from-blue-500/[0.06] via-transparent to-transparent",
+          project.status === "done" && "bg-gradient-to-br from-emerald-500/[0.06] via-transparent to-transparent",
+          project.status === "paused" && "bg-gradient-to-br from-amber-500/[0.06] via-transparent to-transparent",
+        )}
+      />
       <div className="relative p-5">
-        {/* gradient accent */}
+        {/* gradient accent strip */}
         <div
           className={cn(
-            "absolute inset-x-0 top-0 h-1 bg-gradient-to-r",
+            "absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r",
             project.status === "active"
               ? "from-blue-500 via-blue-400 to-blue-500"
               : project.status === "done"
