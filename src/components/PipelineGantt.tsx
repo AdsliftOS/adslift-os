@@ -60,9 +60,10 @@ const FIXED_DAY_WIDTH: Record<ViewMode, number | "auto"> = {
   month: "auto", // auto-fit full year (with min readability)
 };
 
-// Minimum day-width for month auto-fit so it never gets unreadably thin.
-// Means full year = 365 * 6 = 2,190px which fits ~1.5x viewport (slight scroll).
-const MIN_MONTH_DAY_WIDTH = 6;
+// Month mode strictly auto-fits the full year into the available viewport
+// width — no horizontal scroll. Daily granularity stays via the day-tick
+// row in the month header.
+const MIN_MONTH_DAY_WIDTH = 1;
 
 const TRACK_HEIGHT = 48;
 const TRACK_LABEL_WIDTH = 240;
@@ -660,15 +661,15 @@ export function PipelineGantt({
                           <div
                             title={tooltip}
                             className={cn(
-                              "absolute top-1/2 -translate-y-1/2 rounded-full overflow-hidden flex items-center px-3 cursor-help group transition-all hover:scale-[1.015] backdrop-blur-md border",
+                              "absolute top-1/2 -translate-y-1/2 rounded-md overflow-hidden flex items-center px-2.5 cursor-help group backdrop-blur-md border transition-colors",
                               s.status === "done" &&
-                                "bg-emerald-500/20 border-emerald-400/50 text-emerald-100 shadow-md shadow-emerald-500/20",
+                                "bg-emerald-500/15 border-emerald-400/40 text-emerald-100",
                               s.status === "active" &&
-                                "bg-blue-500/25 border-blue-400/60 text-blue-50 shadow-lg shadow-blue-500/30 ring-1 ring-inset ring-blue-300/30",
+                                "bg-blue-500/20 border-blue-400/50 text-blue-50",
                               s.status === "todo" &&
-                                "bg-slate-500/15 border-slate-400/40 text-slate-100",
+                                "bg-slate-500/12 border-slate-400/30 text-slate-100",
                               s.status === "skipped" &&
-                                "bg-rose-500/15 border-rose-400/40 text-rose-100 opacity-60",
+                                "bg-rose-500/12 border-rose-400/30 text-rose-100 opacity-60",
                             )}
                             style={{
                               left,
@@ -676,22 +677,14 @@ export function PipelineGantt({
                               height: TRACK_HEIGHT - 18,
                             }}
                           >
-                            {/* glass highlight from top */}
-                            <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
-                            {/* status-colored inner glow */}
-                            <div
-                              className={cn(
-                                "absolute inset-0 pointer-events-none",
-                                s.status === "active" &&
-                                  "bg-gradient-to-r from-transparent via-blue-300/10 to-transparent animate-pulse",
-                              )}
-                            />
+                            {/* subtle glass highlight */}
+                            <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
                             {/* leading colored dot */}
                             <div
                               className={cn(
                                 "relative h-1.5 w-1.5 rounded-full mr-2 shrink-0",
-                                s.status === "done" && "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]",
-                                s.status === "active" && "bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.9)] animate-pulse",
+                                s.status === "done" && "bg-emerald-400",
+                                s.status === "active" && "bg-blue-400 animate-pulse",
                                 s.status === "todo" && "bg-slate-300",
                                 s.status === "skipped" && "bg-rose-400",
                               )}
