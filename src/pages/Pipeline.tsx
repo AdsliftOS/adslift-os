@@ -77,10 +77,12 @@ import {
 import { PipelineGantt } from "@/components/PipelineGantt";
 import {
   getProjectKPIs,
+  getProjectCampaigns,
   listMetaAccounts,
   fmtEUR,
   fmtNum,
   type ProjectKPIs,
+  type Campaign,
   type MetaAccount,
   type Preset,
 } from "@/lib/meta-ads-project";
@@ -503,6 +505,15 @@ function PipelineDetail({
       : "setup";
   const [mode, setMode] = useState<"setup" | "ops">(defaultMode);
 
+  // Live campaigns from Meta — fed into Operations panel + Gantt
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  useEffect(() => {
+    if (!projectForMode?.adAccountId) return;
+    getProjectCampaigns(projectForMode.adAccountId, "this_month").then(({ campaigns: cs }) =>
+      setCampaigns(cs),
+    );
+  }, [projectForMode?.adAccountId]);
+
   if (!project) {
     return (
       <div className="space-y-6">
@@ -725,8 +736,10 @@ function PipelineDetail({
         />
       )}
 
-      {/* Gantt-Timeline — show in both modes when project is live */}
-      {isLive && steps.length > 0 && <PipelineGantt steps={steps} />}
+      {/* Gantt-Timeline — show campaigns + steps when available */}
+      {(isLive || campaigns.length > 0) && (steps.length > 0 || campaigns.length > 0) && (
+        <PipelineGantt steps={steps} campaigns={campaigns} />
+      )}
 
       {/* Add step dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -1435,6 +1448,167 @@ function ProjectAdAccountPicker({
   );
 }
 
+// ─── Active Campaigns Panel (live Meta) ─────────────────────────────
+
+function ActiveCampaignsPanel({
+  project,
+}: {
+  project: ReturnType<typeof usePipelineProjects>[number];
+}) {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    if (!project.adAccountId) return;
+    setLoading(true);
+    const { campaigns: cs, error: err } = await getProjectCampaigns(project.adAccountId, "this_month");
+    setCampaigns(cs);
+    setError(err);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.adAccountId]);
+
+  return (
+    <div className="rounded-2xl border bg-card overflow-hidden lg:col-span-2">
+      <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Megaphone className="h-4 w-4 text-blue-500" />
+          <h3 className="text-sm font-semibold">Aktive Anzeigen</h3>
+          {campaigns.length > 0 && (
+            <Badge variant="outline" className="text-[10px]">
+              {campaigns.filter((c) => c.effectiveStatus === "ACTIVE").length} live · {campaigns.length} gesamt
+            </Badge>
+          )}
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!project.adAccountId || loading}
+          onClick={load}
+        >
+          <TrendingUp className={cn("h-3.5 w-3.5 mr-1", loading && "animate-pulse")} />
+          Refresh
+        </Button>
+      </div>
+
+      <div className="p-4">
+        {!project.adAccountId ? (
+          <div className="text-center py-8 space-y-3">
+            <div className="h-12 w-12 mx-auto rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center">
+              <Megaphone className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Werbekonto noch nicht verknüpft</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Klick im Projekt-Header auf "Werbekonto verknüpfen" um Live-Daten zu sehen
+              </p>
+            </div>
+          </div>
+        ) : loading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="rounded-xl border bg-muted/20 p-4 animate-pulse">
+                <div className="h-3 w-1/2 bg-muted rounded mb-2" />
+                <div className="h-2 w-1/3 bg-muted/60 rounded" />
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 text-xs text-rose-600">
+            <strong>Meta-API Fehler:</strong> {error}
+          </div>
+        ) : campaigns.length === 0 ? (
+          <div className="text-center py-8 space-y-2">
+            <p className="text-sm font-medium">Keine Kampagnen gefunden</p>
+            <p className="text-xs text-muted-foreground">
+              Im verknüpften Werbekonto sind aktuell keine Kampagnen aktiv.
+            </p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {campaigns.slice(0, 8).map((c) => (
+              <CampaignRow key={c.id} campaign={c} />
+            ))}
+            {campaigns.length > 8 && (
+              <li className="text-[10px] text-center text-muted-foreground pt-1">
+                + {campaigns.length - 8} weitere Kampagnen
+              </li>
+            )}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CampaignRow({ campaign }: { campaign: Campaign }) {
+  const isActive = campaign.effectiveStatus === "ACTIVE";
+  const start = campaign.startTime || campaign.createdTime;
+  const days = start ? Math.max(0, Math.floor((Date.now() - new Date(start).getTime()) / 86400000)) : 0;
+
+  const statusColor =
+    campaign.effectiveStatus === "ACTIVE"
+      ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30"
+      : campaign.effectiveStatus === "PAUSED"
+      ? "bg-amber-500/15 text-amber-500 border-amber-500/30"
+      : "bg-slate-500/15 text-slate-500 border-slate-500/30";
+
+  return (
+    <li
+      className={cn(
+        "rounded-xl border bg-card p-3 flex items-center gap-3 hover:shadow-md transition-shadow",
+        isActive && "ring-1 ring-emerald-500/20",
+      )}
+    >
+      <div
+        className={cn(
+          "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
+          isActive ? "bg-emerald-500/15 text-emerald-500" : "bg-muted text-muted-foreground",
+        )}
+      >
+        <Megaphone className="h-5 w-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="font-semibold text-sm truncate">{campaign.name}</p>
+          <Badge variant="outline" className={cn("text-[9px] py-0", statusColor)}>
+            {campaign.effectiveStatus}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
+          <span>läuft seit {days}d</span>
+          {start && (
+            <span>· {format(new Date(start), "dd.MM.yyyy", { locale: de })}</span>
+          )}
+          {campaign.objective && <span>· {campaign.objective}</span>}
+          {campaign.dailyBudget > 0 && <span>· {fmtEUR(campaign.dailyBudget)}/Tag</span>}
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3 shrink-0 text-right">
+        <div>
+          <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Spend</div>
+          <div className="text-sm font-bold tabular-nums">{fmtEUR(campaign.spend)}</div>
+        </div>
+        <div>
+          <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Leads</div>
+          <div className="text-sm font-bold tabular-nums">{campaign.leads}</div>
+        </div>
+        <div>
+          <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">CPL</div>
+          <div className="text-sm font-bold tabular-nums">
+            {campaign.cpl > 0 ? fmtEUR(campaign.cpl) : "—"}
+          </div>
+        </div>
+      </div>
+    </li>
+  );
+}
+
 // ─── Mode tab (Setup / Operations) ──────────────────────────────────
 
 function ModeTab({
@@ -1718,63 +1892,8 @@ function OperationsView({
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      {/* Active Ads / Creatives stack — placeholder for Meta Ads integration */}
-      <div className="rounded-2xl border bg-card overflow-hidden lg:col-span-2">
-        <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Megaphone className="h-4 w-4 text-blue-500" />
-            <h3 className="text-sm font-semibold">Aktive Anzeigen</h3>
-            <Badge variant="outline" className="text-[10px]">Phase 3 — Meta-Sync</Badge>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!project.adAccountId}
-            onClick={() => toast.info("Meta-Ad-Sync kommt in Phase 3")}
-          >
-            <TrendingUp className="h-3.5 w-3.5 mr-1" />
-            Refresh
-          </Button>
-        </div>
-        <div className="p-6">
-          {project.adAccountId ? (
-            <div className="space-y-3">
-              {/* Mock placeholder rows — real ads will appear when Phase 3 is wired */}
-              {[1, 2, 3].map((n) => (
-                <div
-                  key={n}
-                  className="rounded-xl border bg-muted/20 p-4 flex items-center gap-3 opacity-50"
-                >
-                  <div className="h-10 w-10 rounded-lg bg-muted" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="h-3 w-40 rounded bg-muted" />
-                    <div className="h-2 w-24 rounded bg-muted/60" />
-                  </div>
-                  <div className="text-right space-y-1">
-                    <div className="h-3 w-16 rounded bg-muted ml-auto" />
-                    <div className="h-2 w-12 rounded bg-muted/60 ml-auto" />
-                  </div>
-                </div>
-              ))}
-              <p className="text-[11px] text-center text-muted-foreground pt-2">
-                Anzeigen-Liste (Name · seit wann live · Spend · Leads · CTR) erscheint sobald Meta-Sync aktiv.
-              </p>
-            </div>
-          ) : (
-            <div className="text-center py-8 space-y-3">
-              <div className="h-12 w-12 mx-auto rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center">
-                <Megaphone className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Werbekonto noch nicht verknüpft</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Trage die Ad-Account-ID im Projekt ein um Live-Daten zu sehen
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Active Ads / Campaigns — live from Meta */}
+      <ActiveCampaignsPanel project={project} />
 
       {/* Quick Actions */}
       <div className="rounded-2xl border bg-card overflow-hidden">

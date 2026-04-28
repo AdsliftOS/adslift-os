@@ -97,9 +97,9 @@ export default async function handler(req: Request) {
       );
     }
 
-    // Get campaigns
+    // Get campaigns with run-time fields for the Gantt timeline
     const campaignsRes = await fetch(
-      `https://graph.facebook.com/v19.0/${AD_ACCOUNT}/campaigns?fields=name,status,objective&limit=50&access_token=${TOKEN}`
+      `https://graph.facebook.com/v19.0/${AD_ACCOUNT}/campaigns?fields=name,status,objective,created_time,start_time,stop_time,daily_budget,lifetime_budget,effective_status&limit=50&access_token=${TOKEN}`
     );
     const campaigns = await campaignsRes.json();
 

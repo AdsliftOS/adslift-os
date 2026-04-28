@@ -81,6 +81,102 @@ export async function getProjectKPIs(
   }
 }
 
+// ─── Campaigns + insights merged ────────────────────────────────────
+
+export type Campaign = {
+  id: string;
+  name: string;
+  status: string;          // ACTIVE / PAUSED / DELETED / ARCHIVED
+  effectiveStatus: string;
+  objective: string;
+  createdTime: string;     // ISO
+  startTime: string | null;
+  stopTime: string | null; // null = open-ended (running)
+  dailyBudget: number;
+  lifetimeBudget: number;
+  // From insights
+  spend: number;
+  leads: number;
+  ctr: number;
+  cpl: number;
+  impressions: number;
+  clicks: number;
+};
+
+export async function getProjectCampaigns(
+  adAccountId: string,
+  preset: Preset = "this_month",
+): Promise<{ campaigns: Campaign[]; error: string | null }> {
+  if (!adAccountId) return { campaigns: [], error: "Keine Ad-Account-ID" };
+
+  try {
+    const params = new URLSearchParams({
+      account: adAccountId.startsWith("act_") ? adAccountId : `act_${adAccountId}`,
+      preset: PRESET_MAP[preset],
+    });
+    const res = await fetch(`/api/meta-ads?${params.toString()}`);
+    if (!res.ok) {
+      const t = await res.text();
+      return { campaigns: [], error: `HTTP ${res.status}: ${t.slice(0, 120)}` };
+    }
+    const data = await res.json();
+    if (data?.error) return { campaigns: [], error: String(data.error) };
+
+    const cmps = data?.campaigns || [];
+    const insights = data?.insights || [];
+
+    // Merge insights into campaigns by campaign_id
+    const insightsByCampaign = new Map<string, any>();
+    for (const i of insights) {
+      if (i.campaign_id) insightsByCampaign.set(i.campaign_id, i);
+    }
+
+    const merged: Campaign[] = cmps.map((c: any) => {
+      const ins = insightsByCampaign.get(c.id);
+      const actions: { action_type: string; value: string }[] = ins?.actions || [];
+      const leadAction = actions.find((a) =>
+        ["lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead"].includes(a.action_type),
+      );
+      const leads = leadAction ? Number(leadAction.value) || 0 : 0;
+      const spend = Number(ins?.spend) || 0;
+      // Daily budget comes back in cents
+      const dailyBudget = Number(c.daily_budget) || 0;
+      const lifetimeBudget = Number(c.lifetime_budget) || 0;
+
+      return {
+        id: c.id,
+        name: c.name,
+        status: c.status,
+        effectiveStatus: c.effective_status || c.status,
+        objective: c.objective || "",
+        createdTime: c.created_time,
+        startTime: c.start_time || null,
+        stopTime: c.stop_time || null,
+        dailyBudget: dailyBudget / 100,
+        lifetimeBudget: lifetimeBudget / 100,
+        spend,
+        leads,
+        ctr: Number(ins?.ctr) || 0,
+        cpl: leads > 0 ? spend / leads : 0,
+        impressions: Number(ins?.impressions) || 0,
+        clicks: Number(ins?.clicks) || 0,
+      };
+    });
+
+    // Sort: ACTIVE first, then by spend descending
+    merged.sort((a, b) => {
+      const aActive = a.effectiveStatus === "ACTIVE" ? 0 : 1;
+      const bActive = b.effectiveStatus === "ACTIVE" ? 0 : 1;
+      if (aActive !== bActive) return aActive - bActive;
+      return b.spend - a.spend;
+    });
+
+    return { campaigns: merged, error: null };
+  } catch (err: any) {
+    return { campaigns: [], error: err?.message || String(err) };
+  }
+}
+
 // List available Meta ad accounts for picker UI
 export type MetaAccount = { id: string; name: string; account_id: string };
 export async function listMetaAccounts(): Promise<MetaAccount[]> {

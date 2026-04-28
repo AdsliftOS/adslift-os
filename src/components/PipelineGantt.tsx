@@ -35,6 +35,16 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { ProjectStep } from "@/store/pipeline";
+import type { Campaign } from "@/lib/meta-ads-project";
+
+type GanttBar = {
+  id: string;
+  name: string;
+  icon: string;
+  status: "todo" | "active" | "done" | "skipped";
+  startedAt: string | null;
+  completedAt: string | null;
+};
 
 const ICONS: Record<string, typeof BoxIcon> = {
   box: BoxIcon, users: Users, gift: Gift, settings: Settings,
@@ -55,21 +65,33 @@ const FIXED_DAY_WIDTH: Record<ViewMode, number | "auto"> = {
 const TRACK_HEIGHT = 44;
 const TRACK_LABEL_WIDTH = 220;
 
-export function PipelineGantt({ steps }: { steps: ProjectStep[] }) {
+export function PipelineGantt({
+  steps,
+  campaigns = [],
+}: {
+  steps: ProjectStep[];
+  campaigns?: Campaign[];
+}) {
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
+  const [source, setSource] = useState<"steps" | "campaigns" | "both">(
+    campaigns.length > 0 ? "campaigns" : "steps",
+  );
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   // Always show a full calendar year. User can navigate years with arrows.
-  // Auto-jumps to year of earliest step on mount.
+  // Auto-jumps to year of earliest active item on mount.
   useEffect(() => {
-    const stepsWithStart = steps.filter((s) => s.startedAt);
-    if (stepsWithStart.length === 0) return;
-    const earliestYear = Math.min(
-      ...stepsWithStart.map((s) => parseISO(s.startedAt!).getFullYear()),
-    );
+    const allWithStart = [
+      ...steps.filter((s) => s.startedAt).map((s) => s.startedAt!),
+      ...campaigns
+        .map((c) => c.startTime || c.createdTime)
+        .filter(Boolean) as string[],
+    ];
+    if (allWithStart.length === 0) return;
+    const earliestYear = Math.min(...allWithStart.map((d) => parseISO(d).getFullYear()));
     if (earliestYear < currentYear) setCurrentYear(earliestYear);
-  }, [steps]);
+  }, [steps, campaigns]);
 
   const range = useMemo(() => {
     const yearStart = startOfYear(new Date(currentYear, 0, 1));
@@ -163,7 +185,38 @@ export function PipelineGantt({ steps }: { steps: ProjectStep[] }) {
     scrollerRef.current.scrollTo({ left: Math.max(0, targetX), behavior: "smooth" });
   };
 
-  const stepsToRender = steps; // show all in order
+  // Build the bars list based on source toggle
+  const bars: GanttBar[] = useMemo(() => {
+    const stepBars: GanttBar[] = steps.map((s) => ({
+      id: `step-${s.id}`,
+      name: s.name,
+      icon: s.icon,
+      status: s.status,
+      startedAt: s.startedAt,
+      completedAt: s.completedAt,
+    }));
+    const campaignBars: GanttBar[] = campaigns.map((c) => ({
+      id: `cmp-${c.id}`,
+      name: c.name,
+      icon: "megaphone",
+      status:
+        c.effectiveStatus === "ACTIVE"
+          ? "active"
+          : c.effectiveStatus === "PAUSED"
+          ? "skipped"
+          : c.effectiveStatus === "ARCHIVED" || c.effectiveStatus === "DELETED"
+          ? "done"
+          : "todo",
+      startedAt: c.startTime || c.createdTime || null,
+      completedAt: c.stopTime,
+    }));
+
+    if (source === "steps") return stepBars;
+    if (source === "campaigns") return campaignBars;
+    return [...campaignBars, ...stepBars];
+  }, [source, steps, campaigns]);
+
+  const stepsToRender = bars; // for layout
 
   return (
     <div className="rounded-2xl border bg-card overflow-hidden">
@@ -196,7 +249,26 @@ export function PipelineGantt({ steps }: { steps: ProjectStep[] }) {
             </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Source toggle — only when both available */}
+          {(steps.length > 0 || campaigns.length > 0) && campaigns.length > 0 && (
+            <ToggleGroup
+              type="single"
+              value={source}
+              onValueChange={(v) => v && setSource(v as any)}
+              size="sm"
+            >
+              <ToggleGroupItem value="campaigns" className="text-xs px-2.5">
+                Campaigns ({campaigns.length})
+              </ToggleGroupItem>
+              <ToggleGroupItem value="steps" className="text-xs px-2.5">
+                Steps ({steps.length})
+              </ToggleGroupItem>
+              <ToggleGroupItem value="both" className="text-xs px-2.5">
+                Beide
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
           <ToggleGroup
             type="single"
             value={viewMode}
