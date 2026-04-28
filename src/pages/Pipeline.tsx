@@ -1661,8 +1661,13 @@ function ActiveCampaignsPanel({
     <div className="rounded-2xl border bg-card overflow-hidden lg:col-span-2">
       <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
-          <Megaphone className="h-4 w-4 text-blue-500" />
-          <h3 className="text-sm font-semibold">Anzeigen</h3>
+          <img
+            src="https://cdn.simpleicons.org/meta/0866FF"
+            alt="Meta"
+            className="h-4 w-4"
+            loading="lazy"
+          />
+          <h3 className="text-sm font-semibold">Meta Anzeigen</h3>
           {campaigns.length > 0 && (
             <Badge variant="outline" className="text-[10px]">
               {activeCount} live · {campaigns.length} gesamt
@@ -1700,11 +1705,16 @@ function ActiveCampaignsPanel({
       <div className="p-4">
         {!project.adAccountId ? (
           <div className="text-center py-8 space-y-3">
-            <div className="h-12 w-12 mx-auto rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center">
-              <Megaphone className="h-6 w-6" />
+            <div className="h-14 w-14 mx-auto rounded-2xl bg-[#0866FF]/10 ring-1 ring-[#0866FF]/30 flex items-center justify-center">
+              <img
+                src="https://cdn.simpleicons.org/meta/0866FF"
+                alt="Meta"
+                className="h-7 w-7"
+                loading="lazy"
+              />
             </div>
             <div>
-              <p className="text-sm font-medium">Werbekonto noch nicht verknüpft</p>
+              <p className="text-sm font-medium">Meta Werbekonto noch nicht verknüpft</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Klick im Projekt-Header auf "Werbekonto verknüpfen" um Live-Daten zu sehen
               </p>
@@ -1775,11 +1785,18 @@ function CampaignRow({ campaign }: { campaign: Campaign }) {
     >
       <div
         className={cn(
-          "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
-          isActive ? "bg-emerald-500/15 text-emerald-500" : "bg-muted text-muted-foreground",
+          "h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ring-1",
+          isActive
+            ? "bg-[#0866FF]/10 ring-[#0866FF]/40"
+            : "bg-muted ring-border/30",
         )}
       >
-        <Megaphone className="h-5 w-5" />
+        <img
+          src="https://cdn.simpleicons.org/meta/0866FF"
+          alt="Meta"
+          className={cn("h-5 w-5", !isActive && "opacity-50 grayscale")}
+          loading="lazy"
+        />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">

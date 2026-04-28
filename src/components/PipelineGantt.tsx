@@ -409,12 +409,13 @@ export function PipelineGantt({
                 </span>
               </div>
               {stepsToRender.map((s, i) => {
+                const isCampaign = s.id.startsWith("cmp-");
                 const Icon = ICONS[s.icon] || BoxIcon;
                 return (
                   <div
                     key={s.id}
                     className={cn(
-                      "flex items-center gap-2 px-3 border-b",
+                      "flex items-center gap-2 px-3 border-b border-border/20",
                       i % 2 === 1 && "bg-muted/[0.04]",
                     )}
                     style={{ height: TRACK_HEIGHT }}
@@ -424,14 +425,24 @@ export function PipelineGantt({
                     </span>
                     <div
                       className={cn(
-                        "h-6 w-6 rounded-md flex items-center justify-center shrink-0",
-                        s.status === "active" && "bg-blue-500/15 text-blue-500",
-                        s.status === "done" && "bg-emerald-500/15 text-emerald-500",
-                        s.status === "todo" && "bg-muted text-muted-foreground",
-                        s.status === "skipped" && "bg-rose-500/15 text-rose-500",
+                        "h-7 w-7 rounded-lg flex items-center justify-center shrink-0",
+                        isCampaign && "bg-[#0866FF]/10 ring-1 ring-[#0866FF]/30",
+                        !isCampaign && s.status === "active" && "bg-blue-500/15 text-blue-500",
+                        !isCampaign && s.status === "done" && "bg-emerald-500/15 text-emerald-500",
+                        !isCampaign && s.status === "todo" && "bg-muted text-muted-foreground",
+                        !isCampaign && s.status === "skipped" && "bg-rose-500/15 text-rose-500",
                       )}
                     >
-                      <Icon className="h-3.5 w-3.5" />
+                      {isCampaign ? (
+                        <img
+                          src="https://cdn.simpleicons.org/meta/0866FF"
+                          alt="Meta"
+                          className="h-4 w-4"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <Icon className="h-3.5 w-3.5" />
+                      )}
                     </div>
                     <span className="text-xs font-medium truncate">{s.name}</span>
                   </div>
@@ -441,8 +452,8 @@ export function PipelineGantt({
 
             {/* Right grid */}
             <div className="relative shrink-0" style={{ width: totalWidth }}>
-              {/* Header — months (prominent, gradient bg, quarter dividers) */}
-              <div className="flex h-10 border-b bg-gradient-to-b from-muted/40 to-muted/10">
+              {/* Header — months (glass, with subtle day ticks underneath) */}
+              <div className="flex h-12 border-b border-border/30 backdrop-blur-md bg-gradient-to-b from-white/[0.04] via-white/[0.02] to-transparent relative">
                 {monthGroups.map((g) => {
                   const month = g.date.getMonth(); // 0-11
                   const isQuarterStart = month % 3 === 0;
@@ -453,14 +464,19 @@ export function PipelineGantt({
                     <div
                       key={g.start}
                       className={cn(
-                        "flex items-center justify-center text-xs font-bold tracking-tight relative shrink-0",
-                        "border-r border-border/40",
-                        isQuarterStart && "border-l-2 border-l-primary/30",
-                        isCurrentMonth && "bg-primary/[0.08] text-primary",
+                        "flex items-center justify-center text-xs font-semibold tracking-tight relative shrink-0",
+                        "border-r border-border/20",
+                        isQuarterStart && "border-l-2 border-l-primary/40",
+                        isCurrentMonth && "bg-primary/[0.06]",
                       )}
                       style={{ width: g.count * dayWidth }}
                     >
-                      <span className="truncate px-2">
+                      <span
+                        className={cn(
+                          "truncate px-2 relative z-10",
+                          isCurrentMonth ? "text-primary" : "text-foreground/85",
+                        )}
+                      >
                         {dayWidth >= 30
                           ? format(g.date, "MMMM yyyy", { locale: de })
                           : dayWidth >= 12
@@ -468,9 +484,36 @@ export function PipelineGantt({
                           : format(g.date, "MMM", { locale: de })}
                       </span>
                       {isQuarterStart && (
-                        <span className="absolute -top-px left-1 text-[8px] font-mono text-primary/60 uppercase tracking-wider">
+                        <span className="absolute top-0.5 left-1.5 text-[8px] font-mono text-primary/60 uppercase tracking-wider">
                           Q{Math.floor(month / 3) + 1}
                         </span>
+                      )}
+                      {/* Subtle day ticks at the bottom of the month box (only in month view) */}
+                      {viewMode === "month" && (
+                        <div className="absolute bottom-0 left-0 right-0 h-1.5 flex pointer-events-none">
+                          {Array.from({ length: g.count }).map((_, i) => {
+                            const d = addDays(g.date, i);
+                            const isMonday = d.getDay() === 1;
+                            const isTodayTick =
+                              d.getFullYear() === today.getFullYear() &&
+                              d.getMonth() === today.getMonth() &&
+                              d.getDate() === today.getDate();
+                            return (
+                              <div
+                                key={i}
+                                className={cn(
+                                  "shrink-0 border-r",
+                                  isTodayTick
+                                    ? "border-rose-500/80"
+                                    : isMonday
+                                    ? "border-foreground/20"
+                                    : "border-foreground/[0.06]",
+                                )}
+                                style={{ width: dayWidth }}
+                              />
+                            );
+                          })}
+                        </div>
                       )}
                     </div>
                   );
@@ -617,15 +660,15 @@ export function PipelineGantt({
                           <div
                             title={tooltip}
                             className={cn(
-                              "absolute top-1/2 -translate-y-1/2 rounded-full overflow-hidden flex items-center px-3 cursor-help group transition-all hover:scale-[1.02] hover:shadow-xl",
+                              "absolute top-1/2 -translate-y-1/2 rounded-full overflow-hidden flex items-center px-3 cursor-help group transition-all hover:scale-[1.015] backdrop-blur-md border",
                               s.status === "done" &&
-                                "bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-400 text-white shadow-md shadow-emerald-500/30",
+                                "bg-emerald-500/20 border-emerald-400/50 text-emerald-100 shadow-md shadow-emerald-500/20",
                               s.status === "active" &&
-                                "bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 text-white shadow-lg shadow-blue-500/40 ring-2 ring-blue-400/40",
+                                "bg-blue-500/25 border-blue-400/60 text-blue-50 shadow-lg shadow-blue-500/30 ring-1 ring-inset ring-blue-300/30",
                               s.status === "todo" &&
-                                "bg-gradient-to-r from-slate-500 via-slate-400 to-slate-300 text-white shadow-sm",
+                                "bg-slate-500/15 border-slate-400/40 text-slate-100",
                               s.status === "skipped" &&
-                                "bg-gradient-to-r from-rose-500 to-rose-400 text-white opacity-60",
+                                "bg-rose-500/15 border-rose-400/40 text-rose-100 opacity-60",
                             )}
                             style={{
                               left,
@@ -633,15 +676,30 @@ export function PipelineGantt({
                               height: TRACK_HEIGHT - 18,
                             }}
                           >
-                            {/* shine accent */}
-                            <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
-                            {s.status === "active" && (
-                              <div className="absolute inset-0 bg-white/10 animate-pulse pointer-events-none" />
-                            )}
-                            <span className="relative text-[10px] font-bold truncate drop-shadow-sm tracking-tight">
+                            {/* glass highlight from top */}
+                            <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
+                            {/* status-colored inner glow */}
+                            <div
+                              className={cn(
+                                "absolute inset-0 pointer-events-none",
+                                s.status === "active" &&
+                                  "bg-gradient-to-r from-transparent via-blue-300/10 to-transparent animate-pulse",
+                              )}
+                            />
+                            {/* leading colored dot */}
+                            <div
+                              className={cn(
+                                "relative h-1.5 w-1.5 rounded-full mr-2 shrink-0",
+                                s.status === "done" && "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]",
+                                s.status === "active" && "bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.9)] animate-pulse",
+                                s.status === "todo" && "bg-slate-300",
+                                s.status === "skipped" && "bg-rose-400",
+                              )}
+                            />
+                            <span className="relative text-[11px] font-semibold truncate tracking-tight">
                               {s.name}
                             </span>
-                            <span className="relative ml-auto text-[9px] tabular-nums opacity-90 hidden group-hover:inline shrink-0 pl-2 font-mono">
+                            <span className="relative ml-auto text-[9px] tabular-nums opacity-80 hidden group-hover:inline shrink-0 pl-2 font-mono">
                               {inclusiveDays}d
                             </span>
                           </div>
