@@ -51,6 +51,8 @@ export type PipelineProject = {
   status: ProjectStatus;
   startDate: string | null;
   customerPortalToken: string | null;
+  portalPin: string | null;
+  portalCustomerName: string | null;
   createdByEmail: string | null;
   createdAt: string;
   updatedAt: string;
@@ -140,6 +142,8 @@ function rowToProject(r: any): PipelineProject {
     status: r.status || "draft",
     startDate: r.start_date || null,
     customerPortalToken: r.customer_portal_token || null,
+    portalPin: r.portal_pin || null,
+    portalCustomerName: r.portal_customer_name || null,
     createdByEmail: r.created_by_email || null,
     createdAt: r.created_at,
     updatedAt: r.updated_at || r.created_at,
@@ -202,6 +206,8 @@ export async function updatePipelineProject(id: string, updates: Partial<Pipelin
   if (updates.adAccountId !== undefined) row.ad_account_id = updates.adAccountId;
   if (updates.status !== undefined) row.status = updates.status;
   if (updates.startDate !== undefined) row.start_date = updates.startDate;
+  if (updates.portalPin !== undefined) row.portal_pin = updates.portalPin;
+  if (updates.portalCustomerName !== undefined) row.portal_customer_name = updates.portalCustomerName;
   row.updated_at = new Date().toISOString();
 
   projects = projects.map((p) => (p.id === id ? { ...p, ...updates } : p));

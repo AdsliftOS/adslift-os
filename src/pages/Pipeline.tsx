@@ -87,6 +87,14 @@ import {
   type MetaAccount,
   type Preset,
 } from "@/lib/meta-ads-project";
+import {
+  useFeedback,
+  useUnreadFeedbackCount,
+  markFeedbackRead,
+  markProjectFeedbackRead,
+  deleteFeedback,
+  type Feedback,
+} from "@/store/pipelineFeedback";
 import { cn } from "@/lib/utils";
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -601,14 +609,6 @@ function PipelineDetail({
             <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
               <PanelRight className="h-3.5 w-3.5 mr-1" /> Kunden-Portal
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!project.clientEmail}
-              onClick={() => setReportOpen(true)}
-            >
-              <Send className="h-3.5 w-3.5 mr-1" /> Report senden
-            </Button>
             <Select
               value={project.status}
               onValueChange={(v) => updatePipelineProject(projectId, { status: v as any })}
@@ -750,7 +750,6 @@ function PipelineDetail({
           steps={steps}
           onJumpToSetup={() => setMode("setup")}
           onOpenStep={(stepId) => setEditingStepId(stepId)}
-          onOpenReport={() => setReportOpen(true)}
         />
       )}
 
@@ -844,45 +843,12 @@ function PipelineDetail({
       />
 
       {/* Share / customer portal dialog */}
-      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Kunden-Portal</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              Dein Kunde sieht diese Seite read-only mit dem aktuellen Pipeline-Stand und allen hochgeladenen Files.
-            </p>
-            {portalUrl ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <Input value={portalUrl} readOnly className="font-mono text-xs" />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      navigator.clipboard.writeText(portalUrl);
-                      toast.success("Link kopiert");
-                    }}
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="sm" variant="outline" asChild>
-                    <a href={portalUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                  </Button>
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Token-basiert — kein Login nötig. Wer den Link hat, sieht das Projekt.
-                </p>
-              </>
-            ) : (
-              <p className="text-xs text-amber-500">Kein Portal-Token. Speichere das Projekt einmal neu.</p>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PortalShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        project={project}
+        portalUrl={portalUrl}
+      />
     </div>
   );
 }
@@ -1544,6 +1510,110 @@ function ProjectAdAccountPicker({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+// ─── Portal Share Dialog (with PIN setup) ───────────────────────────
+
+function PortalShareDialog({
+  open,
+  onOpenChange,
+  project,
+  portalUrl,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  project: ReturnType<typeof usePipelineProjects>[number];
+  portalUrl: string | null;
+}) {
+  const [pin, setPin] = useState(project.portalPin || "");
+  const [customerName, setCustomerName] = useState(project.portalCustomerName || "");
+
+  useEffect(() => {
+    if (open) {
+      setPin(project.portalPin || "");
+      setCustomerName(project.portalCustomerName || "");
+    }
+  }, [open, project.id, project.portalPin, project.portalCustomerName]);
+
+  const savePin = async () => {
+    await updatePipelineProject(project.id, {
+      portalPin: pin.trim() || null,
+      portalCustomerName: customerName.trim() || null,
+    });
+    toast.success("Portal-Zugang gespeichert");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <PanelRight className="h-4 w-4" /> Kunden-Portal
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Der Kunde loggt sich mit PIN ein und sieht aktuelles Projekt + Timeline + Anzeigen.
+            Er kann Feedback hinterlassen, das hier im Operations-Tab erscheint.
+          </p>
+
+          {portalUrl ? (
+            <div className="grid gap-2">
+              <Label className="text-xs">Portal-Link</Label>
+              <div className="flex items-center gap-2">
+                <Input value={portalUrl} readOnly className="font-mono text-xs" />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(portalUrl);
+                    toast.success("Link kopiert");
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" variant="outline" asChild>
+                  <a href={portalUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-amber-500">Kein Portal-Token. Speichere das Projekt einmal neu.</p>
+          )}
+
+          <div className="grid gap-2">
+            <Label className="text-xs">Kundenname (für Anzeige im Portal)</Label>
+            <Input
+              placeholder="z.B. Max Müller"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label className="text-xs flex items-center gap-1">
+              <Lock className="h-3 w-3" /> PIN (mind. 4 Zeichen)
+            </Label>
+            <Input
+              placeholder={project.portalPin ? "PIN ist gesetzt" : "Optional — Kunde kann selbst setzen"}
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Wenn leer: Kunde wird beim ersten Zugriff aufgefordert, selbst einen PIN zu setzen.
+              Wenn gesetzt: Kunde muss diesen PIN eingeben.
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Schließen</Button>
+          <Button onClick={savePin}>Speichern</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -2314,42 +2384,45 @@ function OperationsView({
   steps,
   onJumpToSetup,
   onOpenStep,
-  onOpenReport,
 }: {
   project: ReturnType<typeof usePipelineProjects>[number];
   steps: ProjectStep[];
   onJumpToSetup: () => void;
   onOpenStep: (stepId: string) => void;
-  onOpenReport: () => void;
 }) {
+  const feedback = useFeedback(project.id);
+  const unreadFeedbackCount = feedback.filter((f) => !f.readAt).length;
   const monitoringStep = steps.find((s) =>
     s.name.toLowerCase().includes("monitoring") ||
     s.name.toLowerCase().includes("optimier"),
   );
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      {/* Active Ads / Campaigns — live from Meta */}
-      <ActiveCampaignsPanel project={project} />
-
-      {/* Quick Actions */}
-      <div className="rounded-2xl border bg-card overflow-hidden">
-        <div className="px-5 py-3 border-b bg-muted/20">
-          <h3 className="text-sm font-semibold">Quick Actions</h3>
+    <div className="space-y-4">
+      {/* Row 1: Campaigns (2/3) + Feedback (1/3) */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <ActiveCampaignsPanel project={project} />
         </div>
-        <div className="p-4 space-y-2">
+        <FeedbackPanel
+          projectId={project.id}
+          feedback={feedback}
+          unread={unreadFeedbackCount}
+          onOpenStep={onOpenStep}
+        />
+      </div>
+
+      {/* Row 2: Quick Actions horizontal */}
+      <div className="rounded-2xl border bg-gradient-to-r from-muted/20 via-card to-card overflow-hidden">
+        <div className="px-4 py-2 border-b border-border/40">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
+            Quick Actions
+          </span>
+        </div>
+        <div className="p-3 flex flex-wrap gap-2">
           <Button
-            className="w-full justify-start"
             variant="outline"
-            disabled={!project.clientEmail}
-            onClick={() => onOpenReport()}
-          >
-            <Send className="h-4 w-4 mr-2" />
-            Report an Kunde senden
-          </Button>
-          <Button
-            className="w-full justify-start"
-            variant="outline"
+            size="sm"
             onClick={() => {
               const url = project.customerPortalToken
                 ? `${window.location.origin}/p/${project.customerPortalToken}`
@@ -2359,30 +2432,119 @@ function OperationsView({
               toast.success("Portal-Link kopiert");
             }}
           >
-            <Copy className="h-4 w-4 mr-2" />
-            Kunden-Portal kopieren
+            <Copy className="h-3.5 w-3.5 mr-1" /> Portal-Link
           </Button>
-          <Button
-            className="w-full justify-start"
-            variant="outline"
-            onClick={onJumpToSetup}
-          >
-            <Sparkles className="h-4 w-4 mr-2" />
-            Zurück zum Setup
+          <Button variant="outline" size="sm" onClick={onJumpToSetup}>
+            <Sparkles className="h-3.5 w-3.5 mr-1" /> Zum Setup
           </Button>
           {monitoringStep && (
-            <Button
-              className="w-full justify-start"
-              variant="outline"
-              onClick={() => onOpenStep(monitoringStep.id)}
-            >
-              <Activity className="h-4 w-4 mr-2" />
-              Monitoring-Step öffnen
+            <Button variant="outline" size="sm" onClick={() => onOpenStep(monitoringStep.id)}>
+              <Activity className="h-3.5 w-3.5 mr-1" /> Monitoring öffnen
             </Button>
           )}
         </div>
       </div>
+    </div>
+  );
+}
 
+// ─── Feedback Panel ─────────────────────────────────────────────────
+
+function FeedbackPanel({
+  projectId,
+  feedback,
+  unread,
+  onOpenStep,
+}: {
+  projectId: string;
+  feedback: Feedback[];
+  unread: number;
+  onOpenStep: (stepId: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border bg-gradient-to-br from-amber-500/[0.04] via-card to-card overflow-hidden">
+      <div className="px-5 py-3 border-b border-border/40 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-amber-500" />
+          <h3 className="text-sm font-bold">Kunden-Feedback</h3>
+          {unread > 0 && (
+            <Badge className="text-[10px] bg-amber-500 text-white border-amber-500 hover:bg-amber-500 animate-pulse">
+              {unread} neu
+            </Badge>
+          )}
+        </div>
+        {unread > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 text-[10px]"
+            onClick={() => markProjectFeedbackRead(projectId)}
+          >
+            Alle gelesen
+          </Button>
+        )}
+      </div>
+      <div className="max-h-[420px] overflow-y-auto">
+        {feedback.length === 0 ? (
+          <div className="text-center py-10 px-4 space-y-2">
+            <MessageSquare className="h-8 w-8 mx-auto text-muted-foreground/40" />
+            <p className="text-xs text-muted-foreground">
+              Noch kein Feedback. Sobald der Kunde im Portal etwas hinterlässt, erscheint es hier.
+            </p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-border/40">
+            {feedback.map((f) => (
+              <li
+                key={f.id}
+                className={cn("p-3 group hover:bg-muted/30", !f.readAt && "bg-amber-500/[0.04]")}
+              >
+                <div className="flex items-start gap-2">
+                  {!f.readAt && (
+                    <div className="h-2 w-2 rounded-full bg-amber-500 mt-1.5 shrink-0 animate-pulse" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-semibold">{f.authorName || "Kunde"}</span>
+                      {f.stepId && (
+                        <button
+                          onClick={() => onOpenStep(f.stepId!)}
+                          className="text-[10px] text-primary hover:underline"
+                        >
+                          Step öffnen
+                        </button>
+                      )}
+                      <span className="text-[10px] text-muted-foreground ml-auto">
+                        {format(new Date(f.createdAt), "dd.MM.yyyy HH:mm", { locale: de })}
+                      </span>
+                    </div>
+                    <p className="text-sm mt-1 leading-relaxed whitespace-pre-wrap">{f.message}</p>
+                    <div className="flex gap-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {!f.readAt && (
+                        <button
+                          onClick={() => markFeedbackRead(f.id)}
+                          className="text-[10px] text-muted-foreground hover:text-foreground"
+                        >
+                          Gelesen
+                        </button>
+                      )}
+                      <button
+                        onClick={async () => {
+                          if (!confirm("Feedback löschen?")) return;
+                          await deleteFeedback(f.id);
+                        }}
+                        className="text-[10px] text-muted-foreground hover:text-destructive"
+                      >
+                        Löschen
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
