@@ -142,11 +142,11 @@ export function PipelineGantt({
   }, []);
 
   const fixed = FIXED_DAY_WIDTH[viewMode];
-  const dayWidth =
-    fixed === "auto"
-      ? Math.max(MIN_MONTH_DAY_WIDTH, (scrollerWidth - TRACK_LABEL_WIDTH) / totalDays)
-      : fixed;
-  const totalWidth = totalDays * dayWidth;
+  // Month mode uses pure CSS flex (right grid = 100% width, bars in %).
+  // dayWidth is only used for legacy pixel calculations in day/week modes.
+  const isFlex = fixed === "auto";
+  const dayWidth = isFlex ? 1 : (fixed as number);
+  const totalWidth = totalDays * dayWidth; // unused when isFlex
   const trackHeight = viewMode === "month" ? TRACK_HEIGHT_MONTH : TRACK_HEIGHT_DEFAULT;
 
   // Build day grid
@@ -454,7 +454,10 @@ export function PipelineGantt({
             </div>
 
             {/* Right grid */}
-            <div className="relative shrink-0" style={{ width: totalWidth }}>
+            <div
+              className="relative shrink-0"
+              style={isFlex ? { width: "100%", flex: 1 } : { width: totalWidth }}
+            >
               {/* Header — months (glass, with subtle day ticks underneath) */}
               <div className="flex h-12 border-b border-border/30 backdrop-blur-md bg-gradient-to-b from-white/[0.04] via-white/[0.02] to-transparent relative">
                 {monthGroups.map((g) => {
@@ -467,12 +470,13 @@ export function PipelineGantt({
                     <div
                       key={g.start}
                       className={cn(
-                        "flex items-center justify-center text-xs font-semibold tracking-tight relative shrink-0",
+                        "flex items-center justify-center text-xs font-semibold tracking-tight relative",
+                        !isFlex && "shrink-0",
                         "border-r border-border/20",
                         isQuarterStart && "border-l-2 border-l-primary/40",
                         isCurrentMonth && "bg-primary/[0.06]",
                       )}
-                      style={{ width: g.count * dayWidth }}
+                      style={isFlex ? { flex: g.count, minWidth: 0 } : { width: g.count * dayWidth }}
                     >
                       <span
                         className={cn(
@@ -505,14 +509,14 @@ export function PipelineGantt({
                               <div
                                 key={i}
                                 className={cn(
-                                  "shrink-0 border-r",
+                                  "border-r",
                                   isTodayTick
                                     ? "border-rose-500/80"
                                     : isMonday
                                     ? "border-foreground/20"
                                     : "border-foreground/[0.06]",
                                 )}
-                                style={{ width: dayWidth }}
+                                style={isFlex ? { flex: 1, minWidth: 0 } : { width: dayWidth }}
                               />
                             );
                           })}
@@ -580,41 +584,54 @@ export function PipelineGantt({
               {/* Track rows + bars */}
               <div className="relative">
                 {/* Background grid: weekend stripes + month dividers */}
-                <div className="absolute inset-0 flex pointer-events-none">
-                  {days.map((d, i) => {
-                    const weekend = isWeekend(d);
-                    const isFirstOfMonth = d.getDate() === 1;
-                    return (
+                {!isFlex && (
+                  <div className="absolute inset-0 flex pointer-events-none">
+                    {days.map((d, i) => {
+                      const weekend = isWeekend(d);
+                      const isFirstOfMonth = d.getDate() === 1;
+                      return (
+                        <div
+                          key={i}
+                          className={cn(
+                            weekend && viewMode !== "month" && "bg-muted/20",
+                            viewMode === "week" && d.getDay() === 0 && "border-r border-r-muted-foreground/10",
+                            viewMode === "day" && "border-r border-r-muted-foreground/10",
+                            isFirstOfMonth && "border-l border-l-foreground/15",
+                          )}
+                          style={{ width: dayWidth }}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+                {/* Flex-mode: month dividers via flex with proportional widths */}
+                {isFlex && (
+                  <div className="absolute inset-0 flex pointer-events-none">
+                    {monthGroups.map((g) => (
                       <div
-                        key={i}
-                        className={cn(
-                          weekend && viewMode !== "month" && "bg-muted/20",
-                          // Only Sundays get a faint divider in week view
-                          viewMode === "week" && d.getDay() === 0 && "border-r border-r-muted-foreground/10",
-                          // Day view: divider every day
-                          viewMode === "day" && "border-r border-r-muted-foreground/10",
-                          // Month view: only first-of-month divider
-                          isFirstOfMonth && "border-l border-l-foreground/15",
-                        )}
-                        style={{ width: dayWidth }}
+                        key={g.start}
+                        className="border-l border-l-foreground/10 first:border-l-0"
+                        style={{ flex: g.count, minWidth: 0 }}
                       />
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Today vertical line — prominent + animated */}
                 {(() => {
                   const todayOffset = differenceInDays(today, range.start);
                   if (todayOffset < 0 || todayOffset > totalDays) return null;
-                  const left = todayOffset * dayWidth + dayWidth / 2;
+                  const leftStyle = isFlex
+                    ? { left: `${((todayOffset + 0.5) / totalDays) * 100}%` }
+                    : { left: todayOffset * dayWidth + dayWidth / 2 };
                   return (
                     <div
                       className="absolute top-0 bottom-0 z-10 pointer-events-none"
-                      style={{ left }}
+                      style={leftStyle}
                     >
-                      <div className="absolute top-0 bottom-0 w-[1.5px] bg-gradient-to-b from-rose-500 via-rose-500/80 to-rose-500/20 shadow-[0_0_12px_rgba(244,63,94,0.45)]" />
+                      <div className="absolute top-0 bottom-0 w-[1.5px] bg-gradient-to-b from-rose-500 via-rose-500/80 to-rose-500/20" />
                       <div className="absolute -top-1 -translate-x-1/2 flex flex-col items-center">
-                        <div className="h-3 w-3 rounded-full bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.8)] ring-2 ring-rose-500/30 animate-pulse" />
+                        <div className="h-3 w-3 rounded-full bg-rose-500 ring-2 ring-rose-500/30 animate-pulse" />
                       </div>
                     </div>
                   );
@@ -652,8 +669,18 @@ export function PipelineGantt({
                         const inclusiveDays = tooltipEnd
                           ? Math.max(differenceInDays(tooltipEnd, start) + 1, 1)
                           : Math.round(duration);
-                        const left = startOffset * dayWidth;
-                        const width = Math.max(duration * dayWidth, dayWidth / 2);
+                        // Position via percent in flex mode, pixels in scroll modes
+                        const positionStyle = isFlex
+                          ? {
+                              left: `${(startOffset / totalDays) * 100}%`,
+                              width: `${Math.max((duration / totalDays) * 100, 0.5)}%`,
+                              height: trackHeight - 16,
+                            }
+                          : {
+                              left: startOffset * dayWidth,
+                              width: Math.max(duration * dayWidth, dayWidth / 2),
+                              height: trackHeight - 16,
+                            };
                         const endLabel = tooltipEnd
                           ? format(tooltipEnd, "dd.MM.yyyy")
                           : "läuft";
@@ -673,11 +700,7 @@ export function PipelineGantt({
                               s.status === "skipped" &&
                                 "bg-rose-500/12 border-rose-400/30 text-rose-100 opacity-60",
                             )}
-                            style={{
-                              left,
-                              width,
-                              height: trackHeight - 16,
-                            }}
+                            style={positionStyle}
                           >
                             {/* subtle glass highlight */}
                             <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
