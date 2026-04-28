@@ -65,7 +65,8 @@ const FIXED_DAY_WIDTH: Record<ViewMode, number | "auto"> = {
 // row in the month header.
 const MIN_MONTH_DAY_WIDTH = 1;
 
-const TRACK_HEIGHT = 48;
+const TRACK_HEIGHT_DEFAULT = 48;
+const TRACK_HEIGHT_MONTH = 64; // taller rows in year view so bars stay prominent
 const TRACK_LABEL_WIDTH = 240;
 
 export function PipelineGantt({
@@ -146,6 +147,7 @@ export function PipelineGantt({
       ? Math.max(MIN_MONTH_DAY_WIDTH, (scrollerWidth - TRACK_LABEL_WIDTH) / totalDays)
       : fixed;
   const totalWidth = totalDays * dayWidth;
+  const trackHeight = viewMode === "month" ? TRACK_HEIGHT_MONTH : TRACK_HEIGHT_DEFAULT;
 
   // Build day grid
   const days = useMemo(() => {
@@ -419,7 +421,7 @@ export function PipelineGantt({
                       "flex items-center gap-2 px-3 border-b border-border/20",
                       i % 2 === 1 && "bg-muted/[0.04]",
                     )}
-                    style={{ height: TRACK_HEIGHT }}
+                    style={{ height: trackHeight }}
                   >
                     <span className="text-[10px] font-mono text-muted-foreground/60 w-5 shrink-0">
                       {String(i + 1).padStart(2, "0")}
@@ -641,7 +643,7 @@ export function PipelineGantt({
                     <div
                       key={s.id}
                       className={cn("relative border-b", i % 2 === 1 && "bg-muted/[0.04]")}
-                      style={{ height: TRACK_HEIGHT }}
+                      style={{ height: trackHeight }}
                     >
                       {hasRange && (() => {
                         const startOffset = differenceInDays(start, range.start);
@@ -674,7 +676,7 @@ export function PipelineGantt({
                             style={{
                               left,
                               width,
-                              height: TRACK_HEIGHT - 18,
+                              height: trackHeight - 16,
                             }}
                           >
                             {/* subtle glass highlight */}
