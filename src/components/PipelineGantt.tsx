@@ -389,12 +389,12 @@ export function PipelineGantt({
       {bars.length > 0 && <div className="relative">
         <div
           ref={scrollerRef}
-          className="overflow-x-auto overflow-y-auto max-h-[640px] min-h-[420px] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-track]:bg-transparent"
+          className="overflow-x-auto overflow-y-auto max-h-[720px] min-h-[480px] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-track]:bg-transparent"
         >
-          <div className="flex">
+          <div className="flex min-h-full">
             {/* Sticky left label column */}
             <div
-              className="sticky left-0 z-30 bg-card border-r shrink-0"
+              className="sticky left-0 z-30 bg-card border-r shrink-0 flex flex-col"
               style={{ width: TRACK_LABEL_WIDTH }}
             >
               {/* Spacer matching header height. In month mode only the month
@@ -418,7 +418,7 @@ export function PipelineGantt({
                   <div
                     key={s.id}
                     className={cn(
-                      "flex items-center gap-2 px-3 border-b border-border/20",
+                      "flex items-center gap-2 px-3 border-b border-border/20 shrink-0",
                       i % 2 === 1 && "bg-muted/[0.04]",
                     )}
                     style={{ height: trackHeight }}
@@ -451,11 +451,13 @@ export function PipelineGantt({
                   </div>
                 );
               })}
+              {/* Filler so the column fills the scroller's min-height */}
+              <div className="flex-1 min-h-0" />
             </div>
 
             {/* Right grid */}
             <div
-              className="relative shrink-0"
+              className="relative shrink-0 flex flex-col"
               style={isFlex ? { width: "100%", flex: 1 } : { width: totalWidth }}
             >
               {/* Header — months (glass, with subtle day ticks underneath) */}
@@ -581,8 +583,8 @@ export function PipelineGantt({
                 </div>
               )}
 
-              {/* Track rows + bars */}
-              <div className="relative">
+              {/* Track rows + bars — flex-1 so grid extends to bottom */}
+              <div className="relative flex-1 flex flex-col min-h-0">
                 {/* Background grid: weekend stripes + month dividers */}
                 {!isFlex && (
                   <div className="absolute inset-0 flex pointer-events-none">
@@ -637,7 +639,8 @@ export function PipelineGantt({
                   );
                 })()}
 
-                {/* Bars */}
+                {/* Bars rows wrapper — content rows + filler to fill height */}
+                <div className="relative z-[1] flex flex-col flex-1">
                 {stepsToRender.map((s, i) => {
                   const start = s.startedAt ? parseISO(s.startedAt) : null;
                   const isOngoing = !s.completedAt && s.status === "active";
@@ -674,12 +677,12 @@ export function PipelineGantt({
                           ? {
                               left: `${(startOffset / totalDays) * 100}%`,
                               width: `${Math.max((duration / totalDays) * 100, 0.5)}%`,
-                              height: trackHeight - 16,
+                              height: trackHeight - 32,
                             }
                           : {
                               left: startOffset * dayWidth,
                               width: Math.max(duration * dayWidth, dayWidth / 2),
-                              height: trackHeight - 16,
+                              height: trackHeight - 32,
                             };
                         const endLabel = tooltipEnd
                           ? format(tooltipEnd, "dd.MM.yyyy")
@@ -732,6 +735,10 @@ export function PipelineGantt({
                     </div>
                   );
                 })}
+                {/* Filler row — keeps the calendar grid extending to the
+                    bottom of the scroller even when there are few bars */}
+                <div className="flex-1 min-h-[80px]" />
+                </div>
               </div>
             </div>
           </div>

@@ -86,3 +86,40 @@ export function useFileCountByStep(): Map<string, number> {
   for (const f of all) map.set(f.stepId, (map.get(f.stepId) || 0) + 1);
   return map;
 }
+
+export function useStepFilesByProject(stepIds: string[]): StepFile[] {
+  const all = useSyncExternalStore(subscribe, getSnapshot);
+  if (stepIds.length === 0) return [];
+  const set = new Set(stepIds);
+  return all.filter((f) => set.has(f.stepId));
+}
+
+/** Trigger a browser download for an uploaded file. HTML/text → blob from
+ * inline content; image/pdf → fetched from URL. */
+export function downloadFile(file: StepFile) {
+  const filename = file.filename || "download";
+  if (file.content && (file.type === "html" || file.type === "other")) {
+    const mime = file.type === "html" ? "text/html;charset=utf-8" : "text/plain;charset=utf-8";
+    const blob = new Blob([file.content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } else if (file.url) {
+    // Image (data URL or remote URL) or PDF
+    const a = document.createElement("a");
+    a.href = file.url;
+    a.download = filename;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.click();
+  } else if (file.content && file.type === "image") {
+    // Image stored inline as data URL
+    const a = document.createElement("a");
+    a.href = file.content;
+    a.download = filename;
+    a.click();
+  }
+}

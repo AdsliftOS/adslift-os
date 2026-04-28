@@ -43,6 +43,8 @@ import {
   Code,
   Lock,
   MessageSquare,
+  Download,
+  FolderOpen,
 } from "lucide-react";
 import { format, differenceInDays, addDays, isToday, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
@@ -73,8 +75,10 @@ import {
 import {
   useStepFiles,
   useFileCountByStep,
+  useStepFilesByProject,
   addStepFile,
   deleteStepFile,
+  downloadFile,
   type StepFile,
 } from "@/store/pipelineFiles";
 import { PipelineGantt } from "@/components/PipelineGantt";
@@ -676,6 +680,10 @@ function PipelineDetail({
         <OperationsHeader project={project} steps={steps} />
       )}
 
+      {mode === "setup" && steps.length > 0 && (
+        <ProjectFilesPanel steps={steps} onOpenStep={(id) => setEditingStepId(id)} />
+      )}
+
       {mode === "setup" && (
       <div className="rounded-2xl border bg-gradient-to-br from-background via-muted/10 to-background overflow-hidden">
         <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2">
@@ -1014,22 +1022,7 @@ function StepCard({
       </div>
 
       {previewFile && (
-        <Dialog open onOpenChange={(o) => !o && setPreviewFile(null)}>
-          <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-auto">
-            <DialogHeader><DialogTitle>{previewFile.filename}</DialogTitle></DialogHeader>
-            {previewFile.type === "html" && previewFile.content ? (
-              <iframe srcDoc={previewFile.content} className="w-full h-[60vh] rounded border bg-white" sandbox="" />
-            ) : previewFile.type === "image" && (previewFile.url || previewFile.content) ? (
-              <img src={previewFile.url || previewFile.content!} alt={previewFile.filename} className="max-w-full rounded" />
-            ) : previewFile.url ? (
-              <a href={previewFile.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                Datei öffnen
-              </a>
-            ) : (
-              <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded">{previewFile.content}</pre>
-            )}
-          </DialogContent>
-        </Dialog>
+        <FilePreviewDialog file={previewFile} onClose={() => setPreviewFile(null)} />
       )}
     </div>
   );
@@ -1265,10 +1258,18 @@ function FileRow({ file }: { file: StepFile }) {
         </div>
       </div>
       {(file.content || file.url) && (
-        <Button size="sm" variant="ghost" onClick={() => setPreviewOpen(true)}>
+        <Button size="sm" variant="ghost" onClick={() => setPreviewOpen(true)} title="Vorschau">
           <Eye className="h-3.5 w-3.5" />
         </Button>
       )}
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => downloadFile(file)}
+        title="Download"
+      >
+        <Download className="h-3.5 w-3.5" />
+      </Button>
       <Button
         size="sm"
         variant="ghost"
@@ -1277,29 +1278,13 @@ function FileRow({ file }: { file: StepFile }) {
           if (!confirm(`"${file.filename}" löschen?`)) return;
           await deleteStepFile(file.id);
         }}
+        title="Löschen"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </Button>
 
       {previewOpen && (
-        <Dialog open onOpenChange={(o) => !o && setPreviewOpen(false)}>
-          <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-auto">
-            <DialogHeader>
-              <DialogTitle>{file.filename}</DialogTitle>
-            </DialogHeader>
-            {file.type === "html" && file.content ? (
-              <iframe srcDoc={file.content} className="w-full h-[60vh] rounded border bg-white" sandbox="" />
-            ) : file.type === "image" && file.url ? (
-              <img src={file.url} alt={file.filename} className="max-w-full rounded" />
-            ) : file.url ? (
-              <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                Datei öffnen
-              </a>
-            ) : (
-              <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded">{file.content}</pre>
-            )}
-          </DialogContent>
-        </Dialog>
+        <FilePreviewDialog file={file} onClose={() => setPreviewOpen(false)} />
       )}
     </li>
   );
@@ -1512,6 +1497,116 @@ function ProjectAdAccountPicker({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+// ─── Shared file preview dialog with Download ───────────────────────
+
+function FilePreviewDialog({ file, onClose }: { file: StepFile; onClose: () => void }) {
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-auto">
+        <DialogHeader>
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle className="truncate">{file.filename}</DialogTitle>
+            <Button size="sm" variant="outline" onClick={() => downloadFile(file)}>
+              <Download className="h-3.5 w-3.5 mr-1" /> Download
+            </Button>
+          </div>
+        </DialogHeader>
+        {file.type === "html" && file.content ? (
+          <iframe srcDoc={file.content} className="w-full h-[60vh] rounded border bg-white" sandbox="" />
+        ) : file.type === "image" && (file.url || file.content) ? (
+          <img src={file.url || file.content!} alt={file.filename} className="max-w-full rounded" />
+        ) : file.url ? (
+          <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">
+            Datei öffnen
+          </a>
+        ) : (
+          <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded max-h-[60vh] overflow-auto">
+            {file.content}
+          </pre>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Project-Level Files Panel (Setup mode) ─────────────────────────
+
+function ProjectFilesPanel({
+  steps,
+  onOpenStep,
+}: {
+  steps: ProjectStep[];
+  onOpenStep: (stepId: string) => void;
+}) {
+  const stepIds = steps.map((s) => s.id);
+  const allFiles = useStepFilesByProject(stepIds);
+  const [previewFile, setPreviewFile] = useState<StepFile | null>(null);
+
+  const stepNameById = new Map(steps.map((s) => [s.id, s.name]));
+
+  if (allFiles.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border bg-card overflow-hidden">
+      <div className="px-5 py-3 border-b border-border/40 flex items-center gap-2">
+        <FolderOpen className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-bold">Projekt-Dateien</h3>
+        <Badge variant="outline" className="text-[10px]">{allFiles.length}</Badge>
+        <span className="ml-auto text-[10px] text-muted-foreground">
+          Creatives · Adcopies · HTML — sichtbar im Kunden-Portal
+        </span>
+      </div>
+      <ul className="divide-y divide-border/40">
+        {allFiles.map((f) => {
+          const FIcon = f.type === "html" ? Code : f.type === "image" ? ImageIcon : FileText;
+          const stepName = stepNameById.get(f.stepId) || "—";
+          return (
+            <li key={f.id} className="px-4 py-2.5 flex items-center gap-3 group hover:bg-muted/30">
+              <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                <FIcon className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{f.filename}</div>
+                <div className="text-[10px] text-muted-foreground flex items-center gap-2">
+                  <span className="uppercase tracking-wider">{f.type}</span>
+                  <span>·</span>
+                  <button
+                    onClick={() => onOpenStep(f.stepId)}
+                    className="hover:text-primary truncate"
+                  >
+                    {stepName}
+                  </button>
+                  <span>·</span>
+                  <span>{format(new Date(f.createdAt), "dd.MM.yyyy", { locale: de })}</span>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setPreviewFile(f)}
+                title="Vorschau"
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => downloadFile(f)}
+                title="Download"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+            </li>
+          );
+        })}
+      </ul>
+      {previewFile && (
+        <FilePreviewDialog file={previewFile} onClose={() => setPreviewFile(null)} />
+      )}
+    </div>
   );
 }
 

@@ -30,6 +30,8 @@ import {
   MessageSquare,
   Send,
   LogOut,
+  Download,
+  FolderOpen,
 } from "lucide-react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -46,6 +48,33 @@ import {
 import { PipelineGantt } from "@/components/PipelineGantt";
 import type { ProjectStep as PipelineStep } from "@/store/pipeline";
 import { addFeedback } from "@/store/pipelineFeedback";
+
+// Local download helper — mirrors store's downloadFile for portal-only types
+function downloadPortalFile(file: FileRow) {
+  const filename = file.filename || "download";
+  if (file.content && (file.type === "html" || file.type === "other")) {
+    const mime = file.type === "html" ? "text/html;charset=utf-8" : "text/plain;charset=utf-8";
+    const blob = new Blob([file.content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } else if (file.url) {
+    const a = document.createElement("a");
+    a.href = file.url;
+    a.download = filename;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.click();
+  } else if (file.content && file.type === "image") {
+    const a = document.createElement("a");
+    a.href = file.content;
+    a.download = filename;
+    a.click();
+  }
+}
 
 const ICONS: Record<string, typeof Box> = {
   box: Box, users: Users, gift: Gift, settings: Settings,
@@ -204,6 +233,7 @@ export default function PipelinePortal() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [authedName, setAuthedName] = useState<string | null>(null);
+  const [filePreviewGlobal, setFilePreviewGlobal] = useState<FileRow | null>(null);
 
   const loadProject = async () => {
     if (!token) return;
@@ -496,6 +526,47 @@ export default function PipelinePortal() {
           </div>
         )}
 
+        {/* All files at a glance — Creatives / Adcopies / HTML downloads */}
+        {files.length > 0 && (
+          <div className="rounded-2xl border bg-card overflow-hidden">
+            <div className="px-5 py-3 border-b border-border/40 flex items-center gap-2">
+              <FolderOpen className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-bold">Alle Dateien</h3>
+              <Badge variant="outline" className="text-[10px] ml-1">{files.length}</Badge>
+              <span className="ml-auto text-[10px] text-muted-foreground">
+                Creatives · Adcopies · HTML — anschauen oder downloaden
+              </span>
+            </div>
+            <ul className="divide-y divide-border/40">
+              {files.map((f) => {
+                const FIcon = f.type === "html" ? Code : f.type === "image" ? ImageIcon : FileText;
+                const stepName = steps.find((s) => s.id === f.step_id)?.name || "—";
+                return (
+                  <li key={f.id} className="px-4 py-2.5 flex items-center gap-3 hover:bg-muted/30">
+                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <FIcon className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{f.filename}</div>
+                      <div className="text-[10px] text-muted-foreground flex items-center gap-2">
+                        <span className="uppercase tracking-wider">{f.type}</span>
+                        <span>·</span>
+                        <span className="truncate">{stepName}</span>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => setFilePreviewGlobal(f)} title="Vorschau">
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => downloadPortalFile(f)} title="Download">
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
         {/* Project-level feedback */}
         <FeedbackForm projectId={project.id} stepId={null} authorName={authedName} variant="project" />
 
@@ -503,6 +574,30 @@ export default function PipelinePortal() {
           Powered by <span className="font-bold text-primary">adsLIFT</span>
         </footer>
       </main>
+
+      {filePreviewGlobal && (
+        <Dialog open onOpenChange={(o) => !o && setFilePreviewGlobal(null)}>
+          <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-auto">
+            <DialogHeader>
+              <div className="flex items-center justify-between gap-3">
+                <DialogTitle className="truncate">{filePreviewGlobal.filename}</DialogTitle>
+                <Button size="sm" variant="outline" onClick={() => downloadPortalFile(filePreviewGlobal)}>
+                  <Download className="h-3.5 w-3.5 mr-1" /> Download
+                </Button>
+              </div>
+            </DialogHeader>
+            {filePreviewGlobal.type === "html" && filePreviewGlobal.content ? (
+              <iframe srcDoc={filePreviewGlobal.content} className="w-full h-[60vh] rounded border bg-white" sandbox="" />
+            ) : filePreviewGlobal.type === "image" && (filePreviewGlobal.url || filePreviewGlobal.content) ? (
+              <img src={filePreviewGlobal.url || filePreviewGlobal.content!} alt={filePreviewGlobal.filename} className="max-w-full rounded" />
+            ) : filePreviewGlobal.url ? (
+              <a href={filePreviewGlobal.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">Datei öffnen</a>
+            ) : (
+              <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded">{filePreviewGlobal.content}</pre>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
@@ -656,8 +751,15 @@ function PortalStepCard({
 
       {filePreview && (
         <Dialog open onOpenChange={(o) => !o && setFilePreview(null)}>
-          <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-auto">
-            <DialogHeader><DialogTitle>{filePreview.filename}</DialogTitle></DialogHeader>
+          <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-auto">
+            <DialogHeader>
+              <div className="flex items-center justify-between gap-3">
+                <DialogTitle className="truncate">{filePreview.filename}</DialogTitle>
+                <Button size="sm" variant="outline" onClick={() => downloadPortalFile(filePreview)}>
+                  <Download className="h-3.5 w-3.5 mr-1" /> Download
+                </Button>
+              </div>
+            </DialogHeader>
             {filePreview.type === "html" && filePreview.content ? (
               <iframe srcDoc={filePreview.content} className="w-full h-[60vh] rounded border bg-white" sandbox="" />
             ) : filePreview.type === "image" && (filePreview.url || filePreview.content) ? (
