@@ -1908,15 +1908,6 @@ function OperationsView({
   onJumpToSetup: () => void;
   onOpenStep: (stepId: string) => void;
 }) {
-  // Aggregate open tasks across all steps with their parent step
-  type OpenTask = { task: StepTask; step: ProjectStep };
-  const openTasks: OpenTask[] = steps
-    .flatMap((s) =>
-      (Array.isArray(s.data?.tasks) ? (s.data.tasks as StepTask[]) : [])
-        .filter((t) => !t.done)
-        .map((t) => ({ task: t, step: s })),
-    );
-
   const monitoringStep = steps.find((s) =>
     s.name.toLowerCase().includes("monitoring") ||
     s.name.toLowerCase().includes("optimier"),
@@ -1978,64 +1969,6 @@ function OperationsView({
         </div>
       </div>
 
-      {/* Open ToDos across all steps */}
-      <div className="rounded-2xl border bg-card overflow-hidden lg:col-span-3">
-        <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold">Operative ToDos</h3>
-            <Badge variant="outline" className="text-[10px]">
-              {openTasks.length} offen
-            </Badge>
-          </div>
-        </div>
-        <div className="p-4">
-          {openTasks.length === 0 ? (
-            <div className="text-center py-8 space-y-2">
-              <Check className="h-8 w-8 mx-auto text-emerald-500/60" />
-              <p className="text-sm font-medium">Alles erledigt 🔥</p>
-              <p className="text-xs text-muted-foreground">
-                Keine offenen Sub-Tasks in den Steps.
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {openTasks.slice(0, 30).map(({ task, step }) => {
-                const Icon = ICONS[step.icon] || Box;
-                return (
-                  <button
-                    key={task.id}
-                    onClick={() => onOpenStep(step.id)}
-                    className="group text-left rounded-lg border bg-card hover:border-primary/50 hover:shadow-md transition-all p-3 flex items-start gap-2"
-                  >
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleStepTask(step.id, task.id);
-                      }}
-                      className="h-4 w-4 rounded border border-muted-foreground/40 hover:border-primary hover:bg-primary/10 flex items-center justify-center shrink-0 transition-colors mt-0.5"
-                    >
-                      <Check className="h-3 w-3 opacity-0 group-hover:opacity-50" />
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium leading-tight line-clamp-2">{task.title}</div>
-                      <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
-                        <Icon className="h-3 w-3" />
-                        {step.name}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {openTasks.length > 30 && (
-            <p className="text-[10px] text-muted-foreground text-center mt-3">
-              + {openTasks.length - 30} weitere Tasks (bitte direkt im Step öffnen)
-            </p>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
