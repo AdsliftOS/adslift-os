@@ -53,17 +53,19 @@ const ICONS: Record<string, typeof BoxIcon> = {
 
 type ViewMode = "day" | "week" | "month";
 
-// Fixed pixel widths for zoom levels that scroll horizontally.
-// Month mode is special — see `dayWidth` calc below: it fits the full year
-// into whatever width the container has (auto-fit).
+// Fixed pixel widths for zoom levels.
 const FIXED_DAY_WIDTH: Record<ViewMode, number | "auto"> = {
   day: 64,    // full detail — scrolls horizontally
   week: 32,   // ~quarter visible — scrolls horizontally
-  month: "auto", // full year fits container width — no scroll
+  month: "auto", // auto-fit full year (with min readability)
 };
 
-const TRACK_HEIGHT = 44;
-const TRACK_LABEL_WIDTH = 220;
+// Minimum day-width for month auto-fit so it never gets unreadably thin.
+// Means full year = 365 * 6 = 2,190px which fits ~1.5x viewport (slight scroll).
+const MIN_MONTH_DAY_WIDTH = 6;
+
+const TRACK_HEIGHT = 48;
+const TRACK_LABEL_WIDTH = 240;
 
 export function PipelineGantt({
   steps,
@@ -140,7 +142,7 @@ export function PipelineGantt({
   const fixed = FIXED_DAY_WIDTH[viewMode];
   const dayWidth =
     fixed === "auto"
-      ? Math.max(2, (scrollerWidth - TRACK_LABEL_WIDTH) / totalDays)
+      ? Math.max(MIN_MONTH_DAY_WIDTH, (scrollerWidth - TRACK_LABEL_WIDTH) / totalDays)
       : fixed;
   const totalWidth = totalDays * dayWidth;
 
@@ -263,32 +265,36 @@ export function PipelineGantt({
   return (
     <div className="rounded-2xl border bg-card overflow-hidden">
       {/* Header bar */}
-      <div className="px-5 py-3 border-b bg-gradient-to-r from-blue-500/[0.08] via-transparent to-transparent flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-blue-500/15 text-blue-500 flex items-center justify-center">
-            <Calendar className="h-4 w-4" />
+      <div className="px-5 py-4 border-b bg-gradient-to-r from-blue-500/[0.10] via-blue-500/[0.04] to-transparent flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/30">
+            <Calendar className="h-5 w-5" />
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 p-0"
-              onClick={() => setCurrentYear((y) => y - 1)}
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </Button>
-            <div className="text-center min-w-[80px]">
-              <div className="text-base font-bold leading-none tabular-nums">{currentYear}</div>
-              <div className="text-[9px] text-muted-foreground mt-0.5">{totalDays} Tage</div>
+          <div>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0 hover:bg-primary/10"
+                onClick={() => setCurrentYear((y) => y - 1)}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              <div className="text-center min-w-[64px]">
+                <div className="text-xl font-black leading-none tabular-nums tracking-tight">{currentYear}</div>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0 hover:bg-primary/10"
+                onClick={() => setCurrentYear((y) => y + 1)}
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
             </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 p-0"
-              onClick={() => setCurrentYear((y) => y + 1)}
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
+            <div className="text-[10px] text-muted-foreground mt-0.5 font-mono uppercase tracking-wider">
+              Timeline · {totalDays} Tage
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -388,13 +394,18 @@ export function PipelineGantt({
               className="sticky left-0 z-30 bg-card border-r shrink-0"
               style={{ width: TRACK_LABEL_WIDTH }}
             >
-              {/* Spacer matching header height — month-mode hides the KW row */}
+              {/* Spacer matching header height. In month mode only the month
+                  row exists (40px); otherwise month + week + day = 98px. */}
               <div
-                className="border-b bg-muted/30 flex items-end px-3 pb-1.5"
-                style={{ height: viewMode === "month" ? 64 : 88 }}
+                className="border-b bg-gradient-to-b from-muted/40 to-muted/10 flex items-end px-4 pb-2"
+                style={{ height: viewMode === "month" ? 40 : 98 }}
               >
-                <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                  Steps · {stepsToRender.length}
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
+                  {source === "campaigns"
+                    ? `${stepsToRender.length} Kampagnen`
+                    : source === "steps"
+                    ? `${stepsToRender.length} Steps`
+                    : `${stepsToRender.length} Einträge`}
                 </span>
               </div>
               {stepsToRender.map((s, i) => {
@@ -430,17 +441,40 @@ export function PipelineGantt({
 
             {/* Right grid */}
             <div className="relative shrink-0" style={{ width: totalWidth }}>
-              {/* Header — months */}
-              <div className="flex h-7 border-b bg-muted/30">
-                {monthGroups.map((g) => (
-                  <div
-                    key={g.start}
-                    className="flex items-center px-2 text-[11px] font-semibold border-r text-foreground/80"
-                    style={{ width: g.count * dayWidth }}
-                  >
-                    {format(g.date, "MMMM yyyy", { locale: de })}
-                  </div>
-                ))}
+              {/* Header — months (prominent, gradient bg, quarter dividers) */}
+              <div className="flex h-10 border-b bg-gradient-to-b from-muted/40 to-muted/10">
+                {monthGroups.map((g) => {
+                  const month = g.date.getMonth(); // 0-11
+                  const isQuarterStart = month % 3 === 0;
+                  const isCurrentMonth =
+                    g.date.getMonth() === today.getMonth() &&
+                    g.date.getFullYear() === today.getFullYear();
+                  return (
+                    <div
+                      key={g.start}
+                      className={cn(
+                        "flex items-center justify-center text-xs font-bold tracking-tight relative shrink-0",
+                        "border-r border-border/40",
+                        isQuarterStart && "border-l-2 border-l-primary/30",
+                        isCurrentMonth && "bg-primary/[0.08] text-primary",
+                      )}
+                      style={{ width: g.count * dayWidth }}
+                    >
+                      <span className="truncate px-2">
+                        {dayWidth >= 30
+                          ? format(g.date, "MMMM yyyy", { locale: de })
+                          : dayWidth >= 12
+                          ? format(g.date, "MMMM", { locale: de })
+                          : format(g.date, "MMM", { locale: de })}
+                      </span>
+                      {isQuarterStart && (
+                        <span className="absolute -top-px left-1 text-[8px] font-mono text-primary/60 uppercase tracking-wider">
+                          Q{Math.floor(month / 3) + 1}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Header — weeks (hidden in month view to avoid clutter) */}
@@ -458,49 +492,44 @@ export function PipelineGantt({
                 </div>
               )}
 
-              {/* Header — days */}
-              <div className="flex h-[32px] border-b bg-card relative">
-                {days.map((d, i) => {
-                  const isFirstOfMonth = d.getDate() === 1;
-                  const weekend = isWeekend(d);
-                  const todayCell = isToday(d);
-                  // Month mode: skip per-day labels (too cramped) — show
-                  // only every-7th day number subtly
-                  const showLabel = viewMode !== "month" || d.getDay() === 1; // Mondays only in month
-                  return (
-                    <div
-                      key={i}
-                      className={cn(
-                        "flex flex-col items-center justify-center text-[9px] tabular-nums shrink-0",
-                        weekend && "bg-muted/30",
-                        isFirstOfMonth && "border-l border-l-foreground/25",
-                        todayCell && "bg-rose-500/10",
-                        // Only show right border in day view; week/month would be too dense
-                        viewMode === "day" && "border-r",
-                      )}
-                      style={{ width: dayWidth }}
-                    >
-                      {viewMode === "day" && (
-                        <span className="font-mono uppercase text-[8px] text-muted-foreground/70">
-                          {format(d, "EEEEE", { locale: de })}
-                        </span>
-                      )}
-                      {showLabel && (
+              {/* Header — days (skipped entirely in month mode for clean look) */}
+              {viewMode !== "month" && (
+                <div className="flex h-[34px] border-b bg-card relative">
+                  {days.map((d, i) => {
+                    const isFirstOfMonth = d.getDate() === 1;
+                    const weekend = isWeekend(d);
+                    const todayCell = isToday(d);
+                    return (
+                      <div
+                        key={i}
+                        className={cn(
+                          "flex flex-col items-center justify-center text-[9px] tabular-nums shrink-0",
+                          weekend && "bg-muted/30",
+                          isFirstOfMonth && "border-l border-l-foreground/25",
+                          todayCell && "bg-rose-500/10",
+                          viewMode === "day" && "border-r border-r-border/30",
+                        )}
+                        style={{ width: dayWidth }}
+                      >
+                        {viewMode === "day" && (
+                          <span className="font-mono uppercase text-[8px] text-muted-foreground/70">
+                            {format(d, "EEEEE", { locale: de })}
+                          </span>
+                        )}
                         <span
                           className={cn(
-                            "font-semibold tabular-nums",
-                            viewMode === "month" && "text-[8px] text-muted-foreground/50",
-                            todayCell && "text-rose-500 font-bold",
-                            weekend && !todayCell && viewMode === "day" && "text-muted-foreground/60",
+                            "font-bold tabular-nums",
+                            todayCell && "text-rose-500",
+                            weekend && !todayCell && "text-muted-foreground/60",
                           )}
                         >
                           {d.getDate()}
                         </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Track rows + bars */}
               <div className="relative">
@@ -527,7 +556,7 @@ export function PipelineGantt({
                   })}
                 </div>
 
-                {/* Today vertical line */}
+                {/* Today vertical line — prominent + animated */}
                 {(() => {
                   const todayOffset = differenceInDays(today, range.start);
                   if (todayOffset < 0 || todayOffset > totalDays) return null;
@@ -537,8 +566,10 @@ export function PipelineGantt({
                       className="absolute top-0 bottom-0 z-10 pointer-events-none"
                       style={{ left }}
                     >
-                      <div className="absolute top-0 bottom-0 w-px bg-rose-500/70" />
-                      <div className="absolute -top-[2px] -translate-x-1/2 h-2 w-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]" />
+                      <div className="absolute top-0 bottom-0 w-[1.5px] bg-gradient-to-b from-rose-500 via-rose-500/80 to-rose-500/20 shadow-[0_0_12px_rgba(244,63,94,0.45)]" />
+                      <div className="absolute -top-1 -translate-x-1/2 flex flex-col items-center">
+                        <div className="h-3 w-3 rounded-full bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.8)] ring-2 ring-rose-500/30 animate-pulse" />
+                      </div>
                     </div>
                   );
                 })()}
@@ -586,27 +617,32 @@ export function PipelineGantt({
                           <div
                             title={tooltip}
                             className={cn(
-                              "absolute top-1/2 -translate-y-1/2 rounded-lg shadow-md border overflow-hidden flex items-center px-2 cursor-help group",
+                              "absolute top-1/2 -translate-y-1/2 rounded-full overflow-hidden flex items-center px-3 cursor-help group transition-all hover:scale-[1.02] hover:shadow-xl",
                               s.status === "done" &&
-                                "bg-gradient-to-r from-emerald-500 to-emerald-400 border-emerald-600/30 text-white",
+                                "bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-400 text-white shadow-md shadow-emerald-500/30",
                               s.status === "active" &&
-                                "bg-gradient-to-r from-blue-500 to-blue-400 border-blue-600/30 text-white animate-pulse",
+                                "bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 text-white shadow-lg shadow-blue-500/40 ring-2 ring-blue-400/40",
                               s.status === "todo" &&
-                                "bg-gradient-to-r from-slate-400 to-slate-300 border-slate-500/20 text-white",
+                                "bg-gradient-to-r from-slate-500 via-slate-400 to-slate-300 text-white shadow-sm",
                               s.status === "skipped" &&
-                                "bg-gradient-to-r from-rose-400 to-rose-300 border-rose-500/20 text-white opacity-60",
+                                "bg-gradient-to-r from-rose-500 to-rose-400 text-white opacity-60",
                             )}
                             style={{
                               left,
                               width,
-                              height: TRACK_HEIGHT - 14,
+                              height: TRACK_HEIGHT - 18,
                             }}
                           >
-                            <span className="text-[10px] font-semibold truncate drop-shadow-sm">
+                            {/* shine accent */}
+                            <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
+                            {s.status === "active" && (
+                              <div className="absolute inset-0 bg-white/10 animate-pulse pointer-events-none" />
+                            )}
+                            <span className="relative text-[10px] font-bold truncate drop-shadow-sm tracking-tight">
                               {s.name}
                             </span>
-                            <span className="ml-auto text-[9px] tabular-nums opacity-80 hidden group-hover:inline shrink-0 pl-2">
-                              {Math.round(duration)}d
+                            <span className="relative ml-auto text-[9px] tabular-nums opacity-90 hidden group-hover:inline shrink-0 pl-2 font-mono">
+                              {inclusiveDays}d
                             </span>
                           </div>
                         );
