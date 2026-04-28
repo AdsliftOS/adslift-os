@@ -41,6 +41,8 @@ import {
   PanelRight,
   Paperclip,
   Code,
+  Lock,
+  MessageSquare,
 } from "lucide-react";
 import { format, differenceInDays, addDays, isToday, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
