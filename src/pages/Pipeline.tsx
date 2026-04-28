@@ -1026,6 +1026,8 @@ function StepDetailDialog({
   const [name, setName] = useState(step.name);
   const [description, setDescription] = useState(step.description);
   const [status, setStatus] = useState<StepStatus>(step.status);
+  const [startedAt, setStartedAt] = useState<string>(step.startedAt?.slice(0, 10) || "");
+  const [completedAt, setCompletedAt] = useState<string>(step.completedAt?.slice(0, 10) || "");
   const [uploadOpen, setUploadOpen] = useState(false);
 
   // Sync if external step changes
@@ -1033,6 +1035,8 @@ function StepDetailDialog({
     setName(step.name);
     setDescription(step.description);
     setStatus(step.status);
+    setStartedAt(step.startedAt?.slice(0, 10) || "");
+    setCompletedAt(step.completedAt?.slice(0, 10) || "");
   }, [step.id]);
 
   const Icon = ICONS[step.icon] || Box;
@@ -1083,6 +1087,52 @@ function StepDetailDialog({
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-[10px] text-muted-foreground">
+              "Aktiv" setzt automatisch das Start-Datum auf heute · "Erledigt" das End-Datum
+            </p>
+          </div>
+
+          {/* Manual date overrides — for retroactive tracking */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-2">
+              <Label className="flex items-center gap-1.5 text-xs">
+                <Calendar className="h-3 w-3" />
+                Start (für Timeline)
+              </Label>
+              <Input
+                type="date"
+                value={startedAt}
+                onChange={(e) => setStartedAt(e.target.value)}
+              />
+              {startedAt && (
+                <button
+                  className="text-[10px] text-muted-foreground hover:text-destructive text-left"
+                  onClick={() => setStartedAt("")}
+                >
+                  Datum entfernen
+                </button>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label className="flex items-center gap-1.5 text-xs">
+                <Check className="h-3 w-3" />
+                Ende (optional)
+              </Label>
+              <Input
+                type="date"
+                value={completedAt}
+                onChange={(e) => setCompletedAt(e.target.value)}
+                disabled={!startedAt}
+              />
+              {completedAt && (
+                <button
+                  className="text-[10px] text-muted-foreground hover:text-destructive text-left"
+                  onClick={() => setCompletedAt("")}
+                >
+                  Datum entfernen
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Sub-Tasks section */}
@@ -1130,7 +1180,13 @@ function StepDetailDialog({
           <Button variant="outline" onClick={onClose}>Abbrechen</Button>
           <Button
             onClick={async () => {
-              await updateProjectStep(step.id, { name, description, status });
+              await updateProjectStep(step.id, {
+                name,
+                description,
+                status,
+                startedAt: startedAt ? new Date(startedAt).toISOString() : null,
+                completedAt: completedAt ? new Date(completedAt).toISOString() : null,
+              });
               onClose();
             }}
           >

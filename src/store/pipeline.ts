@@ -362,13 +362,19 @@ export async function updateProjectStep(id: string, updates: Partial<ProjectStep
   if (updates.position !== undefined) row.position = updates.position;
   if (updates.status !== undefined) {
     row.status = updates.status;
+    // Auto-set started_at when transitioning to active and not already set
     if (updates.status === "active" && !steps.find((s) => s.id === id)?.startedAt) {
       row.started_at = new Date().toISOString();
     }
-    if (updates.status === "done") {
+    // Auto-set completed_at when going to done (but only if not explicitly
+    // overridden in the same update)
+    if (updates.status === "done" && updates.completedAt === undefined) {
       row.completed_at = new Date().toISOString();
     }
   }
+  // Explicit date overrides (manual backfill / correction)
+  if (updates.startedAt !== undefined) row.started_at = updates.startedAt;
+  if (updates.completedAt !== undefined) row.completed_at = updates.completedAt;
   if (updates.data !== undefined) row.data = updates.data;
 
   steps = steps.map((s) => (s.id === id ? { ...s, ...updates } : s));
