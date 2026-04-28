@@ -79,9 +79,12 @@ export function PipelineGantt({
   );
   const scrollerRef = useRef<HTMLDivElement>(null);
 
-  // Always show a full calendar year. User can navigate years with arrows.
-  // Auto-jumps to year of earliest active item on mount.
+  // Auto-jump to a year that contains data (earliest if past, today's
+  // year if data spans, or earliest future year). Runs once when data
+  // appears so the user lands on a populated year by default.
+  const didAutoJumpRef = useRef(false);
   useEffect(() => {
+    if (didAutoJumpRef.current) return;
     const allWithStart = [
       ...steps.filter((s) => s.startedAt).map((s) => s.startedAt!),
       ...campaigns
@@ -89,9 +92,15 @@ export function PipelineGantt({
         .filter(Boolean) as string[],
     ];
     if (allWithStart.length === 0) return;
-    const earliestYear = Math.min(...allWithStart.map((d) => parseISO(d).getFullYear()));
-    if (earliestYear < currentYear) setCurrentYear(earliestYear);
-  }, [steps, campaigns]);
+    const years = allWithStart.map((d) => parseISO(d).getFullYear());
+    const todayYear = new Date().getFullYear();
+    // Prefer current year if any data is in it, else earliest year with data
+    const target = years.includes(todayYear)
+      ? todayYear
+      : Math.min(...years);
+    if (target !== currentYear) setCurrentYear(target);
+    didAutoJumpRef.current = true;
+  }, [steps, campaigns, currentYear]);
 
   const range = useMemo(() => {
     const yearStart = startOfYear(new Date(currentYear, 0, 1));
@@ -218,6 +227,22 @@ export function PipelineGantt({
 
   const stepsToRender = bars; // for layout
 
+  // Count bars actually visible in the current year so we can hint if data
+  // lives in another year
+  const barsInYear = bars.filter((b) => {
+    if (!b.startedAt) return false;
+    const s = parseISO(b.startedAt);
+    const e = b.completedAt ? parseISO(b.completedAt) : new Date();
+    return s <= range.end && e >= range.start;
+  }).length;
+  const dataYears = Array.from(
+    new Set(
+      bars
+        .filter((b) => b.startedAt)
+        .map((b) => parseISO(b.startedAt!).getFullYear()),
+    ),
+  ).sort();
+
   return (
     <div className="rounded-2xl border bg-card overflow-hidden">
       {/* Header bar */}
@@ -285,8 +310,38 @@ export function PipelineGantt({
         </div>
       </div>
 
+      {/* Hint when current year has no bars but other years do */}
+      {bars.length > 0 && barsInYear === 0 && dataYears.length > 0 && (
+        <div className="px-5 py-3 bg-amber-500/10 border-b border-amber-500/20 text-xs flex items-center gap-2 flex-wrap">
+          <span className="text-amber-600 font-medium">In {currentYear} liegen keine Daten.</span>
+          <span className="text-muted-foreground">Springe zu:</span>
+          {dataYears.map((y) => (
+            <Button
+              key={y}
+              size="sm"
+              variant="outline"
+              className="h-6 text-xs px-2"
+              onClick={() => setCurrentYear(y)}
+            >
+              {y}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {/* Empty state when nothing to render at all */}
+      {bars.length === 0 && (
+        <div className="text-center py-12 px-6 space-y-2">
+          <Calendar className="h-8 w-8 mx-auto text-muted-foreground/40" />
+          <p className="text-sm font-medium">Keine Timeline-Daten</p>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+            Sobald Steps "Aktiv" gesetzt werden oder Kampagnen aus Meta geladen sind, erscheinen hier die Bars.
+          </p>
+        </div>
+      )}
+
       {/* Gantt scroller */}
-      <div className="relative">
+      {bars.length > 0 && <div className="relative">
         <div
           ref={scrollerRef}
           className="overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded"
@@ -521,7 +576,7 @@ export function PipelineGantt({
             </div>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Footer legend */}
       <div className="px-5 py-2.5 border-t bg-muted/20 flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">

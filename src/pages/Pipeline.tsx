@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Plus,
   Trash2,
@@ -736,8 +737,8 @@ function PipelineDetail({
         />
       )}
 
-      {/* Gantt-Timeline — show campaigns + steps when available */}
-      {(isLive || campaigns.length > 0) && (steps.length > 0 || campaigns.length > 0) && (
+      {/* Gantt-Timeline — always show when there's any data to put on it */}
+      {(steps.length > 0 || campaigns.length > 0) && (
         <PipelineGantt steps={steps} campaigns={campaigns} />
       )}
 
@@ -1458,6 +1459,7 @@ function ActiveCampaignsPanel({
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState<"active" | "all">("active");
 
   const load = async () => {
     if (!project.adAccountId) return;
@@ -1473,27 +1475,50 @@ function ActiveCampaignsPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.adAccountId]);
 
+  const activeCount = campaigns.filter((c) => c.effectiveStatus === "ACTIVE").length;
+  const visible =
+    filter === "active"
+      ? campaigns.filter((c) => c.effectiveStatus === "ACTIVE")
+      : campaigns;
+
   return (
     <div className="rounded-2xl border bg-card overflow-hidden lg:col-span-2">
-      <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2">
+      <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
           <Megaphone className="h-4 w-4 text-blue-500" />
-          <h3 className="text-sm font-semibold">Aktive Anzeigen</h3>
+          <h3 className="text-sm font-semibold">Anzeigen</h3>
           {campaigns.length > 0 && (
             <Badge variant="outline" className="text-[10px]">
-              {campaigns.filter((c) => c.effectiveStatus === "ACTIVE").length} live · {campaigns.length} gesamt
+              {activeCount} live · {campaigns.length} gesamt
             </Badge>
           )}
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!project.adAccountId || loading}
-          onClick={load}
-        >
-          <TrendingUp className={cn("h-3.5 w-3.5 mr-1", loading && "animate-pulse")} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          {campaigns.length > 0 && (
+            <ToggleGroup
+              type="single"
+              value={filter}
+              onValueChange={(v) => v && setFilter(v as any)}
+              size="sm"
+            >
+              <ToggleGroupItem value="active" className="text-xs px-2.5">
+                Nur aktiv ({activeCount})
+              </ToggleGroupItem>
+              <ToggleGroupItem value="all" className="text-xs px-2.5">
+                Alle ({campaigns.length})
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!project.adAccountId || loading}
+            onClick={load}
+          >
+            <TrendingUp className={cn("h-3.5 w-3.5 mr-1", loading && "animate-pulse")} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <div className="p-4">
@@ -1526,17 +1551,24 @@ function ActiveCampaignsPanel({
           <div className="text-center py-8 space-y-2">
             <p className="text-sm font-medium">Keine Kampagnen gefunden</p>
             <p className="text-xs text-muted-foreground">
-              Im verknüpften Werbekonto sind aktuell keine Kampagnen aktiv.
+              Im verknüpften Werbekonto sind aktuell keine Kampagnen.
+            </p>
+          </div>
+        ) : visible.length === 0 ? (
+          <div className="text-center py-8 space-y-2">
+            <p className="text-sm font-medium">Keine aktiven Kampagnen</p>
+            <p className="text-xs text-muted-foreground">
+              Switch oben auf "Alle" um pausierte/archivierte zu sehen.
             </p>
           </div>
         ) : (
           <ul className="space-y-2">
-            {campaigns.slice(0, 8).map((c) => (
+            {visible.slice(0, 12).map((c) => (
               <CampaignRow key={c.id} campaign={c} />
             ))}
-            {campaigns.length > 8 && (
+            {visible.length > 12 && (
               <li className="text-[10px] text-center text-muted-foreground pt-1">
-                + {campaigns.length - 8} weitere Kampagnen
+                + {visible.length - 12} weitere Kampagnen
               </li>
             )}
           </ul>
