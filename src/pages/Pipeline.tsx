@@ -58,9 +58,14 @@ import {
   updateProjectStep,
   deleteProjectStep,
   reorderSteps,
+  addStepTask,
+  toggleStepTask,
+  removeStepTask,
+  updateStepTaskTitle,
   type StepStatus,
   type StepTemplate,
   type ProjectStep,
+  type StepTask,
 } from "@/store/pipeline";
 import {
   useStepFiles,
@@ -895,6 +900,37 @@ function StepCard({
           <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">{step.description}</p>
         )}
 
+        {/* Task progress */}
+        {(() => {
+          const tasks: StepTask[] = Array.isArray(step.data?.tasks) ? step.data.tasks : [];
+          if (tasks.length === 0) return null;
+          const done = tasks.filter((t) => t.done).length;
+          const pct = (done / tasks.length) * 100;
+          return (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] tabular-nums">
+                <span className="text-muted-foreground/70">Sub-Tasks</span>
+                <span className="font-semibold">
+                  {done}/{tasks.length}
+                </span>
+              </div>
+              <div className="h-1 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    pct === 100
+                      ? "bg-emerald-500"
+                      : pct > 0
+                      ? "bg-blue-500"
+                      : "bg-muted-foreground/30",
+                  )}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="flex items-center justify-between pt-2 border-t border-current/5">
           <Badge variant="outline" className={cn("text-[10px] gap-1 py-0", status.className)}>
             <StatusIcon className="h-2.5 w-2.5" />
@@ -1008,6 +1044,11 @@ function StepDetailDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Sub-Tasks section */}
+          <div className="border-t pt-4 space-y-2">
+            <TasksSection step={step} />
           </div>
 
           {/* Files section */}
@@ -1270,5 +1311,142 @@ function Stat({
       <div className="text-2xl font-bold tabular-nums mt-1">{value}</div>
       {sub && <div className="text-[10px] text-muted-foreground mt-0.5">{sub}</div>}
     </div>
+  );
+}
+
+// ─── Sub-Tasks section in step detail ───────────────────────────────
+
+function TasksSection({ step }: { step: ProjectStep }) {
+  const tasks: StepTask[] = Array.isArray(step.data?.tasks) ? step.data.tasks : [];
+  const [newTask, setNewTask] = useState("");
+  const done = tasks.filter((t) => t.done).length;
+  const pct = tasks.length > 0 ? Math.round((done / tasks.length) * 100) : 0;
+
+  const handleAdd = async () => {
+    const t = newTask.trim();
+    if (!t) return;
+    await addStepTask(step.id, t);
+    setNewTask("");
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="flex items-center gap-1.5">
+          <Check className="h-3.5 w-3.5" />
+          Sub-Tasks
+          {tasks.length > 0 && (
+            <span className="text-[10px] text-muted-foreground tabular-nums">
+              · {done}/{tasks.length} ({pct}%)
+            </span>
+          )}
+        </Label>
+      </div>
+
+      {tasks.length > 0 && (
+        <div className="h-1 rounded-full bg-muted overflow-hidden">
+          <div
+            className={cn(
+              "h-full rounded-full transition-all",
+              pct === 100 ? "bg-emerald-500" : pct > 0 ? "bg-blue-500" : "bg-muted-foreground/30",
+            )}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+
+      <ul className="space-y-1">
+        {tasks.map((t) => (
+          <TaskRow key={t.id} stepId={step.id} task={t} />
+        ))}
+      </ul>
+
+      <div className="flex items-center gap-2 pt-1">
+        <Input
+          placeholder="Neuer Sub-Task..."
+          value={newTask}
+          onChange={(e) => setNewTask(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleAdd();
+            }
+          }}
+          className="h-8 text-sm"
+        />
+        <Button size="sm" variant="outline" onClick={handleAdd} disabled={!newTask.trim()}>
+          <Plus className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      {tasks.length === 0 && (
+        <p className="text-[11px] text-muted-foreground">
+          Keine Sub-Tasks. Default-Templates haben automatisch eine Checkliste — bei Custom-Steps kannst du sie hier hinzufügen.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function TaskRow({ stepId, task }: { stepId: string; task: StepTask }) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(task.title);
+
+  // sync external changes
+  useEffect(() => setTitle(task.title), [task.title]);
+
+  return (
+    <li className="flex items-center gap-2 group rounded-md hover:bg-muted/30 px-1 py-0.5">
+      <button
+        onClick={() => toggleStepTask(stepId, task.id)}
+        className={cn(
+          "h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+          task.done
+            ? "bg-emerald-500 border-emerald-500 text-white"
+            : "border-muted-foreground/40 hover:border-primary",
+        )}
+      >
+        {task.done && <Check className="h-3 w-3" />}
+      </button>
+      {editing ? (
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={async () => {
+            if (title.trim() && title !== task.title) {
+              await updateStepTaskTitle(stepId, task.id, title.trim());
+            }
+            setEditing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            if (e.key === "Escape") {
+              setTitle(task.title);
+              setEditing(false);
+            }
+          }}
+          autoFocus
+          className="h-6 text-xs flex-1"
+        />
+      ) : (
+        <button
+          onClick={() => setEditing(true)}
+          className={cn(
+            "flex-1 text-left text-xs py-1 leading-tight",
+            task.done && "line-through text-muted-foreground",
+          )}
+        >
+          {task.title}
+        </button>
+      )}
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
+        onClick={() => removeStepTask(stepId, task.id)}
+      >
+        <X className="h-3 w-3" />
+      </Button>
+    </li>
   );
 }

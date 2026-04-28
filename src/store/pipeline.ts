@@ -4,6 +4,12 @@ import { toast } from "sonner";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
+export type StepTask = {
+  id: string;
+  title: string;
+  done: boolean;
+};
+
 export type StepTemplate = {
   id: string;
   name: string;
@@ -12,6 +18,7 @@ export type StepTemplate = {
   color: string;
   isDefault: boolean;
   sortOrder: number;
+  defaultTasks: StepTask[];
 };
 
 export type StepStatus = "todo" | "active" | "done" | "skipped";
@@ -63,6 +70,7 @@ function rowToTemplate(r: any): StepTemplate {
     color: r.color || "#1c7ed6",
     isDefault: !!r.is_default,
     sortOrder: r.sort_order || 0,
+    defaultTasks: Array.isArray(r.default_tasks) ? r.default_tasks : [],
   };
 }
 
@@ -249,6 +257,12 @@ export async function loadProjectSteps() {
 loadProjectSteps();
 
 export async function addStepFromTemplate(projectId: string, template: StepTemplate, position: number) {
+  // Copy default tasks (deep clone) so each step instance has its own state
+  const tasks: StepTask[] = (template.defaultTasks || []).map((t) => ({
+    id: t.id || crypto.randomUUID().slice(0, 8),
+    title: t.title,
+    done: false,
+  }));
   const { data, error } = await supabase
     .from("pipeline_steps")
     .insert({
@@ -259,6 +273,7 @@ export async function addStepFromTemplate(projectId: string, template: StepTempl
       description: template.description,
       position,
       status: "todo",
+      data: { tasks },
     })
     .select()
     .single();
@@ -269,6 +284,43 @@ export async function addStepFromTemplate(projectId: string, template: StepTempl
   }
   toast.error("Step konnte nicht hinzugefügt werden");
   return null;
+}
+
+// ─── Sub-task helpers (persist via step.data.tasks) ─────────────────
+
+export async function addStepTask(stepId: string, title: string) {
+  const step = steps.find((s) => s.id === stepId);
+  if (!step) return;
+  const tasks: StepTask[] = Array.isArray(step.data?.tasks) ? step.data.tasks : [];
+  const next: StepTask[] = [
+    ...tasks,
+    { id: crypto.randomUUID().slice(0, 8), title: title.trim(), done: false },
+  ];
+  await updateProjectStep(stepId, { data: { ...step.data, tasks: next } });
+}
+
+export async function toggleStepTask(stepId: string, taskId: string) {
+  const step = steps.find((s) => s.id === stepId);
+  if (!step) return;
+  const tasks: StepTask[] = Array.isArray(step.data?.tasks) ? step.data.tasks : [];
+  const next = tasks.map((t) => (t.id === taskId ? { ...t, done: !t.done } : t));
+  await updateProjectStep(stepId, { data: { ...step.data, tasks: next } });
+}
+
+export async function removeStepTask(stepId: string, taskId: string) {
+  const step = steps.find((s) => s.id === stepId);
+  if (!step) return;
+  const tasks: StepTask[] = Array.isArray(step.data?.tasks) ? step.data.tasks : [];
+  const next = tasks.filter((t) => t.id !== taskId);
+  await updateProjectStep(stepId, { data: { ...step.data, tasks: next } });
+}
+
+export async function updateStepTaskTitle(stepId: string, taskId: string, title: string) {
+  const step = steps.find((s) => s.id === stepId);
+  if (!step) return;
+  const tasks: StepTask[] = Array.isArray(step.data?.tasks) ? step.data.tasks : [];
+  const next = tasks.map((t) => (t.id === taskId ? { ...t, title } : t));
+  await updateProjectStep(stepId, { data: { ...step.data, tasks: next } });
 }
 
 export async function addCustomStep(
