@@ -10,6 +10,8 @@ export type StepTask = {
   done: boolean;
 };
 
+export type StepTemplateCategory = "setup" | "campaign" | "other";
+
 export type StepTemplate = {
   id: string;
   name: string;
@@ -18,6 +20,7 @@ export type StepTemplate = {
   color: string;
   isDefault: boolean;
   sortOrder: number;
+  category: StepTemplateCategory;
   defaultTasks: StepTask[];
 };
 
@@ -70,6 +73,7 @@ function rowToTemplate(r: any): StepTemplate {
     color: r.color || "#1c7ed6",
     isDefault: !!r.is_default,
     sortOrder: r.sort_order || 0,
+    category: (r.category as StepTemplateCategory) || "setup",
     defaultTasks: Array.isArray(r.default_tasks) ? r.default_tasks : [],
   };
 }

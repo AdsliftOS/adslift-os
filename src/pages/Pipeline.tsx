@@ -743,57 +743,19 @@ function PipelineDetail({
       )}
 
       {/* Add step dialog */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Step hinzufügen</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">
-                Aus Baukasten wählen
-              </p>
-              {availableTemplates.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4 bg-muted/30 rounded-lg">
-                  Alle Default-Templates sind schon im Projekt.
-                </p>
-              ) : (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {availableTemplates.map((t) => {
-                    const Icon = ICONS[t.icon] || Box;
-                    return (
-                      <button
-                        key={t.id}
-                        onClick={async () => {
-                          await addStepFromTemplate(projectId, t, steps.length);
-                          setAddOpen(false);
-                        }}
-                        className="text-left rounded-xl border p-3 hover:border-primary hover:bg-primary/5 hover:shadow-md transition-all"
-                      >
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <div
-                            className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
-                            style={{ backgroundColor: t.color + "22", color: t.color }}
-                          >
-                            <Icon className="h-5 w-5" />
-                          </div>
-                          <div className="font-semibold text-sm leading-tight">{t.name}</div>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground line-clamp-2">{t.description}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            <div className="border-t pt-3">
-              <Button variant="outline" size="sm" className="w-full" onClick={() => { setAddOpen(false); setCustomOpen(true); }}>
-                <Plus className="h-3.5 w-3.5 mr-1" /> Eigenen Step bauen
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AddStepDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        availableTemplates={availableTemplates}
+        onAddTemplate={async (t) => {
+          await addStepFromTemplate(projectId, t, steps.length);
+          setAddOpen(false);
+        }}
+        onCustom={() => {
+          setAddOpen(false);
+          setCustomOpen(true);
+        }}
+      />
 
       {/* Custom step dialog */}
       <Dialog open={customOpen} onOpenChange={setCustomOpen}>
@@ -1446,6 +1408,160 @@ function ProjectAdAccountPicker({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+// ─── Add Step Dialog with category tabs ─────────────────────────────
+
+const CATEGORY_META: Record<
+  string,
+  { label: string; description: string; accent: string }
+> = {
+  setup: {
+    label: "Neues Projekt",
+    description: "Initial-Setup: Zielgruppe · Offer · Meta-Setup · Launch",
+    accent: "from-blue-500/30 to-blue-500/10",
+  },
+  campaign: {
+    label: "Neue Kampagne",
+    description: "Zusätzliche Kampagne in laufendem Projekt",
+    accent: "from-emerald-500/30 to-emerald-500/10",
+  },
+  other: {
+    label: "Sonstige",
+    description: "Webseite · Email-Sequenzen · Calls · sonstige Bausteine",
+    accent: "from-amber-500/30 to-amber-500/10",
+  },
+};
+
+function AddStepDialog({
+  open,
+  onOpenChange,
+  availableTemplates,
+  onAddTemplate,
+  onCustom,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  availableTemplates: StepTemplate[];
+  onAddTemplate: (t: StepTemplate) => void | Promise<void>;
+  onCustom: () => void;
+}) {
+  const [category, setCategory] = useState<"setup" | "campaign" | "other">("setup");
+
+  // group by category
+  const byCategory: Record<string, StepTemplate[]> = {
+    setup: [],
+    campaign: [],
+    other: [],
+  };
+  for (const t of availableTemplates) {
+    (byCategory[t.category] || byCategory.other).push(t);
+  }
+
+  // auto-jump to a non-empty category if current is empty
+  useEffect(() => {
+    if (!open) return;
+    if (byCategory[category]?.length === 0) {
+      const firstNonEmpty = (["campaign", "other", "setup"] as const).find(
+        (c) => byCategory[c]?.length > 0,
+      );
+      if (firstNonEmpty) setCategory(firstNonEmpty);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const visible = byCategory[category] || [];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Step hinzufügen</DialogTitle>
+        </DialogHeader>
+
+        {/* Category tabs */}
+        <div className="grid gap-2 sm:grid-cols-3">
+          {(["setup", "campaign", "other"] as const).map((c) => {
+            const meta = CATEGORY_META[c];
+            const count = byCategory[c]?.length || 0;
+            const isActive = category === c;
+            return (
+              <button
+                key={c}
+                onClick={() => setCategory(c)}
+                disabled={count === 0}
+                className={cn(
+                  "text-left rounded-xl border p-3 transition-all relative overflow-hidden",
+                  isActive
+                    ? "border-primary bg-primary/[0.06] shadow-md"
+                    : "hover:border-primary/40 hover:bg-muted/30",
+                  count === 0 && "opacity-40 cursor-not-allowed",
+                )}
+              >
+                {isActive && (
+                  <div className={cn("absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r", meta.accent)} />
+                )}
+                <div className="flex items-center justify-between mb-1">
+                  <div className="font-semibold text-sm">{meta.label}</div>
+                  <Badge variant="outline" className="text-[9px] py-0">
+                    {count}
+                  </Badge>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-tight">{meta.description}</p>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Templates grid */}
+        <div className="space-y-3">
+          {visible.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6 bg-muted/30 rounded-lg">
+              Keine verfügbaren Templates in dieser Kategorie.
+            </p>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 max-h-[55vh] overflow-y-auto pr-1">
+              {visible.map((t) => {
+                const Icon = ICONS[t.icon] || Box;
+                const taskCount = (t.defaultTasks || []).length;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => onAddTemplate(t)}
+                    className="text-left rounded-xl border p-3 hover:border-primary hover:bg-primary/5 hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div
+                        className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: t.color + "22", color: t.color }}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm leading-tight">{t.name}</div>
+                        {taskCount > 0 && (
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            {taskCount} Sub-Tasks
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground line-clamp-2">{t.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onCustom}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Eigenen Step bauen
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
