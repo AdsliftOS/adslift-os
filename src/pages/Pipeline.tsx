@@ -737,9 +737,13 @@ function PipelineDetail({
         />
       )}
 
-      {/* Gantt-Timeline — always show when there's any data to put on it */}
+      {/* Gantt-Timeline — Setup defaults to Steps, Live-Ops defaults to Campaigns */}
       {(steps.length > 0 || campaigns.length > 0) && (
-        <PipelineGantt steps={steps} campaigns={campaigns} />
+        <PipelineGantt
+          steps={steps}
+          campaigns={campaigns}
+          defaultSource={mode === "setup" ? "steps" : "campaigns"}
+        />
       )}
 
       {/* Add step dialog */}

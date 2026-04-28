@@ -68,17 +68,39 @@ const TRACK_LABEL_WIDTH = 220;
 export function PipelineGantt({
   steps,
   campaigns = [],
+  defaultSource,
 }: {
   steps: ProjectStep[];
   campaigns?: Campaign[];
+  /** "steps" | "campaigns" | "both" — initial source. Falls back to whatever
+   * is available if the requested source has no data. */
+  defaultSource?: "steps" | "campaigns" | "both";
 }) {
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
-  const [source, setSource] = useState<"steps" | "campaigns" | "both">(
-    campaigns.length > 0 ? "campaigns" : "steps",
-  );
+  const [source, setSource] = useState<"steps" | "campaigns" | "both">(() => {
+    if (defaultSource) {
+      // Honor caller's preference but fall back if it would be empty
+      if (defaultSource === "campaigns" && campaigns.length === 0 && steps.length > 0) return "steps";
+      if (defaultSource === "steps" && steps.length === 0 && campaigns.length > 0) return "campaigns";
+      return defaultSource;
+    }
+    return campaigns.length > 0 ? "campaigns" : "steps";
+  });
   const [campaignFilter, setCampaignFilter] = useState<"active" | "all">("active");
   const scrollerRef = useRef<HTMLDivElement>(null);
+
+  // Sync source when caller swaps defaultSource (Setup<->Operations toggle)
+  useEffect(() => {
+    if (!defaultSource) return;
+    if (defaultSource === "campaigns" && campaigns.length === 0 && steps.length > 0) {
+      setSource("steps");
+    } else if (defaultSource === "steps" && steps.length === 0 && campaigns.length > 0) {
+      setSource("campaigns");
+    } else {
+      setSource(defaultSource);
+    }
+  }, [defaultSource]);
 
   // Auto-jump to a year that contains data (earliest if past, today's
   // year if data spans, or earliest future year). Runs once when data
