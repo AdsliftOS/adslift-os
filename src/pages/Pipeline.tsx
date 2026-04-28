@@ -451,6 +451,15 @@ function PipelineDetail({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
+  // Mode tab — Setup (Pipeline-Builder) vs Live-Operations (running)
+  // Default depends on project status.
+  const projectForMode = projects.find((p) => p.id === projectId);
+  const defaultMode: "setup" | "ops" =
+    projectForMode?.status === "active" || projectForMode?.status === "done"
+      ? "ops"
+      : "setup";
+  const [mode, setMode] = useState<"setup" | "ops">(defaultMode);
+
   if (!project) {
     return (
       <div className="space-y-6">
@@ -559,43 +568,44 @@ function PipelineDetail({
         </div>
       </div>
 
-      {/* KPI Banner — for live projects */}
-      {isLive && (
-        <div className="rounded-2xl border bg-gradient-to-br from-blue-500/[0.08] via-blue-500/[0.03] to-transparent p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="h-4 w-4 text-blue-500" />
-            <h3 className="text-sm font-semibold">Live-KPIs</h3>
-            <Badge variant="outline" className="text-[10px]">aus Meta Ads — Phase 3</Badge>
-          </div>
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
-            {[
-              { label: "Leads", value: "—" },
-              { label: "Spend", value: "—" },
-              { label: "CPL", value: "—" },
-              { label: "CTR", value: "—" },
-              { label: "ROAS", value: "—" },
-              { label: "Frequency", value: "—" },
-            ].map((k) => (
-              <div key={k.label} className="rounded-lg bg-card border p-3">
-                <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">{k.label}</div>
-                <div className="text-xl font-bold tabular-nums text-muted-foreground/40">{k.value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Mode tabs — Setup vs Live-Operations */}
+      <div className="flex items-center gap-2 p-1.5 rounded-xl bg-muted/30 border w-fit">
+        <ModeTab
+          active={mode === "setup"}
+          onClick={() => setMode("setup")}
+          icon={Sparkles}
+          title="Setup"
+          subtitle="Pipeline aufbauen · Steps & Tasks"
+          accent="from-blue-500/30 to-blue-500/10"
+        />
+        <ModeTab
+          active={mode === "ops"}
+          onClick={() => setMode("ops")}
+          icon={Activity}
+          title="Live-Operations"
+          subtitle="Ads laufen · Reports · Optimierungen"
+          accent="from-emerald-500/30 to-emerald-500/10"
+          badge={isLive ? "LIVE" : undefined}
+        />
+      </div>
+
+      {mode === "setup" ? (
+        <>
+          {/* Progress + Stats */}
+          {steps.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Stat label="Fortschritt" value={`${progress}%`} sub={`${completedCount}/${steps.length} Steps`} tone="primary" />
+              <Stat label="Aktiv" value={activeCount} sub="Steps in Bearbeitung" tone={activeCount > 0 ? "blue" : "muted"} />
+              <Stat label="Erledigt" value={completedCount} sub="abgeschlossen" tone="success" />
+              <Stat label="Offen" value={steps.filter((s) => s.status === "todo").length} sub="warten" tone="muted" />
+            </div>
+          )}
+        </>
+      ) : (
+        <OperationsHeader project={project} steps={steps} />
       )}
 
-      {/* Progress + Stats */}
-      {steps.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-4">
-          <Stat label="Fortschritt" value={`${progress}%`} sub={`${completedCount}/${steps.length} Steps`} tone="primary" />
-          <Stat label="Aktiv" value={activeCount} sub="Steps in Bearbeitung" tone={activeCount > 0 ? "blue" : "muted"} />
-          <Stat label="Erledigt" value={completedCount} sub="abgeschlossen" tone="success" />
-          <Stat label="Offen" value={steps.filter((s) => s.status === "todo").length} sub="warten" tone="muted" />
-        </div>
-      )}
-
-      {/* Pipeline Canvas — visual flow with cards & connectors */}
+      {mode === "setup" && (
       <div className="rounded-2xl border bg-gradient-to-br from-background via-muted/10 to-background overflow-hidden">
         <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -662,7 +672,19 @@ function PipelineDetail({
         )}
       </div>
 
-      {/* Gantt-Timeline — proper calendar-style for live projects */}
+      )}
+
+      {/* Operations content */}
+      {mode === "ops" && (
+        <OperationsView
+          project={project}
+          steps={steps}
+          onJumpToSetup={() => setMode("setup")}
+          onOpenStep={(stepId) => setEditingStepId(stepId)}
+        />
+      )}
+
+      {/* Gantt-Timeline — show in both modes when project is live */}
       {isLive && steps.length > 0 && <PipelineGantt steps={steps} />}
 
       {/* Add step dialog */}
@@ -1310,6 +1332,348 @@ function Stat({
       <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="text-2xl font-bold tabular-nums mt-1">{value}</div>
       {sub && <div className="text-[10px] text-muted-foreground mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+// ─── Mode tab (Setup / Operations) ──────────────────────────────────
+
+function ModeTab({
+  active,
+  onClick,
+  icon: Icon,
+  title,
+  subtitle,
+  accent,
+  badge,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: typeof Box;
+  title: string;
+  subtitle: string;
+  accent: string;
+  badge?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-3 rounded-lg px-3 py-2 transition-all relative overflow-hidden",
+        active
+          ? "bg-card shadow-md ring-1 ring-primary/20"
+          : "hover:bg-card/60 text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {active && (
+        <div className={cn("absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r", accent)} />
+      )}
+      <div
+        className={cn(
+          "h-9 w-9 rounded-lg flex items-center justify-center shrink-0",
+          active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="text-left">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-semibold leading-tight">{title}</span>
+          {badge && (
+            <Badge className="text-[9px] py-0 px-1.5 bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-500 animate-pulse">
+              {badge}
+            </Badge>
+          )}
+        </div>
+        <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">{subtitle}</div>
+      </div>
+    </button>
+  );
+}
+
+// ─── Operations header (KPI Banner) ─────────────────────────────────
+
+function OperationsHeader({
+  project,
+  steps,
+}: {
+  project: ReturnType<typeof usePipelineProjects>[number];
+  steps: ProjectStep[];
+}) {
+  const liveAdsActive = project.status === "active";
+  const allTasks = steps.flatMap((s) =>
+    Array.isArray(s.data?.tasks) ? (s.data.tasks as StepTask[]) : [],
+  );
+  const tasksDone = allTasks.filter((t) => t.done).length;
+  const tasksOpen = allTasks.length - tasksDone;
+  const days = project.startDate
+    ? Math.max(0, Math.floor((Date.now() - new Date(project.startDate).getTime()) / 86400000))
+    : Math.max(0, Math.floor((Date.now() - new Date(project.createdAt).getTime()) / 86400000));
+
+  return (
+    <div className="space-y-4">
+      {/* Big live KPI block */}
+      <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/[0.08] via-blue-500/[0.04] to-transparent p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-9 w-9 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
+            <Activity className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-semibold">Live-KPIs</h3>
+              {liveAdsActive ? (
+                <Badge className="text-[10px] bg-emerald-500/15 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/15 gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[10px]">Nicht aktiv</Badge>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Daten aus Meta Ads — Phase 3 Anbindung folgt
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+          {[
+            { label: "Leads", value: "—", sub: "heute" },
+            { label: "Spend", value: "—", sub: "diese Woche" },
+            { label: "CPL", value: "—", sub: "Ø 7 Tage" },
+            { label: "CTR", value: "—", sub: "%" },
+            { label: "ROAS", value: "—", sub: "x" },
+            { label: "Frequency", value: "—", sub: "" },
+          ].map((k) => (
+            <div key={k.label} className="rounded-xl bg-card border p-3 hover:shadow-md transition-shadow">
+              <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+                {k.label}
+              </div>
+              <div className="text-2xl font-bold tabular-nums text-muted-foreground/40">{k.value}</div>
+              {k.sub && (
+                <div className="text-[10px] text-muted-foreground mt-0.5">{k.sub}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Run-time stats */}
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Stat
+          label="Läuft seit"
+          value={days}
+          sub="Tagen"
+          tone={liveAdsActive ? "blue" : "muted"}
+        />
+        <Stat label="Offene Tasks" value={tasksOpen} sub="zu erledigen" tone={tasksOpen > 0 ? "primary" : "muted"} />
+        <Stat label="Erledigt" value={tasksDone} sub={`von ${allTasks.length}`} tone="success" />
+        <Stat
+          label="Status"
+          value={PROJECT_STATUS_META[project.status]?.label || project.status}
+          sub="Projekt-Status"
+          tone={liveAdsActive ? "blue" : "muted"}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Operations view ────────────────────────────────────────────────
+
+function OperationsView({
+  project,
+  steps,
+  onJumpToSetup,
+  onOpenStep,
+}: {
+  project: ReturnType<typeof usePipelineProjects>[number];
+  steps: ProjectStep[];
+  onJumpToSetup: () => void;
+  onOpenStep: (stepId: string) => void;
+}) {
+  // Aggregate open tasks across all steps with their parent step
+  type OpenTask = { task: StepTask; step: ProjectStep };
+  const openTasks: OpenTask[] = steps
+    .flatMap((s) =>
+      (Array.isArray(s.data?.tasks) ? (s.data.tasks as StepTask[]) : [])
+        .filter((t) => !t.done)
+        .map((t) => ({ task: t, step: s })),
+    );
+
+  const monitoringStep = steps.find((s) =>
+    s.name.toLowerCase().includes("monitoring") ||
+    s.name.toLowerCase().includes("optimier"),
+  );
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      {/* Active Ads / Creatives stack — placeholder for Meta Ads integration */}
+      <div className="rounded-2xl border bg-card overflow-hidden lg:col-span-2">
+        <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Megaphone className="h-4 w-4 text-blue-500" />
+            <h3 className="text-sm font-semibold">Aktive Anzeigen</h3>
+            <Badge variant="outline" className="text-[10px]">Phase 3 — Meta-Sync</Badge>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!project.adAccountId}
+            onClick={() => toast.info("Meta-Ad-Sync kommt in Phase 3")}
+          >
+            <TrendingUp className="h-3.5 w-3.5 mr-1" />
+            Refresh
+          </Button>
+        </div>
+        <div className="p-6">
+          {project.adAccountId ? (
+            <div className="space-y-3">
+              {/* Mock placeholder rows — real ads will appear when Phase 3 is wired */}
+              {[1, 2, 3].map((n) => (
+                <div
+                  key={n}
+                  className="rounded-xl border bg-muted/20 p-4 flex items-center gap-3 opacity-50"
+                >
+                  <div className="h-10 w-10 rounded-lg bg-muted" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 w-40 rounded bg-muted" />
+                    <div className="h-2 w-24 rounded bg-muted/60" />
+                  </div>
+                  <div className="text-right space-y-1">
+                    <div className="h-3 w-16 rounded bg-muted ml-auto" />
+                    <div className="h-2 w-12 rounded bg-muted/60 ml-auto" />
+                  </div>
+                </div>
+              ))}
+              <p className="text-[11px] text-center text-muted-foreground pt-2">
+                Anzeigen-Liste (Name · seit wann live · Spend · Leads · CTR) erscheint sobald Meta-Sync aktiv.
+              </p>
+            </div>
+          ) : (
+            <div className="text-center py-8 space-y-3">
+              <div className="h-12 w-12 mx-auto rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center">
+                <Megaphone className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Werbekonto noch nicht verknüpft</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Trage die Ad-Account-ID im Projekt ein um Live-Daten zu sehen
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="rounded-2xl border bg-card overflow-hidden">
+        <div className="px-5 py-3 border-b bg-muted/20">
+          <h3 className="text-sm font-semibold">Quick Actions</h3>
+        </div>
+        <div className="p-4 space-y-2">
+          <Button
+            className="w-full justify-start"
+            variant="outline"
+            disabled={!project.clientEmail}
+            onClick={() => toast.info("Report-Versand kommt in Phase 3")}
+          >
+            <Send className="h-4 w-4 mr-2" />
+            Report an Kunde senden
+          </Button>
+          <Button
+            className="w-full justify-start"
+            variant="outline"
+            onClick={() => {
+              const url = project.customerPortalToken
+                ? `${window.location.origin}/p/${project.customerPortalToken}`
+                : null;
+              if (!url) return toast.error("Kein Portal-Token");
+              navigator.clipboard.writeText(url);
+              toast.success("Portal-Link kopiert");
+            }}
+          >
+            <Copy className="h-4 w-4 mr-2" />
+            Kunden-Portal kopieren
+          </Button>
+          <Button
+            className="w-full justify-start"
+            variant="outline"
+            onClick={onJumpToSetup}
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            Zurück zum Setup
+          </Button>
+          {monitoringStep && (
+            <Button
+              className="w-full justify-start"
+              variant="outline"
+              onClick={() => onOpenStep(monitoringStep.id)}
+            >
+              <Activity className="h-4 w-4 mr-2" />
+              Monitoring-Step öffnen
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Open ToDos across all steps */}
+      <div className="rounded-2xl border bg-card overflow-hidden lg:col-span-3">
+        <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Check className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold">Operative ToDos</h3>
+            <Badge variant="outline" className="text-[10px]">
+              {openTasks.length} offen
+            </Badge>
+          </div>
+        </div>
+        <div className="p-4">
+          {openTasks.length === 0 ? (
+            <div className="text-center py-8 space-y-2">
+              <Check className="h-8 w-8 mx-auto text-emerald-500/60" />
+              <p className="text-sm font-medium">Alles erledigt 🔥</p>
+              <p className="text-xs text-muted-foreground">
+                Keine offenen Sub-Tasks in den Steps.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {openTasks.slice(0, 30).map(({ task, step }) => {
+                const Icon = ICONS[step.icon] || Box;
+                return (
+                  <button
+                    key={task.id}
+                    onClick={() => onOpenStep(step.id)}
+                    className="group text-left rounded-lg border bg-card hover:border-primary/50 hover:shadow-md transition-all p-3 flex items-start gap-2"
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleStepTask(step.id, task.id);
+                      }}
+                      className="h-4 w-4 rounded border border-muted-foreground/40 hover:border-primary hover:bg-primary/10 flex items-center justify-center shrink-0 transition-colors mt-0.5"
+                    >
+                      <Check className="h-3 w-3 opacity-0 group-hover:opacity-50" />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium leading-tight line-clamp-2">{task.title}</div>
+                      <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
+                        <Icon className="h-3 w-3" />
+                        {step.name}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {openTasks.length > 30 && (
+            <p className="text-[10px] text-muted-foreground text-center mt-3">
+              + {openTasks.length - 30} weitere Tasks (bitte direkt im Step öffnen)
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
