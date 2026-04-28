@@ -589,7 +589,34 @@ function PipelineDetail({
               variant="outline"
               size="sm"
               disabled={!project.clientEmail}
-              onClick={() => toast.info("Report-Versand kommt in Phase 3")}
+              onClick={() => {
+                if (!project.clientEmail) return;
+                const portalUrl = project.customerPortalToken
+                  ? `${window.location.origin}/p/${project.customerPortalToken}`
+                  : "";
+                const subject = `Update zum Projekt: ${project.name}`;
+                const body = [
+                  `Hi,`,
+                  ``,
+                  `hier dein aktueller Stand zum Projekt "${project.name}".`,
+                  ``,
+                  portalUrl
+                    ? `Du kannst den kompletten Verlauf jederzeit hier einsehen:\n${portalUrl}`
+                    : "",
+                  ``,
+                  `Status: ${PROJECT_STATUS_META[project.status]?.label || project.status}`,
+                  steps.length > 0
+                    ? `Fortschritt: ${completedCount}/${steps.length} Steps abgeschlossen (${progress}%)`
+                    : "",
+                  ``,
+                  `Bei Fragen einfach antworten.`,
+                  ``,
+                  `Beste Grüße`,
+                ].filter(Boolean).join("\n");
+                const mailto = `mailto:${encodeURIComponent(project.clientEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                window.location.href = mailto;
+                toast.success("E-Mail wird im Mail-Client geöffnet");
+              }}
             >
               <Send className="h-3.5 w-3.5 mr-1" /> Report senden
             </Button>
@@ -890,6 +917,8 @@ function StepCard({
   const Icon = ICONS[step.icon] || Box;
   const status = STATUS_BADGE[step.status];
   const StatusIcon = status.icon;
+  const files = useStepFiles(step.id);
+  const [previewFile, setPreviewFile] = useState<StepFile | null>(null);
 
   return (
     <div
@@ -974,6 +1003,34 @@ function StepCard({
           );
         })()}
 
+        {/* File chips — clickable directly from card */}
+        {files.length > 0 && (
+          <div className="flex flex-wrap gap-1 pt-2 border-t border-current/5">
+            {files.slice(0, 4).map((f) => {
+              const FIcon = f.type === "html" ? Code : f.type === "image" ? ImageIcon : FileText;
+              return (
+                <button
+                  key={f.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPreviewFile(f);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-md border bg-muted/30 hover:bg-muted hover:border-primary px-1.5 py-0.5 text-[9px] transition-colors max-w-[90px]"
+                  title={f.filename}
+                >
+                  <FIcon className="h-2.5 w-2.5 shrink-0" />
+                  <span className="truncate">{f.filename}</span>
+                </button>
+              );
+            })}
+            {files.length > 4 && (
+              <span className="text-[9px] text-muted-foreground self-center">
+                +{files.length - 4}
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-2 border-t border-current/5">
           <Badge variant="outline" className={cn("text-[10px] gap-1 py-0", status.className)}>
             <StatusIcon className="h-2.5 w-2.5" />
@@ -987,6 +1044,25 @@ function StepCard({
           )}
         </div>
       </div>
+
+      {previewFile && (
+        <Dialog open onOpenChange={(o) => !o && setPreviewFile(null)}>
+          <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-auto">
+            <DialogHeader><DialogTitle>{previewFile.filename}</DialogTitle></DialogHeader>
+            {previewFile.type === "html" && previewFile.content ? (
+              <iframe srcDoc={previewFile.content} className="w-full h-[60vh] rounded border bg-white" sandbox="" />
+            ) : previewFile.type === "image" && (previewFile.url || previewFile.content) ? (
+              <img src={previewFile.url || previewFile.content!} alt={previewFile.filename} className="max-w-full rounded" />
+            ) : previewFile.url ? (
+              <a href={previewFile.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                Datei öffnen
+              </a>
+            ) : (
+              <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded">{previewFile.content}</pre>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
@@ -1908,7 +1984,6 @@ function OperationsHeader({
     ? Math.max(0, Math.floor((Date.now() - new Date(project.startDate).getTime()) / 86400000))
     : Math.max(0, Math.floor((Date.now() - new Date(project.createdAt).getTime()) / 86400000));
 
-  // Live KPIs from Meta Ads
   const [preset, setPreset] = useState<Preset>("this_month");
   const [kpis, setKpis] = useState<ProjectKPIs | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1930,103 +2005,104 @@ function OperationsHeader({
   const hasData = kpis && !kpis.error && (kpis.leads > 0 || kpis.spend > 0 || kpis.impressions > 0);
 
   return (
-    <div className="space-y-4">
-      {/* Big live KPI block */}
-      <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/[0.08] via-blue-500/[0.04] to-transparent p-6">
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <div className="h-9 w-9 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
-            <Activity className="h-5 w-5" />
-          </div>
-          <div className="flex-1 min-w-[160px]">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-base font-semibold">Live-KPIs</h3>
-              {project.adAccountId ? (
-                hasData ? (
-                  <Badge className="text-[10px] bg-emerald-500/15 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/15 gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Live · Meta Ads
-                  </Badge>
-                ) : hasError ? (
-                  <Badge variant="outline" className="text-[10px] text-rose-500 border-rose-500/30">
-                    Fehler
-                  </Badge>
-                ) : loading ? (
-                  <Badge variant="outline" className="text-[10px]">Lade...</Badge>
-                ) : (
-                  <Badge variant="outline" className="text-[10px]">Keine Daten</Badge>
-                )
-              ) : (
-                <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/30">
-                  Werbekonto nicht verknüpft
-                </Badge>
+    <div className="space-y-3">
+      {/* Compact one-row KPI strip */}
+      <div className="rounded-xl border bg-gradient-to-r from-blue-500/[0.06] via-card to-card overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border/50">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full",
+                hasData ? "bg-emerald-500 animate-pulse" : project.adAccountId ? "bg-amber-500" : "bg-slate-500",
               )}
-            </div>
-            {project.adAccountId && (
-              <p className="text-[11px] text-muted-foreground font-mono">
-                {project.adAccountId}
-                {hasError && <span className="text-rose-400 ml-2">{kpis.error}</span>}
-              </p>
-            )}
+            />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Live-KPIs
+            </h3>
           </div>
-          <div className="flex items-center gap-2">
-            <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>
-              <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Heute</SelectItem>
-                <SelectItem value="yesterday">Gestern</SelectItem>
-                <SelectItem value="last_7d">Letzte 7 Tage</SelectItem>
-                <SelectItem value="this_month">Dieser Monat</SelectItem>
-                <SelectItem value="last_30d">Letzte 30 Tage</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={refresh}
-              disabled={loading || !project.adAccountId}
-            >
-              <TrendingUp className={cn("h-3.5 w-3.5", loading && "animate-pulse")} />
-            </Button>
+          <div className="flex-1" />
+          <div className="text-[10px] text-muted-foreground font-mono">
+            {days}d · {tasksDone}/{allTasks.length} Tasks · {PROJECT_STATUS_META[project.status]?.label}
           </div>
+          <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>
+            <SelectTrigger className="h-7 w-32 text-xs shrink-0"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Heute</SelectItem>
+              <SelectItem value="yesterday">Gestern</SelectItem>
+              <SelectItem value="last_7d">Letzte 7 Tage</SelectItem>
+              <SelectItem value="this_month">Dieser Monat</SelectItem>
+              <SelectItem value="last_30d">Letzte 30 Tage</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0 shrink-0"
+            onClick={refresh}
+            disabled={loading || !project.adAccountId}
+          >
+            <TrendingUp className={cn("h-3.5 w-3.5", loading && "animate-pulse")} />
+          </Button>
         </div>
 
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-          <KpiTile label="Leads" value={kpis?.leads} loading={loading} sub={hasData ? "Anzahl" : ""} />
-          <KpiTile label="Spend" value={kpis?.spend} format="eur" loading={loading} sub={hasData ? "EUR gesamt" : ""} />
-          <KpiTile label="CPL" value={kpis?.cpl} format="eur" loading={loading} sub={hasData ? "Ø pro Lead" : ""} />
-          <KpiTile label="CTR" value={kpis?.ctr} format="pct" loading={loading} sub={hasData ? "%" : ""} />
-          <KpiTile label="CPM" value={kpis?.cpm} format="eur" loading={loading} sub={hasData ? "EUR / 1k Imp." : ""} />
-          <KpiTile label="Frequency" value={kpis?.frequency} format="num1" loading={loading} sub={hasData ? "" : ""} />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 divide-x divide-border/40">
+          <CompactKpi label="Leads" value={kpis?.leads} loading={loading} accent="emerald" />
+          <CompactKpi label="Spend" value={kpis?.spend} format="eur" loading={loading} accent="blue" />
+          <CompactKpi label="CPL" value={kpis?.cpl} format="eur" loading={loading} accent="amber" />
+          <CompactKpi label="CTR" value={kpis?.ctr} format="pct" loading={loading} />
+          <CompactKpi label="CPM" value={kpis?.cpm} format="eur" loading={loading} />
+          <CompactKpi label="Freq." value={kpis?.frequency} format="num1" loading={loading} />
         </div>
 
-        {/* Secondary metrics row */}
-        {hasData && (
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 mt-3 pt-3 border-t border-foreground/5">
-            <SmallMetric label="Impressions" value={fmtNum(kpis!.impressions)} />
-            <SmallMetric label="Reach" value={fmtNum(kpis!.reach)} />
-            <SmallMetric label="Clicks" value={fmtNum(kpis!.clicks)} />
-            <SmallMetric label="CPC" value={fmtEUR(kpis!.cpc)} />
+        {hasError && (
+          <div className="px-4 py-2 bg-rose-500/5 border-t border-rose-500/20 text-[10px] text-rose-500 font-mono">
+            {hasError}
           </div>
         )}
       </div>
+    </div>
+  );
+}
 
-      {/* Run-time stats */}
-      <div className="grid gap-3 sm:grid-cols-4">
-        <Stat
-          label="Läuft seit"
-          value={days}
-          sub="Tagen"
-          tone={liveAdsActive ? "blue" : "muted"}
-        />
-        <Stat label="Offene Tasks" value={tasksOpen} sub="zu erledigen" tone={tasksOpen > 0 ? "primary" : "muted"} />
-        <Stat label="Erledigt" value={tasksDone} sub={`von ${allTasks.length}`} tone="success" />
-        <Stat
-          label="Status"
-          value={PROJECT_STATUS_META[project.status]?.label || project.status}
-          sub="Projekt-Status"
-          tone={liveAdsActive ? "blue" : "muted"}
-        />
-      </div>
+function CompactKpi({
+  label,
+  value,
+  format = "num",
+  loading,
+  accent,
+}: {
+  label: string;
+  value: number | undefined;
+  format?: "num" | "eur" | "pct" | "num1";
+  loading?: boolean;
+  accent?: "emerald" | "blue" | "amber";
+}) {
+  const isMissing = value === undefined || value === null || (typeof value === "number" && Number.isNaN(value));
+  const display = isMissing
+    ? "—"
+    : format === "eur"
+    ? fmtEUR(value as number)
+    : format === "pct"
+    ? `${(value as number).toFixed(2)}%`
+    : format === "num1"
+    ? (value as number).toFixed(2)
+    : fmtNum(value as number);
+  const accentColor = {
+    emerald: "text-emerald-500",
+    blue: "text-blue-500",
+    amber: "text-amber-500",
+  }[accent || ""] || "text-foreground";
+
+  return (
+    <div className="px-3 py-2 hover:bg-muted/30 transition-colors">
+      <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/80">{label}</div>
+      {loading ? (
+        <div className="h-5 w-16 rounded bg-muted/50 animate-pulse mt-1" />
+      ) : (
+        <div className={cn("text-base font-bold tabular-nums tracking-tight", isMissing ? "text-muted-foreground/40" : !isMissing && accent ? accentColor : "")}>
+          {display}
+        </div>
+      )}
     </div>
   );
 }
@@ -2121,7 +2197,23 @@ function OperationsView({
             className="w-full justify-start"
             variant="outline"
             disabled={!project.clientEmail}
-            onClick={() => toast.info("Report-Versand kommt in Phase 3")}
+            onClick={() => {
+              if (!project.clientEmail) return;
+              const portalUrl = project.customerPortalToken
+                ? `${window.location.origin}/p/${project.customerPortalToken}`
+                : "";
+              const subject = `Update zum Projekt: ${project.name}`;
+              const body = [
+                `Hi,`,
+                ``,
+                `hier dein aktueller Stand zum Projekt "${project.name}".`,
+                ``,
+                portalUrl ? `Verlauf: ${portalUrl}` : "",
+                ``,
+                `Beste Grüße`,
+              ].filter(Boolean).join("\n");
+              window.location.href = `mailto:${encodeURIComponent(project.clientEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            }}
           >
             <Send className="h-4 w-4 mr-2" />
             Report an Kunde senden

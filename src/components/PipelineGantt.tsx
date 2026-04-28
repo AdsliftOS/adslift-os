@@ -65,8 +65,8 @@ const FIXED_DAY_WIDTH: Record<ViewMode, number | "auto"> = {
 // row in the month header.
 const MIN_MONTH_DAY_WIDTH = 1;
 
-const TRACK_HEIGHT_DEFAULT = 48;
-const TRACK_HEIGHT_MONTH = 64; // taller rows in year view so bars stay prominent
+const TRACK_HEIGHT_DEFAULT = 56;
+const TRACK_HEIGHT_MONTH = 80; // taller rows in year view so bars stay prominent
 const TRACK_LABEL_WIDTH = 240;
 
 export function PipelineGantt({
