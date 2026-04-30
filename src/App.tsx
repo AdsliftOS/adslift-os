@@ -24,6 +24,7 @@ import { loadNotifications } from "@/store/notifications";
 import Dashboard from "./pages/Dashboard";
 import ProjectManager from "./pages/ProjectManager";
 import Clients from "./pages/Clients";
+import ClientDetail from "./pages/ClientDetail";
 import Finances from "./pages/Finances";
 import Settings from "./pages/Settings";
 import TimeTracking from "./pages/TimeTracking";
@@ -71,6 +72,7 @@ function RoleAwareRoutes() {
       <Route path="/projects" element={<ProjectManager />} />
       <Route path="/pipeline" element={<Pipeline />} />
       <Route path="/clients" element={<Clients />} />
+      <Route path="/clients/:id" element={<ClientDetail />} />
       <Route path="/finances" element={<Finances />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/time" element={<TimeTracking />} />

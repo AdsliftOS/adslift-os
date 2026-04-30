@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ const statusColors: Record<ClientStatus, string> = {
 
 export default function Clients() {
   const [clients] = useClients();
+  const navigate = useNavigate();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -357,7 +359,7 @@ export default function Clients() {
               {filteredClients.map((c, idx) => (
                 <TableRow key={c.id} className={`group ${idx % 2 === 1 ? "bg-muted/[0.03]" : ""}`}>
                   <TableCell>
-                    <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => openCloseDetail(c)}>
+                    <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate(`/clients/${c.id}`)}>
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                         <span className="text-xs font-bold text-primary">{c.name.slice(0, 2).toUpperCase()}</span>
                       </div>
