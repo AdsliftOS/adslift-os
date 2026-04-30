@@ -4,11 +4,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  GraduationCap, CheckCircle2, Circle, FileCheck2, Clock, MessageSquare, Plus, ExternalLink,
+  GraduationCap, FileCheck2, Clock, Rocket, ExternalLink, Copy, Check,
 } from "lucide-react";
 import { toast } from "sonner";
 
-type AcademyCustomer = { id: string; name: string; email: string; status: string };
+type AcademyCustomer = { id: string; name: string; email: string; status: string; password_hash: string | null };
 type Course = { id: string; title: string; is_published: boolean };
 type Lesson = { id: string; course_id: string; title: string; is_published: boolean; requires_submission: boolean | null };
 type Progress = { lesson_id: string; completed: boolean };
@@ -21,12 +21,13 @@ export function CustomerAcademyOverview({ clientId, clientEmail, clientName }: {
   const [progress, setProgress] = useState<Progress[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [starting, setStarting] = useState(false);
 
   const reload = async () => {
     setLoading(true);
     const { data: ac } = await supabase
       .from("academy_customers")
-      .select("id, name, email, status")
+      .select("id, name, email, status, password_hash")
       .eq("client_id", clientId)
       .maybeSingle();
     setAcademyCustomer(ac ?? null);
@@ -48,52 +49,78 @@ export function CustomerAcademyOverview({ clientId, clientEmail, clientName }: {
 
   useEffect(() => { reload(); }, [clientId]);
 
-  const handleCreateAcademy = async () => {
-    if (!clientEmail) { toast.error("Client hat keine Email"); return; }
+  const handleStartOnboarding = async () => {
+    if (!clientEmail) { toast.error("Kunde hat keine Email"); return; }
+    setStarting(true);
     const tempPassword = Math.random().toString(36).slice(2, 10);
     const { error } = await supabase.from("academy_customers").insert({
       name: clientName,
       email: clientEmail.toLowerCase(),
-      password_hash: tempPassword, // TODO: hash properly when login is implemented
+      password_hash: tempPassword,
       company: clientName,
       status: "active",
       client_id: clientId,
     });
-    if (error) { toast.error("Fehler: " + error.message); return; }
-    toast.success("Academy-Login erstellt", { description: `Passwort: ${tempPassword}` });
+    if (error) {
+      toast.error("Fehler: " + error.message);
+      setStarting(false);
+      return;
+    }
+
+    // Set client status to Active so it shows up in onboarding flow
+    await supabase.from("clients").update({ status: "Active" }).eq("id", clientId);
+
+    // Copy login info to clipboard
+    const academyUrl = `${window.location.origin}/academy`;
+    const loginInfo = `🚀 Adslift Academy — dein Onboarding ist bereit\n\nLogin: ${academyUrl}\nEmail: ${clientEmail}\nPasswort: ${tempPassword}`;
+    await navigator.clipboard.writeText(loginInfo).catch(() => {});
+
+    toast.success("Onboarding gestartet 🚀", {
+      description: `Login-Daten in Zwischenablage. Passwort: ${tempPassword}`,
+      duration: 8000,
+    });
+    setStarting(false);
     await reload();
   };
 
+  const copyLogin = () => {
+    if (!academyCustomer) return;
+    const academyUrl = `${window.location.origin}/academy`;
+    const loginInfo = `Login: ${academyUrl}\nEmail: ${academyCustomer.email}${academyCustomer.password_hash ? `\nPasswort: ${academyCustomer.password_hash}` : ""}`;
+    navigator.clipboard.writeText(loginInfo);
+    toast.success("Login-Daten kopiert");
+  };
+
   if (loading) {
-    return (
-      <Card>
-        <CardContent className="p-5 text-sm text-muted-foreground">Lade Academy-Daten ...</CardContent>
-      </Card>
-    );
+    return <Card><CardContent className="p-5 text-sm text-muted-foreground">Lade Onboarding-Daten ...</CardContent></Card>;
   }
 
+  // ── State 1: Onboarding noch nicht gestartet ──────────────────────────────
   if (!academyCustomer) {
     return (
-      <Card className="border-dashed">
+      <Card className="border-dashed border-primary/30 bg-gradient-to-br from-primary/5 to-violet-500/5">
         <CardContent className="p-5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-              <GraduationCap className="h-5 w-5 text-muted-foreground" />
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-12 w-12 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+              <Rocket className="h-6 w-6 text-primary" />
             </div>
-            <div>
-              <div className="text-sm font-medium">Kein Academy-Login</div>
-              <div className="text-xs text-muted-foreground">Erstelle einen damit der Kunde Zugang zum Onboarding-Programm hat.</div>
+            <div className="min-w-0">
+              <div className="text-sm font-bold">Onboarding noch nicht gestartet</div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                Klick = Academy-Login erstellt, Login-Daten in Zwischenablage. Kunde bekommt Zugang zum Onboarding-Programm.
+              </div>
             </div>
           </div>
-          <Button onClick={handleCreateAcademy} size="sm" className="gap-1.5">
-            <Plus className="h-4 w-4" /> Academy-Login erstellen
+          <Button onClick={handleStartOnboarding} disabled={starting || !clientEmail} className="gap-1.5 shrink-0 bg-gradient-to-r from-primary to-violet-600 hover:from-primary/90 hover:to-violet-700">
+            <Rocket className="h-4 w-4" />
+            {starting ? "Starte ..." : "Onboarding starten"}
           </Button>
         </CardContent>
       </Card>
     );
   }
 
-  // Build per-course stats
+  // ── State 2: Onboarding läuft ────────────────────────────────────────────
   const coursesWithProgress = courses
     .map((c) => {
       const cl = lessons.filter((l) => l.course_id === c.id && l.is_published);
@@ -107,39 +134,48 @@ export function CustomerAcademyOverview({ clientId, clientEmail, clientName }: {
     })
     .filter(Boolean) as { course: Course; total: number; completed: number; pendingSubmissions: number; pct: number }[];
 
-  const totalSubmissions = submissions.length;
   const submittedCount = submissions.filter((s) => s.status === "submitted").length;
   const approvedCount = submissions.filter((s) => s.status === "approved").length;
+  const totalLessons = lessons.filter((l) => l.is_published).length;
+  const totalCompleted = progress.filter((p) => p.completed).length;
+  const overallPct = totalLessons ? Math.round((totalCompleted / totalLessons) * 100) : 0;
 
   return (
     <Card>
       <CardContent className="p-5 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <GraduationCap className="h-4 w-4 text-violet-500" />
-            <h3 className="text-sm font-semibold">Academy</h3>
-            <Badge variant="secondary" className="text-[10px]">{academyCustomer.status}</Badge>
+            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+              <Check className="h-4 w-4 text-emerald-500" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold">Onboarding läuft</h3>
+              <p className="text-[11px] text-muted-foreground">{totalCompleted} von {totalLessons} Lektionen · {overallPct}%</p>
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-2">
             {submittedCount > 0 && (
-              <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20 gap-1">
-                <Clock className="h-3 w-3" /> {submittedCount} pending
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 gap-1">
+                <Clock className="h-3 w-3" /> {submittedCount} Review nötig
               </Badge>
             )}
-            {approvedCount > 0 && (
-              <span className="text-muted-foreground">{approvedCount} approved</span>
-            )}
+            <Button onClick={copyLogin} size="sm" variant="outline" className="gap-1.5">
+              <Copy className="h-3.5 w-3.5" /> Login
+            </Button>
           </div>
         </div>
 
         {coursesWithProgress.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Keine Kurse zugewiesen.</p>
+          <p className="text-xs text-muted-foreground">Keine Kurse verfügbar. Leg einen Onboarding-Kurs in Academy an.</p>
         ) : (
           <div className="space-y-2">
             {coursesWithProgress.map(({ course, total, completed, pendingSubmissions, pct }) => (
               <div key={course.id} className="rounded-lg border bg-muted/30 p-3">
                 <div className="flex items-center justify-between mb-1.5">
-                  <div className="text-sm font-medium truncate">{course.title}</div>
+                  <div className="text-sm font-medium truncate flex items-center gap-2">
+                    <GraduationCap className="h-3.5 w-3.5 text-violet-500" />
+                    {course.title}
+                  </div>
                   <div className="text-xs text-muted-foreground tabular-nums">{completed}/{total}</div>
                 </div>
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden">
@@ -147,7 +183,7 @@ export function CustomerAcademyOverview({ clientId, clientEmail, clientName }: {
                 </div>
                 {pendingSubmissions > 0 && (
                   <div className="text-[10px] text-amber-600 mt-1.5 flex items-center gap-1">
-                    <FileCheck2 className="h-3 w-3" /> {pendingSubmissions} Workbook(s) zur Review
+                    <FileCheck2 className="h-3 w-3" /> {pendingSubmissions} Workbook(s) warten auf Review
                   </div>
                 )}
               </div>
@@ -156,9 +192,10 @@ export function CustomerAcademyOverview({ clientId, clientEmail, clientName }: {
         )}
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground border-t pt-3">
-          <span>Login: {academyCustomer.email}</span>
+          <span className="truncate">Login: {academyCustomer.email}</span>
+          {approvedCount > 0 && <span className="ml-auto text-emerald-600">{approvedCount} approved</span>}
           <a href="/academy" target="_blank" rel="noopener noreferrer" className="ml-auto inline-flex items-center gap-1 text-primary hover:underline">
-            Academy öffnen <ExternalLink className="h-3 w-3" />
+            Academy <ExternalLink className="h-3 w-3" />
           </a>
         </div>
       </CardContent>
