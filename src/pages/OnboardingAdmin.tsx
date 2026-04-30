@@ -6,6 +6,8 @@ import {
   createToken,
   giveFeedback,
   approveModule,
+  updateModule,
+  uploadModuleWorkbookPdf,
   type OnboardingModule,
   type OnboardingProgress,
   type OnboardingToken,
@@ -19,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   CheckCircle2, Lock, Play, Clock, MessageSquare, Plus, Copy, Sparkles, Send,
+  FileCheck2, Download, Settings, Upload, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -37,6 +40,7 @@ export default function OnboardingAdmin() {
   const [progress, setProgress] = useState<OnboardingProgress[]>([]);
   const [openModuleId, setOpenModuleId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [modulesOpen, setModulesOpen] = useState(false);
 
   // Feedback form state
   const [fbLoomUrl, setFbLoomUrl] = useState("");
@@ -149,9 +153,14 @@ export default function OnboardingAdmin() {
             Reviewe Workbook-Submissions und gib Loom-Feedback.
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="gap-1.5">
-          <Plus className="h-4 w-4" /> Neuer Onboarding-Link
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setModulesOpen(true)} variant="outline" className="gap-1.5">
+            <Settings className="h-4 w-4" /> Module bearbeiten
+          </Button>
+          <Button onClick={() => setCreateOpen(true)} className="gap-1.5">
+            <Plus className="h-4 w-4" /> Neuer Onboarding-Link
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
@@ -262,27 +271,34 @@ export default function OnboardingAdmin() {
               </DialogHeader>
 
               <div className="space-y-5 mt-3">
-                {/* Submission-Inhalt */}
+                {/* Submission-File */}
                 <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider mb-3">Workbook-Antworten</h3>
-                  {openModule.workbookSchema.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Kein Workbook für dieses Modul.</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {openModule.workbookSchema.map((field) => {
-                        const v = openProgress.submission[field.key] ?? "";
-                        return (
-                          <div key={field.key}>
-                            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                              {field.label}
-                            </div>
-                            <div className="text-sm whitespace-pre-wrap mt-0.5 rounded-lg bg-muted/50 p-2.5">
-                              {v ? v : <span className="text-muted-foreground italic">— leer —</span>}
-                            </div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider mb-3">Eingereichte Datei</h3>
+                  {openProgress.submissionFileUrl ? (
+                    <div className="rounded-lg border bg-muted/30 p-4 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                          <FileCheck2 className="h-5 w-5 text-emerald-500" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">
+                            {openProgress.submissionFileName ?? "Workbook-Submission"}
                           </div>
-                        );
-                      })}
+                          {openProgress.submittedAt && (
+                            <div className="text-xs text-muted-foreground">
+                              Eingereicht: {new Date(openProgress.submittedAt).toLocaleString("de-DE")}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <a href={openProgress.submissionFileUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                        <Button size="sm" variant="outline" className="gap-1.5">
+                          <Download className="h-3.5 w-3.5" /> Öffnen
+                        </Button>
+                      </a>
                     </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Noch nichts eingereicht.</p>
                   )}
                 </div>
 
@@ -323,6 +339,24 @@ export default function OnboardingAdmin() {
         </DialogContent>
       </Dialog>
 
+      {/* Module-Editor Dialog */}
+      <Dialog open={modulesOpen} onOpenChange={setModulesOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Module bearbeiten — Loom, Doc, Workbook-PDF</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            {orderedModules.map((mod) => (
+              <ModuleEditor
+                key={mod.id}
+                module={mod}
+                onUpdated={async () => { setModules(await loadModules()); }}
+              />
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Create-Token Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
@@ -360,6 +394,98 @@ export default function OnboardingAdmin() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function ModuleEditor({ module: mod, onUpdated }: { module: OnboardingModule; onUpdated: () => Promise<void> }) {
+  const [loomUrl, setLoomUrl] = useState(mod.loomUrl ?? "");
+  const [docUrl, setDocUrl] = useState(mod.docUrl ?? "");
+  const [pdfUrl, setPdfUrl] = useState(mod.workbookPdfUrl ?? "");
+  const [pdfName, setPdfName] = useState(mod.workbookPdfFilename ?? "");
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const result = await uploadModuleWorkbookPdf(mod.slug, file);
+    if (!result) {
+      toast.error("Upload fehlgeschlagen");
+      setUploading(false);
+      return;
+    }
+    setPdfUrl(result.url);
+    setPdfName(file.name);
+    setUploading(false);
+    toast.success("PDF hochgeladen — vergiss nicht zu speichern");
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await updateModule(mod.id, {
+      loomUrl: loomUrl.trim() || null,
+      docUrl: docUrl.trim() || null,
+      workbookPdfUrl: pdfUrl.trim() || null,
+      workbookPdfFilename: pdfName.trim() || null,
+    });
+    await onUpdated();
+    setSaving(false);
+    toast.success(`${mod.title} gespeichert`);
+  };
+
+  return (
+    <div className="rounded-xl border p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+            Modul {mod.sortOrder}
+          </div>
+          <div className="font-bold text-sm">{mod.title}</div>
+        </div>
+        <Button onClick={handleSave} disabled={saving} size="sm" className="gap-1.5">
+          <Sparkles className="h-3.5 w-3.5" /> {saving ? "..." : "Speichern"}
+        </Button>
+      </div>
+      <div className="grid gap-2">
+        <Label className="text-xs">Loom-URL</Label>
+        <Input value={loomUrl} onChange={(e) => setLoomUrl(e.target.value)} placeholder="https://www.loom.com/share/..." />
+      </div>
+      <div className="grid gap-2">
+        <Label className="text-xs">Doc-URL (Notion / Google Doc)</Label>
+        <Input value={docUrl} onChange={(e) => setDocUrl(e.target.value)} placeholder="https://www.notion.so/..." />
+      </div>
+      <div className="grid gap-2">
+        <Label className="text-xs">Workbook-PDF</Label>
+        {pdfUrl && (
+          <div className="rounded-lg border bg-muted/30 p-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileText className="h-4 w-4 text-emerald-500 shrink-0" />
+              <span className="text-xs truncate">{pdfName || pdfUrl}</span>
+            </div>
+            <a href={pdfUrl} target="_blank" rel="noopener noreferrer">
+              <Button size="sm" variant="ghost" className="h-7 gap-1.5">
+                <Download className="h-3 w-3" /> Öffnen
+              </Button>
+            </a>
+          </div>
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".pdf,application/pdf"
+          className="hidden"
+          onChange={handleUploadPdf}
+          disabled={uploading}
+        />
+        <Button onClick={() => fileRef.current?.click()} disabled={uploading} variant="outline" size="sm" className="gap-1.5">
+          <Upload className="h-3.5 w-3.5" />
+          {uploading ? "Lädt hoch ..." : pdfUrl ? "Neue PDF hochladen" : "PDF hochladen"}
+        </Button>
+      </div>
     </div>
   );
 }

@@ -1,15 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
 
-export type WorkbookField = {
-  key: string;
-  label: string;
-  type: "input" | "textarea" | "select";
-  placeholder?: string;
-  required?: boolean;
-  options?: string[];
-};
-
 export type OnboardingModule = {
   id: string;
   slug: string;
@@ -17,7 +8,8 @@ export type OnboardingModule = {
   description: string;
   loomUrl: string | null;
   docUrl: string | null;
-  workbookSchema: WorkbookField[];
+  workbookPdfUrl: string | null;
+  workbookPdfFilename: string | null;
   sortOrder: number;
   isPublished: boolean;
 };
@@ -29,7 +21,8 @@ export type OnboardingProgress = {
   token: string;
   moduleId: string;
   status: ProgressStatus;
-  submission: Record<string, string>;
+  submissionFileUrl: string | null;
+  submissionFileName: string | null;
   feedbackLoomUrl: string | null;
   feedbackText: string | null;
   submittedAt: string | null;
@@ -61,7 +54,8 @@ function rowToModule(row: any): OnboardingModule {
     description: row.description ?? "",
     loomUrl: row.loom_url,
     docUrl: row.doc_url,
-    workbookSchema: row.workbook_schema ?? [],
+    workbookPdfUrl: row.workbook_pdf_url,
+    workbookPdfFilename: row.workbook_pdf_filename,
     sortOrder: row.sort_order ?? 0,
     isPublished: row.is_published ?? true,
   };
@@ -90,7 +84,8 @@ export async function updateModule(id: string, updates: Partial<OnboardingModule
   if (updates.description !== undefined) dbUpdates.description = updates.description;
   if (updates.loomUrl !== undefined) dbUpdates.loom_url = updates.loomUrl;
   if (updates.docUrl !== undefined) dbUpdates.doc_url = updates.docUrl;
-  if (updates.workbookSchema !== undefined) dbUpdates.workbook_schema = updates.workbookSchema;
+  if (updates.workbookPdfUrl !== undefined) dbUpdates.workbook_pdf_url = updates.workbookPdfUrl;
+  if (updates.workbookPdfFilename !== undefined) dbUpdates.workbook_pdf_filename = updates.workbookPdfFilename;
   if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
   const { error } = await supabase.from("onboarding_modules").update(dbUpdates).eq("id", id);
   if (error) console.error("updateModule failed", error);
@@ -173,7 +168,8 @@ function rowToProgress(row: any): OnboardingProgress {
     token: row.token,
     moduleId: row.module_id,
     status: row.status,
-    submission: row.submission ?? {},
+    submissionFileUrl: row.submission_file_url,
+    submissionFileName: row.submission_file_name,
     feedbackLoomUrl: row.feedback_loom_url,
     feedbackText: row.feedback_text,
     submittedAt: row.submitted_at,
@@ -202,11 +198,40 @@ export async function loadAllSubmittedProgress(): Promise<OnboardingProgress[]> 
   return data.map(rowToProgress);
 }
 
-export async function submitWorkbook(progressId: string, submission: Record<string, string>) {
+export async function uploadModuleWorkbookPdf(moduleSlug: string, file: File): Promise<{ url: string; path: string } | null> {
+  const ext = file.name.split(".").pop() || "pdf";
+  const path = `modules/${moduleSlug}-${Date.now()}.${ext}`;
+  const { error: upErr } = await supabase.storage
+    .from("onboarding-submissions")
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (upErr) {
+    console.error("uploadModuleWorkbookPdf failed", upErr);
+    return null;
+  }
+  const { data } = supabase.storage.from("onboarding-submissions").getPublicUrl(path);
+  return { url: data.publicUrl, path };
+}
+
+export async function uploadSubmissionFile(token: string, moduleSlug: string, file: File): Promise<{ url: string; path: string } | null> {
+  const ext = file.name.split(".").pop() || "pdf";
+  const path = `${token}/${moduleSlug}-${Date.now()}.${ext}`;
+  const { error: upErr } = await supabase.storage
+    .from("onboarding-submissions")
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (upErr) {
+    console.error("uploadSubmissionFile failed", upErr);
+    return null;
+  }
+  const { data } = supabase.storage.from("onboarding-submissions").getPublicUrl(path);
+  return { url: data.publicUrl, path };
+}
+
+export async function submitWorkbook(progressId: string, fileUrl: string, fileName: string) {
   const { error } = await supabase
     .from("onboarding_progress")
     .update({
-      submission,
+      submission_file_url: fileUrl,
+      submission_file_name: fileName,
       status: "submitted",
       submitted_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

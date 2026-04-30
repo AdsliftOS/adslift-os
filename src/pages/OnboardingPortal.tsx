@@ -1,24 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import {
   loadModules,
   loadProgressForToken,
   getToken,
+  uploadSubmissionFile,
   submitWorkbook,
   type OnboardingModule,
   type OnboardingProgress,
   type OnboardingToken,
-  type WorkbookField,
 } from "@/store/onboardingModules";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CheckCircle2, Lock, Play, Clock, MessageSquare, FileText, Sparkles,
+  Download, Upload, FileCheck2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -46,8 +43,8 @@ export default function OnboardingPortal() {
   const [progress, setProgress] = useState<OnboardingProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
-  const [formValues, setFormValues] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -61,19 +58,11 @@ export default function OnboardingPortal() {
       setTokenData(t);
       setModules(mods);
       setProgress(prog);
-      // Auto-select active or first non-locked module
       const active = prog.find((p) => p.status === "active") ?? prog.find((p) => p.status !== "locked");
       if (active) setActiveModuleId(active.moduleId);
       setLoading(false);
     })();
   }, [token]);
-
-  // Hydrate form when active module changes
-  useEffect(() => {
-    if (!activeModuleId) return;
-    const p = progress.find((p) => p.moduleId === activeModuleId);
-    setFormValues(p?.submission ?? {});
-  }, [activeModuleId, progress]);
 
   const orderedModules = useMemo(
     () => [...modules].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -94,30 +83,23 @@ export default function OnboardingPortal() {
 
   const activeModule = orderedModules.find((m) => m.id === activeModuleId) ?? null;
   const activeProgress = activeModuleId ? progressByModule[activeModuleId] : null;
-  const canEdit = activeProgress?.status === "active" || activeProgress?.status === "feedback_given";
+  const canUpload = activeProgress?.status === "active" || activeProgress?.status === "feedback_given" || activeProgress?.status === "submitted";
 
-  const handleFieldChange = (key: string, value: string) => {
-    setFormValues((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const isFormValid = (mod: OnboardingModule, vals: Record<string, string>) => {
-    return mod.workbookSchema.every((f) => !f.required || (vals[f.key] ?? "").trim().length > 0);
-  };
-
-  const handleSubmit = async () => {
-    if (!activeProgress || !activeModule) return;
-    if (!isFormValid(activeModule, formValues)) {
-      toast.error("Bitte alle Pflichtfelder ausfüllen");
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeProgress || !activeModule || !token) return;
+    setUploading(true);
+    const result = await uploadSubmissionFile(token, activeModule.slug, file);
+    if (!result) {
+      toast.error("Upload fehlgeschlagen");
+      setUploading(false);
       return;
     }
-    setSubmitting(true);
-    await submitWorkbook(activeProgress.id, formValues);
-    // Reload progress
-    if (token) {
-      const fresh = await loadProgressForToken(token);
-      setProgress(fresh);
-    }
-    setSubmitting(false);
+    await submitWorkbook(activeProgress.id, result.url, file.name);
+    const fresh = await loadProgressForToken(token);
+    setProgress(fresh);
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     toast.success("Eingereicht! Alex meldet sich mit Feedback-Loom.");
   };
 
@@ -153,7 +135,6 @@ export default function OnboardingPortal() {
     <div className="min-h-screen bg-background">
       <Sonner />
 
-      {/* Top Bar */}
       <div className="border-b bg-card sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
@@ -161,9 +142,7 @@ export default function OnboardingPortal() {
             <Badge variant="secondary" className="text-[10px]">Onboarding</Badge>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground hidden sm:inline">
-              {tokenData.clientName}
-            </span>
+            <span className="text-sm text-muted-foreground hidden sm:inline">{tokenData.clientName}</span>
             <div className="flex items-center gap-2">
               <div className="w-32 h-2 rounded-full bg-muted overflow-hidden hidden sm:block">
                 <div className="h-full bg-emerald-500 transition-all" style={{ width: `${stats.pct}%` }} />
@@ -239,16 +218,10 @@ export default function OnboardingPortal() {
                     {(() => {
                       const url = getLoomEmbedUrl(activeModule.loomUrl);
                       return url ? (
-                        <iframe
-                          src={url}
-                          className="w-full h-full rounded-t-xl"
-                          allow="autoplay; fullscreen"
-                          allowFullScreen
-                        />
+                        <iframe src={url} className="w-full h-full rounded-t-xl" allow="autoplay; fullscreen" allowFullScreen />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-muted rounded-t-xl">
-                          <a href={activeModule.loomUrl} target="_blank" rel="noopener noreferrer"
-                            className="text-sm text-primary underline">
+                          <a href={activeModule.loomUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">
                             Loom öffnen →
                           </a>
                         </div>
@@ -256,7 +229,7 @@ export default function OnboardingPortal() {
                     })()}
                   </div>
                   <div className="p-4 border-t">
-                    <p className="text-sm font-medium">Schau dir das Loom an, bevor du den Workbook ausfüllst.</p>
+                    <p className="text-sm font-medium">Schau dir das Loom an, bevor du das Workbook ausfüllst.</p>
                   </div>
                 </CardContent>
               </Card>
@@ -282,8 +255,37 @@ export default function OnboardingPortal() {
               </Card>
             )}
 
+            {/* Workbook PDF — Download */}
+            {activeModule.workbookPdfUrl && (
+              <Card>
+                <CardContent className="p-5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-12 w-12 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                      <FileText className="h-6 w-6 text-emerald-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold">Workbook-PDF</div>
+                      <div className="text-xs text-muted-foreground">
+                        Lad's runter, fülle es aus, und lade unten wieder hoch.
+                      </div>
+                      {activeModule.workbookPdfFilename && (
+                        <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+                          {activeModule.workbookPdfFilename}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <a href={activeModule.workbookPdfUrl} target="_blank" rel="noopener noreferrer" download>
+                    <Button className="gap-1.5 shrink-0">
+                      <Download className="h-4 w-4" /> Download
+                    </Button>
+                  </a>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Feedback (wenn vorhanden) */}
-            {activeProgress.feedbackLoomUrl || activeProgress.feedbackText ? (
+            {(activeProgress.feedbackLoomUrl || activeProgress.feedbackText) && (
               <Card className="border-purple-500/40 bg-purple-500/5">
                 <CardContent className="p-5 space-y-4">
                   <div className="flex items-center gap-2">
@@ -297,55 +299,70 @@ export default function OnboardingPortal() {
                         <iframe src={url} className="w-full h-full" allow="autoplay; fullscreen" allowFullScreen />
                       </div>
                     ) : (
-                      <a href={activeProgress.feedbackLoomUrl} target="_blank" rel="noopener noreferrer"
-                        className="text-sm text-primary underline">Feedback-Loom öffnen →</a>
+                      <a href={activeProgress.feedbackLoomUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">
+                        Feedback-Loom öffnen →
+                      </a>
                     );
                   })()}
                   {activeProgress.feedbackText && (
                     <p className="text-sm whitespace-pre-wrap">{activeProgress.feedbackText}</p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    Du kannst dein Workbook unten anpassen und nochmal einreichen.
+                    Du kannst dein Workbook unten anpassen und nochmal hochladen.
                   </p>
                 </CardContent>
               </Card>
-            ) : null}
+            )}
 
-            {/* Workbook */}
+            {/* Upload — ausgefüllte PDF */}
             <Card>
-              <CardContent className="p-5 space-y-5">
+              <CardContent className="p-5 space-y-4">
                 <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider mb-1">Workbook</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-wider mb-1">Workbook hochladen</h3>
                   <p className="text-xs text-muted-foreground">
-                    {canEdit
-                      ? "Fülle die Felder aus und reiche ein. Alex schickt dir innerhalb von 1-2 Werktagen einen Feedback-Loom."
-                      : activeProgress.status === "submitted"
-                      ? "Eingereicht — Alex meldet sich gleich mit Feedback."
+                    {canUpload
+                      ? "Lade deine ausgefüllte PDF hoch. Alex schickt dir innerhalb von 1-2 Werktagen einen Feedback-Loom."
                       : "Modul abgeschlossen ✓"}
                   </p>
                 </div>
 
-                {activeModule.workbookSchema.map((field) => (
-                  <FieldRenderer
-                    key={field.key}
-                    field={field}
-                    value={formValues[field.key] ?? ""}
-                    onChange={(v) => handleFieldChange(field.key, v)}
-                    disabled={!canEdit}
-                  />
-                ))}
-
-                {canEdit && (
-                  <div className="flex justify-end pt-2">
-                    <Button
-                      onClick={handleSubmit}
-                      disabled={submitting || !isFormValid(activeModule, formValues)}
-                      className="gap-1.5"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      {submitting ? "Reiche ein ..." : "Einreichen"}
-                    </Button>
+                {activeProgress.submissionFileUrl && (
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileCheck2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                      <div className="text-sm truncate">
+                        {activeProgress.submissionFileName ?? "Eingereichte Datei"}
+                      </div>
+                    </div>
+                    <a href={activeProgress.submissionFileUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                      <Button size="sm" variant="outline">Ansehen</Button>
+                    </a>
                   </div>
+                )}
+
+                {canUpload && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      className="hidden"
+                      onChange={handleFileSelected}
+                      disabled={uploading}
+                    />
+                    <Button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="gap-1.5 w-full"
+                    >
+                      <Upload className="h-4 w-4" />
+                      {uploading
+                        ? "Lade hoch ..."
+                        : activeProgress.submissionFileUrl
+                        ? "Neue Version hochladen"
+                        : "PDF hochladen"}
+                    </Button>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -353,58 +370,11 @@ export default function OnboardingPortal() {
         ) : (
           <Card>
             <CardContent className="p-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                Wähle ein Modul aus der Liste links.
-              </p>
+              <p className="text-sm text-muted-foreground">Wähle ein Modul aus der Liste links.</p>
             </CardContent>
           </Card>
         )}
       </div>
-    </div>
-  );
-}
-
-function FieldRenderer({
-  field, value, onChange, disabled,
-}: {
-  field: WorkbookField;
-  value: string;
-  onChange: (v: string) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="grid gap-1.5">
-      <Label>
-        {field.label}
-        {field.required && <span className="text-red-500 ml-1">*</span>}
-      </Label>
-      {field.type === "textarea" && (
-        <Textarea
-          rows={4}
-          placeholder={field.placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-        />
-      )}
-      {field.type === "input" && (
-        <Input
-          placeholder={field.placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-        />
-      )}
-      {field.type === "select" && (
-        <Select value={value} onValueChange={onChange} disabled={disabled}>
-          <SelectTrigger><SelectValue placeholder={field.placeholder ?? "Auswählen ..."} /></SelectTrigger>
-          <SelectContent>
-            {(field.options ?? []).map((opt) => (
-              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
     </div>
   );
 }
