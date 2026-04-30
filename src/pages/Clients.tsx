@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useClients, addClient as addClientDB, updateClient as updateClientDB, deleteClient as deleteClientDB } from "@/store/clients";
 import type { Client, ClientStatus } from "@/store/clients";
 import { supabase } from "@/lib/supabase";
+import { CustomerAcademyOverview } from "@/components/CustomerAcademyOverview";
 
 type ClientComment = {
   id: string;
@@ -513,6 +514,17 @@ export default function Clients() {
               </div>
             </DialogTitle>
           </DialogHeader>
+
+          {/* Academy-Section — always shown, independent of Close-CRM */}
+          {closeDetailClient && (
+            <div className="px-1">
+              <CustomerAcademyOverview
+                clientId={closeDetailClient.id}
+                clientEmail={closeDetailClient.email}
+                clientName={closeDetailClient.name}
+              />
+            </div>
+          )}
 
           {closeLoading ? (
             <div className="flex items-center justify-center py-12">
