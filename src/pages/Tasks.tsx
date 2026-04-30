@@ -67,7 +67,7 @@ export default function Tasks() {
 
   const [form, setForm] = useState({
     title: "", description: "", category: "admin" as Category, priority: "medium" as Priority,
-    dueDate: todayStr, recurrence: "none" as Recurrence,
+    dueDate: todayStr, recurrence: "none" as Recurrence, clientId: "" as string,
   });
 
   const handleMoveTask = async (id: string, column: Column) => {
@@ -86,13 +86,13 @@ export default function Tasks() {
   };
 
   const openEdit = (task: Task) => {
-    setForm({ title: task.title, description: task.description || "", category: task.category, priority: task.priority, dueDate: task.dueDate || "", recurrence: task.recurrence });
+    setForm({ title: task.title, description: task.description || "", category: task.category, priority: task.priority, dueDate: task.dueDate || "", recurrence: task.recurrence, clientId: task.clientId ?? "" });
     setEditingTask(task);
     setDialogOpen(true);
   };
 
   const openNew = () => {
-    setForm({ title: "", description: "", category: "admin", priority: "medium", dueDate: todayStr, recurrence: "none" });
+    setForm({ title: "", description: "", category: "admin", priority: "medium", dueDate: todayStr, recurrence: "none", clientId: "" });
     setEditingTask(null);
     setDialogOpen(true);
   };
@@ -107,10 +107,11 @@ export default function Tasks() {
         priority: form.priority as Priority,
         recurrence: form.recurrence as Recurrence,
         dueDate: form.dueDate || "",
+        clientId: form.clientId || null,
       });
       toast.success("Aufgabe aktualisiert");
     } else {
-      await addTaskDB({ title: form.title.trim(), description: form.description, category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, column: "todo" as Column, recurrence: form.recurrence, assignee: viewUser });
+      await addTaskDB({ title: form.title.trim(), description: form.description, category: form.category, priority: form.priority, dueDate: form.dueDate || undefined, column: "todo" as Column, recurrence: form.recurrence, assignee: viewUser, clientId: form.clientId || null });
       toast.success("Aufgabe erstellt");
     }
     setDialogOpen(false);

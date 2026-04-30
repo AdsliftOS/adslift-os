@@ -27,19 +27,15 @@ import Clients from "./pages/Clients";
 import ClientDetail from "./pages/ClientDetail";
 import Finances from "./pages/Finances";
 import Settings from "./pages/Settings";
-import TimeTracking from "./pages/TimeTracking";
 import Sales from "./pages/Sales";
-import MetaAds from "./pages/MetaAds";
 import Calendar from "./pages/Calendar";
 import Tasks from "./pages/Tasks";
-import Files from "./pages/Files";
 import Onboarding from "./pages/Onboarding";
 import OnboardingFinanzberater from "./pages/OnboardingFinanzberater";
 import Academy from "./pages/Academy";
 import AcademyPortal from "./pages/AcademyPortal";
 import AuthCallback from "./pages/AuthCallback";
 import Login from "./pages/Login";
-import Mail from "./pages/Mail";
 import MyArea from "./pages/MyArea";
 import Pipeline from "./pages/Pipeline";
 import PipelinePortal from "./pages/PipelinePortal";
@@ -75,13 +71,9 @@ function RoleAwareRoutes() {
       <Route path="/clients/:id" element={<ClientDetail />} />
       <Route path="/finances" element={<Finances />} />
       <Route path="/settings" element={<Settings />} />
-      <Route path="/time" element={<TimeTracking />} />
       <Route path="/sales" element={<Sales />} />
-      <Route path="/meta-ads" element={<MetaAds />} />
       <Route path="/calendar" element={<ErrorBoundary><Calendar /></ErrorBoundary>} />
       <Route path="/tasks" element={<Tasks />} />
-      <Route path="/mail" element={<ErrorBoundary><Mail /></ErrorBoundary>} />
-      <Route path="/files" element={<Files />} />
       <Route path="/academy-admin" element={<ErrorBoundary><Academy /></ErrorBoundary>} />
       <Route path="*" element={<NotFound />} />
     </Routes>

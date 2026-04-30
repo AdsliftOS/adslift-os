@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, Building2, Mail, Phone, Calendar, FileText, GraduationCap,
-  Briefcase, CheckSquare, DollarSign, Clock, MessageSquare, Loader2,
+  Briefcase, CheckSquare, DollarSign, MessageSquare, Loader2,
 } from "lucide-react";
 import { useClients } from "@/store/clients";
 import { CustomerAcademyOverview } from "@/components/CustomerAcademyOverview";
@@ -26,7 +26,6 @@ export default function ClientDetail() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [deals, setDeals] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
-  const [timeEntries, setTimeEntries] = useState<any[]>([]);
   const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -34,13 +33,12 @@ export default function ClientDetail() {
     if (!id) return;
     (async () => {
       setLoading(true);
-      const [pp, lp, t, d, e, te, co] = await Promise.all([
+      const [pp, lp, t, d, e, co] = await Promise.all([
         supabase.from("pipeline_projects").select("*").eq("client_id", id).order("created_at", { ascending: false }),
         supabase.from("projects").select("*").eq("client_id", id).order("created_at", { ascending: false }),
         supabase.from("tasks").select("*").eq("client_id", id).order("created_at", { ascending: false }),
         supabase.from("deals").select("*").eq("client_id", id).order("created_at", { ascending: false }),
         supabase.from("calendar_events").select("*").eq("client_id", id).order("date_iso", { ascending: false }).limit(50),
-        supabase.from("time_entries").select("*").eq("client_id", id).order("started_at", { ascending: false }).limit(100),
         supabase.from("client_comments").select("*").eq("client_id", id).order("created_at", { ascending: false }),
       ]);
       setPipelineProjects(pp.data ?? []);
@@ -48,7 +46,6 @@ export default function ClientDetail() {
       setTasks(t.data ?? []);
       setDeals(d.data ?? []);
       setEvents(e.data ?? []);
-      setTimeEntries(te.data ?? []);
       setComments(co.data ?? []);
       setLoading(false);
     })();
@@ -61,8 +58,7 @@ export default function ClientDetail() {
     deals: deals.length,
     dealsValue: deals.reduce((s, d) => s + (Number(d.value) || Number(d.amount) || 0), 0),
     events: events.length,
-    timeMinutes: timeEntries.reduce((s, t) => s + (Number(t.minutes) || Number(t.duration_minutes) || 0), 0),
-  }), [pipelineProjects, legacyProjects, tasks, deals, events, timeEntries]);
+  }), [pipelineProjects, legacyProjects, tasks, deals, events]);
 
   if (!client) {
     return (
@@ -102,12 +98,11 @@ export default function ClientDetail() {
       </div>
 
       {/* KPI-Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard icon={Briefcase} label="Projekte" value={stats.projects} />
         <KpiCard icon={CheckSquare} label="Tasks (offen)" value={`${stats.openTasks} / ${stats.tasks}`} />
         <KpiCard icon={DollarSign} label="Deals" value={`${stats.deals}`} sub={fmtEUR(stats.dealsValue)} />
         <KpiCard icon={Calendar} label="Events" value={stats.events} />
-        <KpiCard icon={Clock} label="Zeit" value={`${Math.round(stats.timeMinutes / 60)}h`} sub={`${stats.timeMinutes} min`} />
       </div>
 
       {/* Tabs */}
@@ -119,7 +114,6 @@ export default function ClientDetail() {
           <TabsTrigger value="tasks" className="gap-1.5"><CheckSquare className="h-4 w-4" />Tasks ({stats.tasks})</TabsTrigger>
           <TabsTrigger value="deals" className="gap-1.5"><DollarSign className="h-4 w-4" />Deals ({stats.deals})</TabsTrigger>
           <TabsTrigger value="calendar" className="gap-1.5"><Calendar className="h-4 w-4" />Kalender ({stats.events})</TabsTrigger>
-          <TabsTrigger value="time" className="gap-1.5"><Clock className="h-4 w-4" />Zeit</TabsTrigger>
           <TabsTrigger value="notes" className="gap-1.5"><MessageSquare className="h-4 w-4" />Notizen ({comments.length})</TabsTrigger>
         </TabsList>
 
@@ -215,20 +209,6 @@ export default function ClientDetail() {
                 <span className="text-xs text-muted-foreground">{fmtDate(e.date_iso)}</span>
               </div>
               {e.notes && <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{e.notes}</div>}
-            </RowCard>
-          ))}
-        </TabsContent>
-
-        <TabsContent value="time" className="space-y-2 mt-4">
-          {timeEntries.length === 0 ? (
-            <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">Keine Zeit-Einträge für diesen Kunden.</CardContent></Card>
-          ) : timeEntries.slice(0, 50).map((t) => (
-            <RowCard key={t.id}>
-              <div className="flex items-center justify-between gap-2">
-                <div className="font-medium text-sm">{t.description || t.task || "Zeiteintrag"}</div>
-                <span className="text-xs font-mono">{Number(t.minutes) || Number(t.duration_minutes) || 0} min</span>
-              </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">{fmtDate(t.started_at || t.date_iso)}</div>
             </RowCard>
           ))}
         </TabsContent>

@@ -4,12 +4,8 @@ import {
   Users,
   Wallet,
   TrendingUp,
-  Megaphone,
-  Mail,
   Calendar,
   CircleCheckBig,
-  FolderOpen,
-  Clock,
   GraduationCap,
   Settings,
   LogOut,
@@ -55,14 +51,10 @@ const workspaceItems: NavItem[] = [
   { title: "Kunden", url: "/clients", icon: Users },
   { title: "Kalender", url: "/calendar", icon: Calendar },
   { title: "Aufgaben", url: "/tasks", icon: CircleCheckBig },
-  { title: "E-Mail", url: "/mail", icon: Mail },
-  { title: "Dateien", url: "/files", icon: FolderOpen },
-  { title: "Zeiterfassung", url: "/time", icon: Clock },
 ];
 
 const growthItems: NavItem[] = [
   { title: "Sales", url: "/sales", icon: TrendingUp },
-  { title: "Meta Ads", url: "/meta-ads", icon: Megaphone, badge: "new" },
   { title: "Finanzen", url: "/finances", icon: Wallet },
   { title: "Academy", url: "/academy-admin", icon: GraduationCap },
 ];

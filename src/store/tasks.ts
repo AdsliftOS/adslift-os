@@ -17,6 +17,7 @@ export type Task = {
   column: Column;
   recurrence: Recurrence;
   assignee: string;
+  clientId?: string | null;
 };
 
 let tasks: Task[] = [];
@@ -37,6 +38,7 @@ function rowToTask(r: any): Task {
     column: (r.col || "todo") as Column,
     recurrence: r.recurrence || r.recurring || "none",
     assignee: r.assignee || "alex",
+    clientId: r.client_id ?? null,
   };
 }
 
@@ -63,6 +65,7 @@ export async function addTask(task: Omit<Task, "id">) {
     col: task.column,
     recurrence: task.recurrence,
     assignee: task.assignee,
+    client_id: task.clientId ?? null,
   }).select().single();
 
   if (!error && data) {
@@ -86,6 +89,7 @@ export async function updateTask(id: string, updates: Partial<Task>) {
   if (updates.recurrence !== undefined) dbUpdates.recurrence = updates.recurrence;
   if (updates.description !== undefined) dbUpdates.description = updates.description;
   if (updates.assignee !== undefined) dbUpdates.assignee = updates.assignee;
+  if ("clientId" in updates) dbUpdates.client_id = updates.clientId ?? null;
 
   // Optimistic update
   tasks = tasks.map((t) => t.id === id ? { ...t, ...updates } : t);

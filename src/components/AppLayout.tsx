@@ -15,7 +15,6 @@ const navPages = [
   { title: "Clients / Kunden", path: "/clients" },
   { title: "Finanzen / Cash-In / Cash-Out", path: "/finances" },
   { title: "Sales", path: "/sales" },
-  { title: "Zeiterfassung / Time Tracking", path: "/time" },
   { title: "Einstellungen / Settings", path: "/settings" },
 ];
 
@@ -83,23 +82,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 flex items-center justify-between border-b bg-card px-4 shrink-0">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger />
+          <header className="sticky top-0 z-30 h-14 flex items-center justify-between px-4 shrink-0 border-b border-white/[0.06] bg-background/60 backdrop-blur-glass">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground hover:bg-white/[0.06]" />
               {/* Search */}
               <div className="relative search-container">
                 <button
                   onClick={() => { setSearchOpen(true); setTimeout(() => searchRef.current?.focus(), 50); }}
-                  className="hidden sm:flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-sm text-muted-foreground w-64 hover:border-primary/30 transition-colors"
+                  className="hidden sm:flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[13px] text-muted-foreground w-64 hover:border-primary/30 hover:bg-primary/[0.06] transition-colors"
                 >
-                  <Search className="h-4 w-4" />
-                  <span className="flex-1 text-left">Suchen...</span>
-                  <kbd className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
+                  <Search className="h-3.5 w-3.5" />
+                  <span className="flex-1 text-left">Suchen…</span>
+                  <kbd className="text-[10px] bg-white/[0.06] border border-white/[0.08] text-muted-foreground/80 px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
                 </button>
 
                 {searchOpen && (
                   <div className="absolute top-0 left-0 w-80 sm:w-96 z-50">
-                    <div className="rounded-lg border bg-card shadow-lg overflow-hidden">
+                    <div className="rounded-xl border border-white/[0.08] bg-card/95 backdrop-blur-glass shadow-glass-lg overflow-hidden">
                       <div className="flex items-center gap-2 px-3 border-b">
                         <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                         <Input
