@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import AcademySubmissionsTab from "@/components/AcademySubmissionsTab";
+import { Inbox } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Course = {
@@ -58,6 +60,7 @@ type Lesson = {
   sort_order: number;
   has_quiz: boolean;
   is_mandatory: boolean;
+  requires_submission?: boolean;
   created_at: string;
 };
 
@@ -158,7 +161,7 @@ export default function Academy() {
   const [lessonForm, setLessonForm] = useState({
     title: "", description: "", vimeo_id: "", duration_minutes: 0,
     download_url: "", download_name: "", is_published: true, sort_order: 0,
-    has_quiz: false, is_mandatory: false, chapter_id: "" as string,
+    has_quiz: false, is_mandatory: false, requires_submission: false, chapter_id: "" as string,
   });
 
   // Customer
@@ -561,7 +564,8 @@ export default function Academy() {
         duration_minutes: lesson.duration_minutes || 0, download_url: lesson.download_url || "",
         download_name: lesson.download_name || "", is_published: lesson.is_published,
         sort_order: lesson.sort_order || 0, has_quiz: lesson.has_quiz || false,
-        is_mandatory: lesson.is_mandatory || false, chapter_id: lesson.chapter_id || "",
+        is_mandatory: lesson.is_mandatory || false, requires_submission: lesson.requires_submission || false,
+        chapter_id: lesson.chapter_id || "",
       });
       // Fetch thumbnail if existing vimeo URL
       if (lesson.vimeo_id) fetchVimeoThumbnail(lesson.vimeo_id);
@@ -572,7 +576,7 @@ export default function Academy() {
       setLessonForm({
         title: "", description: "", vimeo_id: "", duration_minutes: 0,
         download_url: "", download_name: "", is_published: true, sort_order: chLessons.length + 1,
-        has_quiz: false, is_mandatory: false, chapter_id: chapterId || "",
+        has_quiz: false, is_mandatory: false, requires_submission: false, chapter_id: chapterId || "",
       });
       setVimeoThumbnail("");
     }
@@ -854,6 +858,7 @@ export default function Academy() {
           <TabsTrigger value="courses" className="gap-1.5"><BookOpen className="h-4 w-4" />Kurse</TabsTrigger>
           <TabsTrigger value="lessons" className="gap-1.5"><Video className="h-4 w-4" />Lektionen</TabsTrigger>
           <TabsTrigger value="customers" className="gap-1.5"><Users className="h-4 w-4" />Kunden</TabsTrigger>
+          <TabsTrigger value="submissions" className="gap-1.5"><Inbox className="h-4 w-4" />Submissions</TabsTrigger>
           <TabsTrigger value="quizzes" className="gap-1.5"><FileQuestion className="h-4 w-4" />Quizzes</TabsTrigger>
           <TabsTrigger value="analytics" className="gap-1.5"><BarChart3 className="h-4 w-4" />Analytics</TabsTrigger>
         </TabsList>
@@ -1656,6 +1661,15 @@ export default function Academy() {
           )}
         </TabsContent>
 
+        {/* ══════════════════ SUBMISSIONS TAB ══════════════════ */}
+        <TabsContent value="submissions" className="space-y-4">
+          <h2 className="text-lg font-semibold">Workbook-Submissions reviewen</h2>
+          <p className="text-sm text-muted-foreground">
+            Hochgeladene Workbooks von Kunden. Gib Loom-Feedback und „Approve" — damit wird die nächste Lektion freigeschaltet (bei sequentiellen Kursen).
+          </p>
+          <AcademySubmissionsTab />
+        </TabsContent>
+
         {/* ══════════════════ QUIZZES TAB ══════════════════ */}
         <TabsContent value="quizzes" className="space-y-4">
           <h2 className="text-lg font-semibold">Quizzes verwalten</h2>
@@ -2149,6 +2163,16 @@ export default function Academy() {
               <div className="flex items-center gap-3">
                 <Switch checked={lessonForm.is_mandatory} onCheckedChange={(v) => setLessonForm({ ...lessonForm, is_mandatory: v })} />
                 <Label>Pflicht-Lektion</Label>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+              <Switch
+                checked={lessonForm.requires_submission}
+                onCheckedChange={(v) => setLessonForm({ ...lessonForm, requires_submission: v })}
+              />
+              <div>
+                <Label>Workbook-Submission erforderlich</Label>
+                <p className="text-xs text-muted-foreground">Kunde muss ausgefüllte PDF hochladen → Coach reviewt → Approve schaltet nächste Lektion frei.</p>
               </div>
             </div>
           </div>

@@ -17,7 +17,6 @@ import {
   UserCircle,
   UsersRound,
   Sparkles,
-  Handshake,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, matchPath } from "react-router-dom";
@@ -66,7 +65,6 @@ const growthItems: NavItem[] = [
   { title: "Meta Ads", url: "/meta-ads", icon: Megaphone, badge: "new" },
   { title: "Finanzen", url: "/finances", icon: Wallet },
   { title: "Academy", url: "/academy-admin", icon: GraduationCap },
-  { title: "Onboarding", url: "/onboarding-admin", icon: Handshake, badge: "new" },
 ];
 
 // Shared active / base class strings — extracted so the item style stays consistent.

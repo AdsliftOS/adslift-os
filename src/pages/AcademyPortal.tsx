@@ -56,6 +56,7 @@ import {
 import { toast } from "sonner";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { supabase } from "@/lib/supabase";
+import { LessonSubmissionPanel } from "@/components/LessonSubmissionPanel";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Course = {
@@ -88,6 +89,7 @@ type Lesson = {
   is_published: boolean;
   sort_order: number;
   has_quiz?: boolean;
+  requires_submission?: boolean;
 };
 
 type LessonProgress = {
@@ -1859,20 +1861,31 @@ export default function AcademyPortal() {
                     </button>
                   )}
 
-                  <Button
-                    onClick={() => toggleLessonComplete(selectedLesson.id)}
-                    className={`rounded-xl transition-all duration-300 ${isLessonCompleted(selectedLesson.id)
-                      ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20"
-                      : "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-lg shadow-violet-500/20"
-                    }`}
-                  >
-                    {isLessonCompleted(selectedLesson.id) ? (
-                      <><CheckCircle2 className="h-4 w-4 mr-2" />Abgeschlossen</>
-                    ) : (
-                      <><Circle className="h-4 w-4 mr-2" />Als abgeschlossen markieren</>
-                    )}
-                  </Button>
+                  {!selectedLesson.requires_submission && (
+                    <Button
+                      onClick={() => toggleLessonComplete(selectedLesson.id)}
+                      className={`rounded-xl transition-all duration-300 ${isLessonCompleted(selectedLesson.id)
+                        ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20"
+                        : "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-lg shadow-violet-500/20"
+                      }`}
+                    >
+                      {isLessonCompleted(selectedLesson.id) ? (
+                        <><CheckCircle2 className="h-4 w-4 mr-2" />Abgeschlossen</>
+                      ) : (
+                        <><Circle className="h-4 w-4 mr-2" />Als abgeschlossen markieren</>
+                      )}
+                    </Button>
+                  )}
                 </div>
+
+                {/* Submission-Panel (wenn Lesson Workbook-Upload erfordert) */}
+                {selectedLesson.requires_submission && session && (
+                  <LessonSubmissionPanel
+                    lessonId={selectedLesson.id}
+                    customerId={session.customer_id}
+                    isDark={isDark}
+                  />
+                )}
 
                 {/* Description (Collapsible) */}
                 {selectedLesson.description && (
