@@ -34,6 +34,8 @@ import Tasks from "./pages/Tasks";
 import Files from "./pages/Files";
 import Onboarding from "./pages/Onboarding";
 import OnboardingFinanzberater from "./pages/OnboardingFinanzberater";
+import OnboardingPortal from "./pages/OnboardingPortal";
+import OnboardingAdmin from "./pages/OnboardingAdmin";
 import Academy from "./pages/Academy";
 import AcademyPortal from "./pages/AcademyPortal";
 import AuthCallback from "./pages/AuthCallback";
@@ -81,6 +83,7 @@ function RoleAwareRoutes() {
       <Route path="/mail" element={<ErrorBoundary><Mail /></ErrorBoundary>} />
       <Route path="/files" element={<Files />} />
       <Route path="/academy-admin" element={<ErrorBoundary><Academy /></ErrorBoundary>} />
+      <Route path="/onboarding-admin" element={<ErrorBoundary><OnboardingAdmin /></ErrorBoundary>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
@@ -138,6 +141,7 @@ const App = () => {
               {/* Public routes — no login required */}
               <Route path="/onboarding" element={<Onboarding />} />
               <Route path="/onboarding/finanzberater" element={<OnboardingFinanzberater />} />
+              <Route path="/onboarding-portal/:token" element={<OnboardingPortal />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/academy" element={<AcademyPortal />} />
               <Route path="/p/:token" element={<PipelinePortal />} />
