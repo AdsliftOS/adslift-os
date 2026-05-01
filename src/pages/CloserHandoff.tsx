@@ -64,14 +64,20 @@ export default function CloserHandoff() {
         clientId = newClient.id;
       }
 
-      // 2. Create academy_customer (skip if exists)
+      // 2. Upsert academy_customer — always sync password so email matches DB
       const { data: existingAc } = await supabase
         .from("academy_customers")
         .select("id")
-        .eq("client_id", clientId)
+        .or(`client_id.eq.${clientId},email.eq.${email}`)
         .maybeSingle();
 
-      if (!existingAc) {
+      if (existingAc) {
+        const { error: upErr } = await supabase
+          .from("academy_customers")
+          .update({ password_hash: password, status: "active", client_id: clientId, name: fullName, email, company })
+          .eq("id", existingAc.id);
+        if (upErr) throw upErr;
+      } else {
         const { error: acErr } = await supabase.from("academy_customers").insert({
           name: fullName,
           email,
