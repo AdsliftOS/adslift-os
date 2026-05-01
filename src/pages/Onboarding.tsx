@@ -349,8 +349,8 @@ export default function Onboarding() {
           </div>
         </div>
 
-        <div className="max-w-3xl mx-auto px-4 py-12 space-y-8">
-          <div className="text-center space-y-3">
+        <div className="max-w-5xl mx-auto px-4 py-12 space-y-8">
+          <div className="text-center space-y-3 max-w-3xl mx-auto">
             <div className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-primary font-semibold">
               <Sparkles className="h-3.5 w-3.5" />
               Willkommen, {academySession?.name?.split(" ")[0] ?? "bei Adslift"}
@@ -366,12 +366,12 @@ export default function Onboarding() {
           <Card className="overflow-hidden">
             <CardContent className="p-0">
               {loomEmbedUrl ? (
-                <div style={{ position: "relative", paddingBottom: "38.72093023255814%", height: 0 }}>
+                <div className="aspect-video">
                   <iframe
                     src={loomEmbedUrl}
-                    frameBorder={0}
+                    className="w-full h-full"
+                    allow="autoplay; fullscreen"
                     allowFullScreen
-                    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
                   />
                 </div>
               ) : (
