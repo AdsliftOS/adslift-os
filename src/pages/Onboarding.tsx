@@ -122,7 +122,28 @@ export default function Onboarding() {
   const [academySession, setAcademySession] = useState<{ customer_id: string; email: string; name: string } | null>(null);
   const [introWatched, setIntroWatched] = useState(false);
 
-  const WELCOME_LOOM_URL = "https://www.loom.com/share/297b5934b9674d57a30aea6b88c5c195";
+  const WISTIA_MEDIA_ID = "ej5mt00bg2";
+
+  // Wistia-Scripts laden (nur auf der Intro-Seite, einmalig)
+  useEffect(() => {
+    if (!fromAcademy || introWatched) return;
+    const ids = ["wistia-player-js", "wistia-media-js"];
+    const sources = [
+      "https://fast.wistia.com/player.js",
+      `https://fast.wistia.com/embed/${WISTIA_MEDIA_ID}.js`,
+    ];
+    const added: HTMLScriptElement[] = [];
+    sources.forEach((src, i) => {
+      if (document.getElementById(ids[i])) return;
+      const s = document.createElement("script");
+      s.id = ids[i];
+      s.src = src;
+      s.async = true;
+      if (i === 1) s.type = "module";
+      document.head.appendChild(s);
+      added.push(s);
+    });
+  }, [fromAcademy, introWatched]);
 
   // Wenn aus Academy-Login → Session laden + Email/Name vorausfüllen
   useEffect(() => {
@@ -337,9 +358,6 @@ export default function Onboarding() {
 
   // ── Video-Intro vor Wizard (nur in Academy-Mode) ─────────────────────────
   if (fromAcademy && !introWatched) {
-    const loomMatch = WELCOME_LOOM_URL.match(/loom\.com\/share\/([a-zA-Z0-9]+)/);
-    const loomEmbedUrl = loomMatch ? `https://www.loom.com/embed/${loomMatch[1]}` : null;
-
     return (
       <div className="min-h-screen bg-background">
         <div className="border-b bg-card">
@@ -365,21 +383,11 @@ export default function Onboarding() {
 
           <Card className="overflow-hidden">
             <CardContent className="p-0">
-              {loomEmbedUrl ? (
-                <div className="aspect-video">
-                  <iframe
-                    src={loomEmbedUrl}
-                    className="w-full h-full"
-                    allow="autoplay; fullscreen"
-                    allowFullScreen
-                  />
-                </div>
-              ) : (
-                <div className="aspect-video flex flex-col items-center justify-center bg-muted gap-3">
-                  <PlayCircle className="h-12 w-12 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Welcome-Video wird gleich verfügbar</p>
-                </div>
-              )}
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: `<style>wistia-player[media-id='${WISTIA_MEDIA_ID}']:not(:defined) { background: center / contain no-repeat url('https://fast.wistia.com/embed/medias/${WISTIA_MEDIA_ID}/swatch'); display: block; filter: blur(5px); padding-top:56.25%; }</style><wistia-player media-id="${WISTIA_MEDIA_ID}" aspect="1.7777777777777777"></wistia-player>`,
+                }}
+              />
             </CardContent>
           </Card>
 
