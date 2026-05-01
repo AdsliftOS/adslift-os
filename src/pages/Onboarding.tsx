@@ -366,12 +366,12 @@ export default function Onboarding() {
           <Card className="overflow-hidden">
             <CardContent className="p-0">
               {loomEmbedUrl ? (
-                <div className="aspect-video">
+                <div style={{ position: "relative", paddingBottom: "38.72093023255814%", height: 0 }}>
                   <iframe
                     src={loomEmbedUrl}
-                    className="w-full h-full"
-                    allow="autoplay; fullscreen"
+                    frameBorder={0}
                     allowFullScreen
+                    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
                   />
                 </div>
               ) : (
