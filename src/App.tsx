@@ -32,6 +32,7 @@ import Calendar from "./pages/Calendar";
 import Tasks from "./pages/Tasks";
 import Onboarding from "./pages/Onboarding";
 import OnboardingFinanzberater from "./pages/OnboardingFinanzberater";
+import CloserHandoff from "./pages/CloserHandoff";
 import Academy from "./pages/Academy";
 import AcademyPortal from "./pages/AcademyPortal";
 import AuthCallback from "./pages/AuthCallback";
@@ -132,6 +133,7 @@ const App = () => {
               {/* Public routes — no login required */}
               <Route path="/onboarding" element={<Onboarding />} />
               <Route path="/onboarding/finanzberater" element={<OnboardingFinanzberater />} />
+              <Route path="/handoff" element={<CloserHandoff />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/academy" element={<AcademyPortal />} />
               <Route path="/p/:token" element={<PipelinePortal />} />
