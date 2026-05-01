@@ -1012,10 +1012,7 @@ export default function AcademyPortal() {
         <div className="w-full max-w-md relative z-10">
           {/* Logo */}
           <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-violet-500 to-indigo-600 mb-6 shadow-2xl shadow-violet-500/30 ring-1 ring-white/10">
-              <img src="/favicon.png" alt="Adslift" className="h-8 w-8 sm:h-10 sm:w-10 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-              <GraduationCap className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
-            </div>
+            <img src="/adslift-icon.png" alt="Adslift" className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-6 rounded-3xl shadow-2xl shadow-blue-600/30" />
             <h1 className={`text-3xl sm:text-4xl font-bold tracking-tight ${isDark ? "text-white" : "text-gray-900"}`}>Adslift Academy</h1>
             <p className={`mt-3 text-base sm:text-lg ${isDark ? "text-white/40" : "text-gray-400"}`}>
               {view === "forgot-password" ? "Passwort zurucksetzen" : "Willkommen zuruck"}
@@ -1165,9 +1162,7 @@ export default function AcademyPortal() {
               onClick={() => { cancelAutoAdvance(); setView("dashboard"); }}
               className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
             >
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-                <GraduationCap className="h-4 w-4 text-white" />
-              </div>
+              <img src="/adslift-icon.png" alt="Adslift" className="w-8 h-8 rounded-xl shadow-lg shadow-blue-600/20" />
               <span className={`font-bold text-base hidden sm:block ${isDark ? "text-white" : "text-gray-900"}`}>Academy</span>
             </button>
           </div>
