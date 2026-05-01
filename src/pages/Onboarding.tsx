@@ -201,11 +201,12 @@ export default function Onboarding() {
           company: data.companyName,
         }).eq("id", ac.client_id);
 
-        // 2. Create project with onboarding data
+        // 2. Create project with onboarding data + linked to client_id
         const projectType = data.variant === "done4you" ? "done4you" : "donewithyou";
         const newProject: Project = {
           id: `onb-${Date.now()}`,
           client: data.companyName,
+          clientId: ac.client_id,
           name: `Meta Ads — ${data.companyName}`,
           product: data.monthlyAdBudget || "TBD",
           type: projectType,
@@ -236,15 +237,16 @@ export default function Onboarding() {
     // ── Standalone (existing flow) ─────────────────────────────────────────
     const { data: existing } = await supabase
       .from("clients")
-      .select("name, email")
+      .select("id, name, email")
       .ilike("email", normalizedEmail)
       .limit(1);
 
     const existingClient = existing && existing.length > 0 ? existing[0] : null;
     const clientName = existingClient ? existingClient.name : data.companyName;
+    let clientId: string | null = existingClient?.id ?? null;
 
     if (!existingClient) {
-      await addClientDB({
+      const newId = await addClientDB({
         name: data.companyName,
         contact: data.contactName,
         email: data.contactEmail,
@@ -254,12 +256,14 @@ export default function Onboarding() {
         revenue: 0,
         status: "Active" as const,
       });
+      clientId = newId;
     }
 
     const projectType = data.variant === "done4you" ? "done4you" : "donewithyou";
     const newProject: Project = {
       id: `onb-${Date.now()}`,
       client: clientName,
+      clientId,
       name: `Meta Ads — ${data.companyName}`,
       product: data.monthlyAdBudget || "TBD",
       type: projectType,

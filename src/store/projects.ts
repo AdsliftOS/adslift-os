@@ -12,6 +12,7 @@ export type Comment = { id: string; author: string; text: string; timestamp: str
 export type Project = {
   id: string;
   client: string;
+  clientId?: string | null;
   name: string;
   product: string;
   type: ProjectType;
@@ -39,6 +40,7 @@ function rowToProject(row: any): Project {
   return {
     id: row.id,
     client: row.client,
+    clientId: row.client_id ?? null,
     name: row.name,
     product: row.product,
     type: row.type,
@@ -58,7 +60,7 @@ function rowToProject(row: any): Project {
 
 function projectToRow(p: Project) {
   return {
-    client: p.client, name: p.name, product: p.product, type: p.type,
+    client: p.client, client_id: p.clientId ?? null, name: p.name, product: p.product, type: p.type,
     creative_format: p.creativeFormat, start_date: p.startDate,
     assignees: p.assignees, phases: p.phases, briefing: p.briefing,
     meeting_notes: p.meetingNotes, target_audience: p.targetAudience,
