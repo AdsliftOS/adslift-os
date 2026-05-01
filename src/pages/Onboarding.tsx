@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,9 +111,35 @@ const steps = [
 ];
 
 export default function Onboarding() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const fromAcademy = searchParams.get("from") === "academy";
+
   const [step, setStep] = useState(0);
   const [data, setData] = useState<OnboardingData>(initialData);
   const [submitted, setSubmitted] = useState(false);
+  const [academySession, setAcademySession] = useState<{ customer_id: string; email: string; name: string } | null>(null);
+
+  // Wenn aus Academy-Login → Session laden + Email/Name vorausfüllen
+  useEffect(() => {
+    if (!fromAcademy) return;
+    const stored = localStorage.getItem("academy_session");
+    if (!stored) {
+      navigate("/academy", { replace: true });
+      return;
+    }
+    try {
+      const parsed = JSON.parse(stored);
+      setAcademySession(parsed);
+      setData((prev) => ({
+        ...prev,
+        contactEmail: parsed.email || prev.contactEmail,
+        contactName: parsed.name || prev.contactName,
+      }));
+    } catch {
+      navigate("/academy", { replace: true });
+    }
+  }, [fromAcademy, navigate]);
 
   const update = (field: keyof OnboardingData, value: string | string[]) => {
     setData((prev) => ({ ...prev, [field]: value }));
@@ -149,8 +176,59 @@ export default function Onboarding() {
   };
 
   const handleSubmit = async () => {
-    // 1. Check if a client with this email already exists
     const normalizedEmail = data.contactEmail.trim().toLowerCase();
+
+    // ── Academy Mode: existing customer fills mandatory wizard ─────────────
+    if (fromAcademy && academySession) {
+      // 1. Update existing client (linked via academy_customers.client_id)
+      const { data: ac } = await supabase
+        .from("academy_customers")
+        .select("client_id")
+        .eq("id", academySession.customer_id)
+        .maybeSingle();
+
+      if (ac?.client_id) {
+        await supabase.from("clients").update({
+          name: data.companyName,
+          contact: data.contactName,
+          email: normalizedEmail,
+          phone: data.contactPhone,
+          company: data.companyName,
+        }).eq("id", ac.client_id);
+
+        // 2. Create project with onboarding data
+        const projectType = data.variant === "done4you" ? "done4you" : "donewithyou";
+        const newProject: Project = {
+          id: `onb-${Date.now()}`,
+          client: data.companyName,
+          name: `Meta Ads — ${data.companyName}`,
+          product: data.monthlyAdBudget || "TBD",
+          type: projectType,
+          creativeFormat: "beides",
+          startDate: new Date().toLocaleDateString("de-DE"),
+          assignees: [], phases: [],
+          briefing: "", meetingNotes: "", targetAudience: "", offer: "",
+          comments: [],
+          onboarding: data as unknown as Record<string, unknown>,
+        };
+        await addProjectDB(newProject as any);
+      }
+
+      // 3. Mark academy_customer as onboarding_completed
+      await supabase.from("academy_customers")
+        .update({ onboarding_completed: true })
+        .eq("id", academySession.customer_id);
+
+      // 4. Update local session + redirect to academy
+      const updated = { ...academySession, onboarding_completed: true };
+      localStorage.setItem("academy_session", JSON.stringify(updated));
+
+      setSubmitted(true);
+      setTimeout(() => navigate("/academy", { replace: true }), 2500);
+      return;
+    }
+
+    // ── Standalone (existing flow) ─────────────────────────────────────────
     const { data: existing } = await supabase
       .from("clients")
       .select("name, email")
@@ -160,7 +238,6 @@ export default function Onboarding() {
     const existingClient = existing && existing.length > 0 ? existing[0] : null;
     const clientName = existingClient ? existingClient.name : data.companyName;
 
-    // Only create a new client if none matched the email
     if (!existingClient) {
       await addClientDB({
         name: data.companyName,
@@ -174,7 +251,6 @@ export default function Onboarding() {
       });
     }
 
-    // 2. Create project with raw onboarding data in separate field
     const projectType = data.variant === "done4you" ? "done4you" : "donewithyou";
     const newProject: Project = {
       id: `onb-${Date.now()}`,
@@ -229,10 +305,18 @@ export default function Onboarding() {
             </CardContent>
           </Card>
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Wir melden uns innerhalb von 24 Stunden bei dir unter <span className="font-medium text-foreground">{data.contactEmail}</span>
-            </p>
-            <p className="text-xs text-muted-foreground">Du kannst dieses Fenster jetzt schließen.</p>
+            {fromAcademy ? (
+              <p className="text-sm text-muted-foreground">
+                Du wirst gleich zur <span className="font-medium text-foreground">Academy</span> weitergeleitet ...
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Wir melden uns innerhalb von 24 Stunden bei dir unter <span className="font-medium text-foreground">{data.contactEmail}</span>
+                </p>
+                <p className="text-xs text-muted-foreground">Du kannst dieses Fenster jetzt schließen.</p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -251,6 +335,19 @@ export default function Onboarding() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-8">
+        {fromAcademy && (
+          <div className="mb-6 rounded-xl border border-primary/30 bg-primary/5 p-4">
+            <div className="flex items-start gap-3">
+              <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold">Letzter Schritt vor deinem Academy-Zugang</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Bitte fülle diesen Onboarding-Bogen aus. Damit haben wir alle Infos um direkt mit deiner Strategie zu starten. Danach geht's automatisch in die Academy.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Progress */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">

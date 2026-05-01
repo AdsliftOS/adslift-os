@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 
 // Parse video URL into embed URL (supports Vimeo, Wistia, YouTube, Loom)
 function getEmbedUrl(input: string): string | null {
@@ -144,6 +145,7 @@ type CustomerSession = {
   customer_id: string;
   email: string;
   name: string;
+  onboarding_completed?: boolean;
 };
 
 // ─── Views ───────────────────────────────────────────────────────────────────
@@ -227,6 +229,7 @@ function ProgressRing({ percent, size = 64, strokeWidth = 5, className = "", tex
 // MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════════════════════
 export default function AcademyPortal() {
+  const navigate = useNavigate();
   const [view, setView] = useState<PortalView>("login");
   const [session, setSession] = useState<CustomerSession | null>(null);
 
@@ -338,12 +341,16 @@ export default function AcademyPortal() {
       try {
         const parsed = JSON.parse(stored) as CustomerSession;
         setSession(parsed);
+        if (parsed.onboarding_completed === false) {
+          navigate("/onboarding?from=academy", { replace: true });
+          return;
+        }
         setView("dashboard");
       } catch {
         localStorage.removeItem("academy_session");
       }
     }
-  }, []);
+  }, [navigate]);
 
   // ─── Load data ─────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -548,9 +555,18 @@ export default function AcademyPortal() {
       }).eq("id", data.id);
       setStreakDays(newStreak);
 
-      const customerSession: CustomerSession = { customer_id: data.id, email: data.email, name: data.name };
+      const customerSession: CustomerSession = {
+        customer_id: data.id,
+        email: data.email,
+        name: data.name,
+        onboarding_completed: !!data.onboarding_completed,
+      };
       localStorage.setItem("academy_session", JSON.stringify(customerSession));
       setSession(customerSession);
+      if (!customerSession.onboarding_completed) {
+        navigate("/onboarding?from=academy", { replace: true });
+        return;
+      }
       setView("dashboard");
       toast.success(`Willkommen, ${data.name}!`);
     } catch {
