@@ -122,8 +122,7 @@ export default function Onboarding() {
   const [academySession, setAcademySession] = useState<{ customer_id: string; email: string; name: string } | null>(null);
   const [introWatched, setIntroWatched] = useState(false);
 
-  // TODO: Loom-URL vom Welcome-Video hier einsetzen
-  const WELCOME_LOOM_URL = "https://www.loom.com/share/REPLACE-ME";
+  const WELCOME_LOOM_URL = "https://www.loom.com/share/297b5934b9674d57a30aea6b88c5c195";
 
   // Wenn aus Academy-Login → Session laden + Email/Name vorausfüllen
   useEffect(() => {
