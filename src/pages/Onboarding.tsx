@@ -55,6 +55,7 @@ type OnboardingData = {
   driveLink: string;
   existingAds: string;
   // Step 7 — Zugänge
+  hasMetaBusinessManager: "yes" | "no" | "";
   metaBusinessManager: string;
   adAccountId: string;
   pixelId: string;
@@ -75,7 +76,7 @@ const initialData: OnboardingData = {
   currentMarketing: [], monthlyLeads: "", closingRate: "", biggestChallenge: "",
   adExperience: "", monthlyAdBudget: "", adGoal: [], targetLeadsPerMonth: "", timeline: "",
   driveLink: "", existingAds: "",
-  metaBusinessManager: "", adAccountId: "", pixelId: "", websiteForAds: "", additionalNotes: "",
+  hasMetaBusinessManager: "", metaBusinessManager: "", adAccountId: "", pixelId: "", websiteForAds: "", additionalNotes: "",
   instagramUrl: "", facebookUrl: "", tiktokUrl: "", linkedinUrl: "",
 };
 
@@ -166,9 +167,13 @@ export default function Onboarding() {
       case 7: {
         const baseValid = data.additionalNotes !== undefined;
         if (data.variant === "done4you") {
-          return data.websiteForAds && data.metaBusinessManager && data.adAccountId && data.pixelId && baseValid;
+          if (!data.hasMetaBusinessManager) return false;
+          if (data.hasMetaBusinessManager === "yes") {
+            return data.websiteForAds && data.metaBusinessManager && data.adAccountId && data.pixelId && baseValid;
+          }
+          // No MBM yet → only websiteForAds required
+          return data.websiteForAds && baseValid;
         }
-        // DWY — no Meta Ads fields, no websiteForAds required
         return baseValid;
       }
       default: return true;
@@ -740,33 +745,58 @@ export default function Onboarding() {
                 {/* Meta Ads access — only for D4Y */}
                 {data.variant === "done4you" && (
                   <>
-                    <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
-                      <p className="text-xs text-amber-700 dark:text-amber-300">
-                        Als Done 4 You Kunde benötigen wir Zugang zu deinen Meta Ads Accounts.
-                      </p>
-                    </div>
                     <div className="grid gap-2">
-                      <Label>Meta Business Manager ID</Label>
-                      <Input placeholder="z.B. 123456789012345" value={data.metaBusinessManager} onChange={(e) => update("metaBusinessManager", e.target.value)} />
+                      <Label>Hast du schon einen Meta Business Manager?</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { value: "yes" as const, label: "Ja, vorhanden" },
+                          { value: "no" as const, label: "Nein, brauche Setup" },
+                        ].map((opt) => (
+                          <button key={opt.value} onClick={() => update("hasMetaBusinessManager", opt.value)}
+                            className={`text-left rounded-lg border p-3 transition-all ${data.hasMetaBusinessManager === opt.value ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/30"}`}>
+                            <span className="text-sm font-medium">{opt.label}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="grid gap-2">
-                        <Label>Ad Account ID</Label>
-                        <Input placeholder="act_123456789" value={data.adAccountId} onChange={(e) => update("adAccountId", e.target.value)} />
+
+                    {data.hasMetaBusinessManager === "yes" && (
+                      <>
+                        <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
+                          <p className="text-xs text-amber-700 dark:text-amber-300">
+                            Wir benötigen Zugang zu deinem Meta Business Manager. Die IDs findest du in den Settings deines Business Managers.
+                          </p>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Meta Business Manager ID</Label>
+                          <Input placeholder="z.B. 123456789012345" value={data.metaBusinessManager} onChange={(e) => update("metaBusinessManager", e.target.value)} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="grid gap-2">
+                            <Label>Ad Account ID</Label>
+                            <Input placeholder="act_123456789" value={data.adAccountId} onChange={(e) => update("adAccountId", e.target.value)} />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label>Pixel ID</Label>
+                            <Input placeholder="123456789012345" value={data.pixelId} onChange={(e) => update("pixelId", e.target.value)} />
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {data.hasMetaBusinessManager === "no" && (
+                      <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3">
+                        <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                          Kein Stress — wir setzen den Meta Business Manager gemeinsam mit dir auf. Anleitung kommt nach dem Onboarding-Call.
+                        </p>
                       </div>
-                      <div className="grid gap-2">
-                        <Label>Pixel ID</Label>
-                        <Input placeholder="123456789012345" value={data.pixelId} onChange={(e) => update("pixelId", e.target.value)} />
-                      </div>
+                    )}
+
+                    <div className="grid gap-2">
+                      <Label>Auf welche Website sollen die Ads verlinken?</Label>
+                      <Input placeholder="z.B. www.deineagentur.de/angebot" value={data.websiteForAds} onChange={(e) => update("websiteForAds", e.target.value)} />
                     </div>
                   </>
-                )}
-
-                {data.variant === "done4you" && (
-                  <div className="grid gap-2">
-                    <Label>Auf welche Website sollen die Ads verlinken?</Label>
-                    <Input placeholder="z.B. www.deineagentur.de/angebot" value={data.websiteForAds} onChange={(e) => update("websiteForAds", e.target.value)} />
-                  </div>
                 )}
 
                 {/* Social Media Links — both variants */}
