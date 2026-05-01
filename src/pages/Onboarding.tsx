@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronRight, ChevronLeft, Building2, Target, DollarSign, KeyRound, Megaphone, Users, CheckCircle2, Sparkles, FolderOpen, ExternalLink, Handshake } from "lucide-react";
+import { ChevronRight, ChevronLeft, Building2, Target, DollarSign, KeyRound, Megaphone, Users, CheckCircle2, Sparkles, FolderOpen, ExternalLink, Handshake, PlayCircle } from "lucide-react";
 import { addClient as addClientDB } from "@/store/clients";
 import { addProject as addProjectDB } from "@/store/projects";
 import type { Project } from "@/store/projects";
@@ -120,6 +120,10 @@ export default function Onboarding() {
   const [data, setData] = useState<OnboardingData>(initialData);
   const [submitted, setSubmitted] = useState(false);
   const [academySession, setAcademySession] = useState<{ customer_id: string; email: string; name: string } | null>(null);
+  const [introWatched, setIntroWatched] = useState(false);
+
+  // TODO: Loom-URL vom Welcome-Video hier einsetzen
+  const WELCOME_LOOM_URL = "https://www.loom.com/share/REPLACE-ME";
 
   // Wenn aus Academy-Login → Session laden + Email/Name vorausfüllen
   useEffect(() => {
@@ -327,6 +331,72 @@ export default function Onboarding() {
               </>
             )}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Video-Intro vor Wizard (nur in Academy-Mode) ─────────────────────────
+  if (fromAcademy && !introWatched) {
+    const loomMatch = WELCOME_LOOM_URL.match(/loom\.com\/share\/([a-zA-Z0-9]+)/);
+    const loomEmbedUrl = loomMatch ? `https://www.loom.com/embed/${loomMatch[1]}` : null;
+
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="border-b bg-card">
+          <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+            <span className="text-lg font-bold tracking-tight text-foreground">Adslift</span>
+            <Badge variant="secondary" className="text-xs">Welcome</Badge>
+          </div>
+        </div>
+
+        <div className="max-w-3xl mx-auto px-4 py-12 space-y-8">
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-primary font-semibold">
+              <Sparkles className="h-3.5 w-3.5" />
+              Willkommen, {academySession?.name?.split(" ")[0] ?? "bei Adslift"}
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+              Schau dir kurz dieses Video an
+            </h1>
+            <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+              In 2 Min erkläre ich dir was dich in den nächsten Tagen erwartet und wie wir gemeinsam in dein Onboarding starten.
+            </p>
+          </div>
+
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              {loomEmbedUrl ? (
+                <div className="aspect-video">
+                  <iframe
+                    src={loomEmbedUrl}
+                    className="w-full h-full"
+                    allow="autoplay; fullscreen"
+                    allowFullScreen
+                  />
+                </div>
+              ) : (
+                <div className="aspect-video flex flex-col items-center justify-center bg-muted gap-3">
+                  <PlayCircle className="h-12 w-12 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Welcome-Video wird gleich verfügbar</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-center">
+            <Button
+              size="lg"
+              onClick={() => setIntroWatched(true)}
+              className="gap-2 bg-gradient-to-r from-primary to-violet-600 hover:from-primary/90 hover:to-violet-700 text-base px-8"
+            >
+              Onboarding starten <ChevronRight className="h-5 w-5" />
+            </Button>
+          </div>
+
+          <p className="text-center text-xs text-muted-foreground">
+            Dauer: ca. 5-10 Min · 8 Schritte
+          </p>
         </div>
       </div>
     );
