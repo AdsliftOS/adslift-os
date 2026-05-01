@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, Building2, Mail, Phone, Calendar, FileText, GraduationCap,
-  Briefcase, CheckSquare, DollarSign, MessageSquare, Loader2,
+  Briefcase, CheckSquare, DollarSign, MessageSquare, Loader2, ClipboardList,
 } from "lucide-react";
 import { useClients } from "@/store/clients";
 import { CustomerAcademyOverview } from "@/components/CustomerAcademyOverview";
@@ -109,6 +109,7 @@ export default function ClientDetail() {
       <Tabs defaultValue="overview">
         <TabsList className="flex flex-wrap">
           <TabsTrigger value="overview" className="gap-1.5"><FileText className="h-4 w-4" />Übersicht</TabsTrigger>
+          <TabsTrigger value="onboarding" className="gap-1.5"><ClipboardList className="h-4 w-4" />Onboarding</TabsTrigger>
           <TabsTrigger value="academy" className="gap-1.5"><GraduationCap className="h-4 w-4" />Academy</TabsTrigger>
           <TabsTrigger value="projects" className="gap-1.5"><Briefcase className="h-4 w-4" />Projekte ({stats.projects})</TabsTrigger>
           <TabsTrigger value="tasks" className="gap-1.5"><CheckSquare className="h-4 w-4" />Tasks ({stats.tasks})</TabsTrigger>
@@ -144,6 +145,10 @@ export default function ClientDetail() {
 
         <TabsContent value="academy" className="space-y-4 mt-4">
           <CustomerAcademyOverview clientId={client.id} clientEmail={client.email} clientName={client.name} />
+        </TabsContent>
+
+        <TabsContent value="onboarding" className="space-y-4 mt-4">
+          <OnboardingDetails projects={legacyProjects} />
         </TabsContent>
 
         <TabsContent value="projects" className="space-y-4 mt-4">
@@ -272,5 +277,128 @@ function RowCard({ children, onClick }: { children: React.ReactNode; onClick?: (
     <Card className={onClick ? "cursor-pointer hover:border-primary/30 transition-all" : ""}>
       <CardContent className="p-3" onClick={onClick}>{children}</CardContent>
     </Card>
+  );
+}
+
+function OnboardingDetails({ projects }: { projects: any[] }) {
+  // Find the most recent project that has onboarding data
+  const projectWithOnboarding = projects.find((p) => p.onboarding && Object.keys(p.onboarding).length > 0);
+  const data = projectWithOnboarding?.onboarding;
+
+  if (!data) {
+    return (
+      <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
+        Kunde hat den Onboarding-Bogen noch nicht ausgefüllt.
+      </CardContent></Card>
+    );
+  }
+
+  const sections: { title: string; fields: { label: string; value: any }[] }[] = [
+    {
+      title: "Basisdaten",
+      fields: [
+        { label: "Modell", value: data.variant === "done4you" ? "Done 4 You" : data.variant === "donewithyou" ? "Done With You" : "—" },
+        { label: "Firma", value: data.companyName },
+        { label: "Website", value: data.website },
+        { label: "Ansprechpartner", value: data.contactName },
+        { label: "E-Mail", value: data.contactEmail },
+        { label: "Telefon", value: data.contactPhone },
+        { label: "Teamgröße", value: data.teamSize },
+        { label: "Services", value: Array.isArray(data.services) ? data.services.join(", ") : "—" },
+      ],
+    },
+    {
+      title: "Angebot & Positionierung",
+      fields: [
+        { label: "Hauptangebot", value: data.mainOffer },
+        { label: "Preisrange", value: data.priceRange },
+        { label: "USP", value: data.uspChoice === "known" ? data.usp : "Wird gemeinsam erarbeitet" },
+        { label: "Case Studies", value: data.caseStudies },
+        { label: "Aktuelle Kunden", value: data.currentClients },
+      ],
+    },
+    {
+      title: "Traumkunden",
+      fields: [
+        { label: "Zielgruppen-Wahl", value: data.targetAudienceChoice === "existing" ? "Hat eigene Zielgruppe" : data.targetAudienceChoice === "together" ? "Wird gemeinsam erarbeitet" : "—" },
+        { label: "Idealer Kunde", value: data.idealClient },
+        { label: "Kundenbudget", value: data.idealBudget },
+        { label: "Kundenprobleme", value: data.clientProblems },
+      ],
+    },
+    {
+      title: "Aktuelle Situation",
+      fields: [
+        { label: "Marketing-Kanäle", value: Array.isArray(data.currentMarketing) ? data.currentMarketing.join(", ") : "—" },
+        { label: "Anfragen / Monat", value: data.monthlyLeads },
+        { label: "Closing-Rate", value: data.closingRate },
+        { label: "Größte Herausforderung", value: data.biggestChallenge },
+      ],
+    },
+    {
+      title: "Ads & Budget",
+      fields: [
+        { label: "Ad-Erfahrung", value: data.adExperience },
+        { label: "Ziele", value: Array.isArray(data.adGoal) ? data.adGoal.join(", ") : "—" },
+        { label: "Monatliches Ad-Budget", value: data.monthlyAdBudget },
+        { label: "Ziel-Anfragen / Monat", value: data.targetLeadsPerMonth },
+      ],
+    },
+    {
+      title: "Material & Assets",
+      fields: [
+        { label: "Drive-Link", value: data.driveLink ? <a href={data.driveLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Öffnen</a> : "—" },
+        { label: "Bestehende Ads", value: data.existingAds },
+      ],
+    },
+    {
+      title: "Meta Ads Zugänge",
+      fields: data.variant === "done4you" ? [
+        { label: "Hat MBM?", value: data.hasMetaBusinessManager === "yes" ? "Ja" : data.hasMetaBusinessManager === "no" ? "Nein, brauche Setup" : "—" },
+        { label: "Meta Business Manager ID", value: data.metaBusinessManager || "—" },
+        { label: "Ad Account ID", value: data.adAccountId || "—" },
+        { label: "Pixel ID", value: data.pixelId || "—" },
+        { label: "Website für Ads", value: data.websiteForAds || "—" },
+      ] : [],
+    },
+    {
+      title: "Social Media",
+      fields: [
+        { label: "Instagram", value: data.instagramUrl ? <a href={data.instagramUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{data.instagramUrl}</a> : "—" },
+        { label: "Facebook", value: data.facebookUrl ? <a href={data.facebookUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{data.facebookUrl}</a> : "—" },
+        { label: "TikTok", value: data.tiktokUrl ? <a href={data.tiktokUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{data.tiktokUrl}</a> : "—" },
+        { label: "LinkedIn", value: data.linkedinUrl ? <a href={data.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{data.linkedinUrl}</a> : "—" },
+      ],
+    },
+    {
+      title: "Notizen",
+      fields: [
+        { label: "Anmerkungen vom Kunde", value: data.additionalNotes },
+      ],
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {sections.map((s) => {
+        const visibleFields = s.fields.filter((f) => f.value && f.value !== "—" && f.value !== "");
+        if (visibleFields.length === 0) return null;
+        return (
+          <Card key={s.title}>
+            <CardContent className="p-5 space-y-3">
+              <h3 className="text-sm font-bold uppercase tracking-wider">{s.title}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+                {visibleFields.map((f) => (
+                  <div key={f.label}>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{f.label}</div>
+                    <div className="text-sm font-medium mt-0.5 whitespace-pre-wrap break-words">{f.value}</div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
   );
 }
