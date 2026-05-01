@@ -349,7 +349,7 @@ export default function Onboarding() {
           </div>
         </div>
 
-        <div className="max-w-5xl mx-auto px-4 py-12 space-y-8">
+        <div className="max-w-6xl mx-auto px-4 py-12 space-y-8">
           <div className="text-center space-y-3 max-w-3xl mx-auto">
             <div className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-primary font-semibold">
               <Sparkles className="h-3.5 w-3.5" />
