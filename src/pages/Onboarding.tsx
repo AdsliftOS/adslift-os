@@ -27,6 +27,9 @@ type OnboardingData = {
   contactPhone: string;
   teamSize: string;
   services: string[];
+  // Rechnungs-Daten
+  billingAddress: string;
+  vatId: string;
   // Step 2 — Angebot & Positionierung
   mainOffer: string;
   priceRange: string;
@@ -71,6 +74,7 @@ type OnboardingData = {
 const initialData: OnboardingData = {
   variant: "",
   companyName: "", website: "", contactName: "", contactEmail: "", contactPhone: "", teamSize: "", services: [],
+  billingAddress: "", vatId: "",
   mainOffer: "", priceRange: "", uspChoice: "", usp: "", caseStudies: "", currentClients: "",
   idealClient: "", idealIndustry: [], idealBudget: "", clientProblems: "", targetAudienceChoice: "",
   currentMarketing: [], monthlyLeads: "", closingRate: "", biggestChallenge: "",
@@ -182,7 +186,7 @@ export default function Onboarding() {
   const canProceed = () => {
     switch (step) {
       case 0: return !!data.variant;
-      case 1: return data.companyName && data.contactName && data.contactEmail && data.contactPhone && data.website && data.teamSize && data.services.length > 0;
+      case 1: return data.companyName && data.contactName && data.contactEmail && data.contactPhone && data.website && data.teamSize && data.services.length > 0 && data.billingAddress && data.vatId;
       case 2: return data.mainOffer && data.priceRange && data.uspChoice && (data.uspChoice === "unknown" || data.usp) && data.caseStudies && data.currentClients;
       case 3: return data.targetAudienceChoice && data.idealBudget && data.clientProblems && (data.targetAudienceChoice === "together" || data.idealClient);
       case 4: return data.currentMarketing.length > 0 && data.monthlyLeads && data.closingRate && data.biggestChallenge;
@@ -544,6 +548,23 @@ export default function Onboarding() {
                         <div className="flex items-center gap-2"><Checkbox checked={data.services.includes(svc)} /><span className="text-sm">{svc}</span></div>
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                {/* Rechnungsdaten — Reverse Charge */}
+                <div className="grid gap-3 mt-2 p-4 rounded-lg border border-border bg-muted/30">
+                  <div>
+                    <p className="text-sm font-semibold">Rechnungsdaten</p>
+                    <p className="text-[11px] text-muted-foreground">Brauchen wir für Reverse-Charge-Rechnungen.</p>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Rechnungsadresse (Firma, Straße, PLZ, Ort, Land)</Label>
+                    <Textarea rows={3} placeholder="Pixel Perfect GmbH&#10;Musterstraße 12&#10;10115 Berlin&#10;Deutschland" value={data.billingAddress} onChange={(e) => update("billingAddress", e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Umsatzsteuer-ID (USt-ID)</Label>
+                    <Input placeholder="z.B. DE123456789" value={data.vatId} onChange={(e) => update("vatId", e.target.value.toUpperCase())} />
+                    <p className="text-[10px] text-muted-foreground">Format: 2 Buchstaben Ländercode + Zahlen (DE / AT / CH-Format).</p>
                   </div>
                 </div>
               </div>

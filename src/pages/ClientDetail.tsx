@@ -308,6 +308,13 @@ function OnboardingDetails({ projects }: { projects: any[] }) {
       ],
     },
     {
+      title: "Rechnungsdaten",
+      fields: [
+        { label: "Rechnungsadresse", value: data.billingAddress },
+        { label: "USt-ID", value: data.vatId },
+      ],
+    },
+    {
       title: "Angebot & Positionierung",
       fields: [
         { label: "Hauptangebot", value: data.mainOffer },
