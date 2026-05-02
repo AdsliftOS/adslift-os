@@ -1213,26 +1213,6 @@ export default function AcademyPortal() {
               <Search className="h-4 w-4" />
             </Button>
 
-            {/* Meeting buchen */}
-            <Button
-              variant="ghost" size="sm"
-              onClick={() => window.open("https://calendly.com/consulting-og-info/kundenmeeting-alex-adslift", "_blank")}
-              className={`rounded-xl gap-1.5 ${isDark ? "text-white/40 hover:text-white hover:bg-white/[0.05]" : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"}`}
-            >
-              <CalendarIcon className="h-4 w-4" />
-              <span className="hidden sm:inline text-xs">Meeting buchen</span>
-            </Button>
-
-            {/* Bookmarks */}
-            <Button
-              variant="ghost" size="sm"
-              onClick={() => setView("downloads")}
-              className={`rounded-xl gap-1.5 ${isDark ? "text-white/40 hover:text-white hover:bg-white/[0.05]" : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"}`}
-            >
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline text-xs">Skripte & Assets</span>
-            </Button>
-
             {/* User avatar + dropdown */}
             <div className="relative">
               <button
