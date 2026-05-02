@@ -1390,9 +1390,9 @@ export default function AcademyPortal() {
               {
                 icon: MessageCircle,
                 label: "Frage an Alex",
-                sub: "Per Email schreiben",
-                gradient: "from-amber-500 to-orange-600",
-                onClick: () => window.open("mailto:info@consulting-og.de?subject=Frage%20zur%20Adslift%20Academy", "_blank"),
+                sub: "Per WhatsApp schreiben",
+                gradient: "from-emerald-500 to-green-600",
+                onClick: () => window.open("https://api.whatsapp.com/message/6CY2BBVU45OUJ1?autoload=1&app_absent=0", "_blank"),
               },
             ].map((qa) => (
               <button
