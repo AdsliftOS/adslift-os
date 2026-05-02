@@ -236,7 +236,10 @@ export default function Onboarding() {
         .update({ onboarding_completed: true })
         .eq("id", academySession.customer_id);
 
-      // 4. Update local session + redirect to academy
+      // 4. Notify all team members (in-app)
+      await notifyTeamOnboardingComplete(data.companyName, data.contactName, normalizedEmail);
+
+      // 5. Update local session + redirect to academy
       const updated = { ...academySession, onboarding_completed: true };
       localStorage.setItem("academy_session", JSON.stringify(updated));
 
@@ -291,8 +294,35 @@ export default function Onboarding() {
     };
     await addProjectDB(newProject as any);
 
+    await notifyTeamOnboardingComplete(data.companyName, data.contactName, normalizedEmail);
+
     setSubmitted(true);
   };
+
+  async function notifyTeamOnboardingComplete(companyName: string, contactName: string, email: string) {
+    try {
+      const { data: members } = await supabase
+        .from("team_members")
+        .select("email")
+        .eq("status", "active");
+      const fallback = [{ email: "info@consulting-og.de" }];
+      const recipients = (members && members.length > 0 ? members : fallback) as { email: string }[];
+      const rows = recipients
+        .filter((m) => m.email)
+        .map((m) => ({
+          type: "onboarding_complete",
+          title: `Onboarding fertig: ${companyName}`,
+          message: `${contactName} (${email}) hat das Onboarding abgeschlossen. Customer 360 öffnen für Details.`,
+          read: false,
+          user_email: m.email,
+        }));
+      if (rows.length > 0) {
+        await supabase.from("notifications").insert(rows);
+      }
+    } catch (e) {
+      console.error("[onboarding] notify team failed:", e);
+    }
+  }
 
   if (submitted) {
     return (
