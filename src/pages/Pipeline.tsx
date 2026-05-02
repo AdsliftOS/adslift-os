@@ -597,14 +597,14 @@ function PipelineDetail({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
-  // Mode tab — Setup / Live-Operations / Onboarding
+  // Mode tab — Setup / Live-Operations / Onboarding / Academy
   // Default depends on project status.
   const projectForMode = projects.find((p) => p.id === projectId);
-  const defaultMode: "setup" | "ops" | "onboarding" =
+  const defaultMode: "setup" | "ops" | "onboarding" | "academy" =
     projectForMode?.status === "active" || projectForMode?.status === "done"
       ? "ops"
       : "setup";
-  const [mode, setMode] = useState<"setup" | "ops" | "onboarding">(defaultMode);
+  const [mode, setMode] = useState<"setup" | "ops" | "onboarding" | "academy">(defaultMode);
   const isDWY = projectForMode?.variant === "dwy";
 
   // Onboarding-Daten + Academy-Progress für die neuen Tabs
@@ -787,6 +787,16 @@ function PipelineDetail({
           subtitle="Wizard-Daten · USP · Zielgruppe"
           accent="from-amber-500/30 to-amber-500/10"
         />
+        {isDWY && (
+          <ModeTab
+            active={mode === "academy"}
+            onClick={() => setMode("academy")}
+            icon={GraduationCap}
+            title="Academy"
+            subtitle="Module · Lessons · Detail-Progress"
+            accent="from-violet-500/30 to-violet-500/10"
+          />
+        )}
       </div>
 
       {/* Setup-Stats (nur für D4Y mit Steps) */}
@@ -809,8 +819,18 @@ function PipelineDetail({
         <ProjectFilesPanel steps={steps} onOpenStep={(id) => setEditingStepId(id)} />
       )}
 
-      {/* Setup für DWY: Academy-Pipeline statt Step-Builder */}
+      {/* Setup für DWY: grobes Dashboard (compact overview) */}
       {mode === "setup" && isDWY && (
+        <DWYSetupDashboard
+          data={academyData}
+          onboardingProjects={onboardingProjects}
+          onJumpToAcademy={() => setMode("academy")}
+          onJumpToOnboarding={() => setMode("onboarding")}
+        />
+      )}
+
+      {/* Academy-Tab (DWY): detaillierte Module + Lessons */}
+      {mode === "academy" && isDWY && (
         <AcademyProgressView data={academyData} />
       )}
 
@@ -913,7 +933,7 @@ function PipelineDetail({
         </div>
       )}
 
-      {/* Gantt-Timeline — nur bei D4Y im Setup oder bei Live-Ops */}
+      {/* Gantt-Timeline — nur bei D4Y im Setup oder bei Live-Ops, niemals in Onboarding/Academy */}
       {((mode === "setup" && !isDWY) || mode === "ops") && (steps.length > 0 || campaigns.length > 0) && (
         <PipelineGantt
           steps={steps}
@@ -3161,6 +3181,200 @@ function AcademyProgressView({ data }: {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ─── DWY-Setup-Dashboard (grober Überblick) ─────────────────────────
+function DWYSetupDashboard({
+  data,
+  onboardingProjects,
+  onJumpToAcademy,
+  onJumpToOnboarding,
+}: {
+  data: {
+    customer: any | null;
+    courses: any[];
+    chapters: any[];
+    lessons: any[];
+    progress: any[];
+  };
+  onboardingProjects: any[];
+  onJumpToAcademy: () => void;
+  onJumpToOnboarding: () => void;
+}) {
+  const onboardingDone = onboardingProjects.some((p) => p.onboarding && Object.keys(p.onboarding).length > 0);
+  const totalLessons = data.lessons.length;
+  const completedLessons = data.progress.filter((p) => p.completed).length;
+  const overall = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
+  const courseStats = data.courses.map((c) => {
+    const cls = data.lessons.filter((l) => l.course_id === c.id);
+    const done = cls.filter((l) => data.progress.some((p) => p.lesson_id === l.id && p.completed)).length;
+    const pct = cls.length > 0 ? Math.round((done / cls.length) * 100) : 0;
+    const status: "done" | "active" | "todo" =
+      pct === 100 ? "done"
+      : done > 0 ? "active"
+      : "todo";
+    return { course: c, done, total: cls.length, pct, status };
+  }).sort((a, b) => (a.course.sort_order ?? 0) - (b.course.sort_order ?? 0));
+
+  const modulesDone = courseStats.filter((c) => c.status === "done").length;
+  const modulesActive = courseStats.filter((c) => c.status === "active").length;
+
+  const lastCompleted = data.progress
+    .filter((p) => p.completed && p.completed_at)
+    .sort((a, b) => (b.completed_at > a.completed_at ? 1 : -1))[0];
+  const lastCompletedLesson = lastCompleted ? data.lessons.find((l) => l.id === lastCompleted.lesson_id) : null;
+
+  const nextCourseStat = courseStats.find((c) => c.status !== "done");
+  const nextLesson = nextCourseStat
+    ? data.lessons
+        .filter((l) => l.course_id === nextCourseStat.course.id)
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        .find((l) => !data.progress.some((p) => p.lesson_id === l.id && p.completed))
+    : null;
+
+  return (
+    <div className="space-y-5">
+      {/* Top-Stats: 4-card overview */}
+      <div className="grid gap-3 sm:grid-cols-4">
+        <button
+          onClick={onJumpToOnboarding}
+          className={cn(
+            "rounded-xl border p-4 text-left transition-all hover:shadow-md",
+            onboardingDone ? "border-emerald-500/40 bg-emerald-500/[0.04]" : "border-amber-500/40 bg-amber-500/[0.04]",
+          )}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            {onboardingDone ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Circle className="h-4 w-4 text-amber-500" />}
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Onboarding</span>
+          </div>
+          <p className="text-lg font-bold">{onboardingDone ? "Abgeschlossen" : "Ausstehend"}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {onboardingDone ? "Wizard-Daten vorhanden" : "Kunde hat Form noch nicht ausgefüllt"}
+          </p>
+        </button>
+
+        <button
+          onClick={onJumpToAcademy}
+          className="rounded-xl border bg-card p-4 text-left transition-all hover:shadow-md hover:border-primary/40"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <GraduationCap className="h-4 w-4 text-violet-500" />
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Academy</span>
+          </div>
+          <p className="text-lg font-bold">{overall}%</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{completedLessons}/{totalLessons} Lektionen</p>
+        </button>
+
+        <div className="rounded-xl border bg-card p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Module fertig</span>
+          </div>
+          <p className="text-lg font-bold">{modulesDone}<span className="text-sm font-normal text-muted-foreground"> / {courseStats.length}</span></p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{modulesActive} aktiv in Bearbeitung</p>
+        </div>
+
+        <div className="rounded-xl border bg-card p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Activity className="h-4 w-4 text-blue-500" />
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Letzte Aktivität</span>
+          </div>
+          {lastCompleted && lastCompletedLesson ? (
+            <>
+              <p className="text-sm font-semibold truncate">{lastCompletedLesson.title}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {format(new Date(lastCompleted.completed_at), "dd.MM.yyyy HH:mm", { locale: de })}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-muted-foreground">Noch keine</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Kunde hat noch nichts abgeschlossen</p>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Compact Module-Pipeline (nur Status-Pills, keine Detail-Liste) */}
+      <div className="rounded-2xl border bg-card overflow-hidden">
+        <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="h-4 w-4 text-violet-500" />
+            <h3 className="text-sm font-semibold">Module-Übersicht</h3>
+            <span className="text-[11px] text-muted-foreground">auto-synced</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={onJumpToAcademy}>
+            <ChevronRight className="h-3.5 w-3.5 mr-1" /> Detail-Ansicht
+          </Button>
+        </div>
+        <div className="p-5 overflow-x-auto">
+          <div className="flex items-stretch gap-2 min-w-fit">
+            {courseStats.map((cs, idx) => {
+              const StatusIcon = cs.status === "done" ? CheckCircle2 : cs.status === "active" ? Play : Circle;
+              const statusColor =
+                cs.status === "done" ? "text-emerald-500"
+                : cs.status === "active" ? "text-blue-500"
+                : "text-muted-foreground";
+              return (
+                <div key={cs.course.id} className="flex items-stretch gap-2 shrink-0">
+                  <div
+                    className={cn(
+                      "w-[160px] rounded-lg border bg-background p-3 flex flex-col gap-1.5",
+                      cs.status === "done" && "border-emerald-500/40 bg-emerald-500/[0.04]",
+                      cs.status === "active" && "border-blue-500/40 bg-blue-500/[0.04]",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                        Modul {idx + 1}
+                      </span>
+                      <StatusIcon className={cn("h-3.5 w-3.5", statusColor)} />
+                    </div>
+                    <h4 className="font-semibold text-xs leading-tight line-clamp-2">{cs.course.title}</h4>
+                    <div className="h-1 rounded-full bg-muted overflow-hidden mt-auto">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          cs.status === "done" ? "bg-emerald-500"
+                          : cs.status === "active" ? "bg-blue-500"
+                          : "bg-muted-foreground/30",
+                        )}
+                        style={{ width: `${cs.pct}%` }}
+                      />
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">{cs.pct}% · {cs.done}/{cs.total}</div>
+                  </div>
+                  {idx < courseStats.length - 1 && (
+                    <div className="flex items-center">
+                      <div className={cn(
+                        "h-0.5 w-2",
+                        cs.status === "done" ? "bg-emerald-500" : "bg-border",
+                      )} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Nächste empfohlene Lektion */}
+      {nextLesson && nextCourseStat && (
+        <div className="rounded-2xl border border-violet-500/30 bg-gradient-to-r from-violet-500/[0.06] to-indigo-500/[0.06] p-5 flex items-center gap-4">
+          <div className="shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+            <GraduationCap className="h-6 w-6 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] uppercase tracking-wider font-semibold text-violet-500 mb-1">Empfohlen als nächstes</p>
+            <h3 className="text-base font-bold truncate">{nextLesson.title}</h3>
+            <p className="text-xs text-muted-foreground truncate">{nextCourseStat.course.title}{nextLesson.duration_minutes ? ` · ${nextLesson.duration_minutes} Min` : ""}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
