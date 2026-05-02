@@ -726,9 +726,6 @@ function PipelineDetail({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setTaskCreateOpen(true)}>
-              <ClipboardList className="h-3.5 w-3.5 mr-1" /> Task
-            </Button>
             <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
               <PanelRight className="h-3.5 w-3.5 mr-1" /> Kunden-Portal
             </Button>
@@ -826,6 +823,15 @@ function PipelineDetail({
           onboardingProjects={onboardingProjects}
           onJumpToAcademy={() => setMode("academy")}
           onJumpToOnboarding={() => setMode("onboarding")}
+        />
+      )}
+
+      {/* Tasks-Section auf Setup-Page (für DWY und D4Y) */}
+      {mode === "setup" && project.clientId && (
+        <ProjectTasksSection
+          clientId={project.clientId}
+          clientName={client?.name || project.name}
+          onCreateClick={() => setTaskCreateOpen(true)}
         />
       )}
 
@@ -3227,14 +3233,6 @@ function DWYSetupDashboard({
     .sort((a, b) => (b.completed_at > a.completed_at ? 1 : -1))[0];
   const lastCompletedLesson = lastCompleted ? data.lessons.find((l) => l.id === lastCompleted.lesson_id) : null;
 
-  const nextCourseStat = courseStats.find((c) => c.status !== "done");
-  const nextLesson = nextCourseStat
-    ? data.lessons
-        .filter((l) => l.course_id === nextCourseStat.course.id)
-        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-        .find((l) => !data.progress.some((p) => p.lesson_id === l.id && p.completed))
-    : null;
-
   return (
     <div className="space-y-5">
       {/* Top-Stats: 4-card overview */}
@@ -3362,19 +3360,172 @@ function DWYSetupDashboard({
         </div>
       </div>
 
-      {/* Nächste empfohlene Lektion */}
-      {nextLesson && nextCourseStat && (
-        <div className="rounded-2xl border border-violet-500/30 bg-gradient-to-r from-violet-500/[0.06] to-indigo-500/[0.06] p-5 flex items-center gap-4">
-          <div className="shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
-            <GraduationCap className="h-6 w-6 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] uppercase tracking-wider font-semibold text-violet-500 mb-1">Empfohlen als nächstes</p>
-            <h3 className="text-base font-bold truncate">{nextLesson.title}</h3>
-            <p className="text-xs text-muted-foreground truncate">{nextCourseStat.course.title}{nextLesson.duration_minutes ? ` · ${nextLesson.duration_minutes} Min` : ""}</p>
-          </div>
+    </div>
+  );
+}
+
+// ─── Project-Tasks-Section (Setup-Page) ─────────────────────────────
+function ProjectTasksSection({
+  clientId,
+  clientName,
+  onCreateClick,
+}: {
+  clientId: string;
+  clientName: string;
+  onCreateClick: () => void;
+}) {
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false });
+      if (!cancelled) {
+        setTasks(data || []);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [clientId]);
+
+  // Subscribe to changes — reload after create dialog closes (poll-style reload)
+  useEffect(() => {
+    const t = setInterval(async () => {
+      const { data } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false });
+      if (data) setTasks(data);
+    }, 5000);
+    return () => clearInterval(t);
+  }, [clientId]);
+
+  const toggleDone = async (taskId: string, currentCol: string) => {
+    const newCol = currentCol === "done" ? "todo" : "done";
+    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, col: newCol } : t));
+    await supabase.from("tasks").update({ col: newCol }).eq("id", taskId);
+  };
+
+  const deleteTask = async (taskId: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    await supabase.from("tasks").delete().eq("id", taskId);
+  };
+
+  const open = tasks.filter((t) => t.col !== "done");
+  const done = tasks.filter((t) => t.col === "done");
+
+  return (
+    <div className="rounded-2xl border bg-card overflow-hidden">
+      <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <ClipboardList className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold">Tasks für {clientName}</h3>
+          <span className="text-[11px] text-muted-foreground">
+            {tasks.length === 0 ? "keine" : `${open.length} offen · ${done.length} erledigt`}
+          </span>
         </div>
-      )}
+        <Button variant="outline" size="sm" onClick={onCreateClick}>
+          <Plus className="h-3.5 w-3.5 mr-1" /> Task
+        </Button>
+      </div>
+      <div className="divide-y">
+        {loading ? (
+          <div className="px-5 py-6 text-sm text-muted-foreground text-center">Lade Tasks ...</div>
+        ) : tasks.length === 0 ? (
+          <div className="px-5 py-8 text-center space-y-3">
+            <ClipboardList className="h-8 w-8 mx-auto text-muted-foreground/40" />
+            <div>
+              <p className="text-sm font-medium">Noch keine Tasks für diesen Kunden</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Klick oben rechts auf "Task" um eine zu erstellen.</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {open.map((t) => (
+              <TaskRow key={t.id} task={t} onToggle={() => toggleDone(t.id, t.col)} onDelete={() => deleteTask(t.id)} />
+            ))}
+            {done.length > 0 && (
+              <div className="px-5 py-2 text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/10 border-y">
+                Erledigt ({done.length})
+              </div>
+            )}
+            {done.map((t) => (
+              <TaskRow key={t.id} task={t} onToggle={() => toggleDone(t.id, t.col)} onDelete={() => deleteTask(t.id)} dimmed />
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TaskRow({
+  task,
+  onToggle,
+  onDelete,
+  dimmed,
+}: {
+  task: any;
+  onToggle: () => void;
+  onDelete: () => void;
+  dimmed?: boolean;
+}) {
+  const isDone = task.col === "done";
+  const priorityColor =
+    task.priority === "high" ? "text-red-500"
+    : task.priority === "med" ? "text-amber-500"
+    : "text-muted-foreground";
+  const priorityLabel =
+    task.priority === "high" ? "Hoch"
+    : task.priority === "med" ? "Mittel"
+    : "Niedrig";
+
+  return (
+    <div className={cn("group px-5 py-3 flex items-center gap-3 hover:bg-muted/30 transition-colors", dimmed && "opacity-60")}>
+      <button onClick={onToggle} className="shrink-0">
+        {isDone ? (
+          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+        ) : (
+          <Circle className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+        )}
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className={cn("text-sm font-medium truncate", isDone && "line-through text-muted-foreground")}>
+          {task.title}
+        </p>
+        {task.description && (
+          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{task.description}</p>
+        )}
+      </div>
+      <div className="flex items-center gap-3 text-[10px] shrink-0">
+        {task.category && (
+          <Badge variant="outline" className="text-[10px]">{task.category}</Badge>
+        )}
+        {task.priority && (
+          <span className={cn("font-semibold uppercase tracking-wider", priorityColor)}>{priorityLabel}</span>
+        )}
+        {task.due_date && (
+          <span className="text-muted-foreground flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            {format(new Date(task.due_date), "dd.MM.yyyy", { locale: de })}
+          </span>
+        )}
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
+        onClick={onDelete}
+      >
+        <X className="h-3.5 w-3.5" />
+      </Button>
     </div>
   );
 }
