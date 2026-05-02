@@ -53,6 +53,7 @@ import {
   StickyNote, TrendingUp, Flame, Bell, MessageSquare, Send,
   FileText, Trophy, Target, Zap, Bookmark, Heart, Sparkles,
   User, Settings, ChevronLeft, Sun, Moon, Mail, KeyRound, HelpCircle, Filter, Calendar as CalendarIcon,
+  Rocket, Activity, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -101,6 +102,7 @@ type LessonProgress = {
   watched_seconds: number;
   notes: string | null;
   bookmarked: boolean;
+  completed_at?: string | null;
 };
 
 type Quiz = {
@@ -157,6 +159,20 @@ function formatMinutes(m: number): string {
   const hrs = Math.floor(m / 60);
   const mins = m % 60;
   return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+}
+
+function formatTimeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "jetzt";
+  if (min < 60) return `vor ${min} Min`;
+  const hrs = Math.floor(min / 60);
+  if (hrs < 24) return `vor ${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `vor ${days}d`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 4) return `vor ${weeks}w`;
+  return new Date(iso).toLocaleDateString("de-DE", { day: "2-digit", month: "short" });
 }
 
 function formatWatchedTime(seconds: number): string {
@@ -1366,6 +1382,217 @@ export default function AcademyPortal() {
               </div>
             ))}
           </div>
+
+          {/* Quick Actions */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                icon: CalendarIcon,
+                label: "Meeting buchen",
+                sub: "30 Min mit Alex",
+                gradient: "from-violet-500 to-indigo-600",
+                onClick: () => window.open("https://calendly.com/consulting-og-info/kundenmeeting-alex-adslift", "_blank"),
+              },
+              {
+                icon: Download,
+                label: "Skripte & Assets",
+                sub: "PDFs + Workbooks",
+                gradient: "from-blue-500 to-cyan-600",
+                onClick: () => setView("downloads"),
+              },
+              {
+                icon: BookOpen,
+                label: "Alle Module",
+                sub: "Curriculum durchsuchen",
+                gradient: "from-emerald-500 to-teal-600",
+                onClick: () => setView("courses"),
+              },
+              {
+                icon: MessageCircle,
+                label: "Frage an Alex",
+                sub: "Per Email schreiben",
+                gradient: "from-amber-500 to-orange-600",
+                onClick: () => window.open("mailto:info@consulting-og.de?subject=Frage%20zur%20Adslift%20Academy", "_blank"),
+              },
+            ].map((qa) => (
+              <button
+                key={qa.label}
+                onClick={qa.onClick}
+                className={`group rounded-2xl border backdrop-blur-xl p-5 transition-all duration-300 text-left hover:scale-[1.02] hover:shadow-xl ${isDark ? "border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.05]" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+              >
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${qa.gradient} flex items-center justify-center mb-3 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                  <qa.icon className="h-5 w-5 text-white" />
+                </div>
+                <p className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{qa.label}</p>
+                <p className={`text-xs mt-0.5 ${isDark ? "text-white/30" : "text-gray-400"}`}>{qa.sub}</p>
+              </button>
+            ))}
+          </div>
+
+          {/* Wochen-Lernzeit + Activity Feed */}
+          {(() => {
+            // Wochen-Lernzeit: Letzte 7 Tage, Lessons completed pro Tag
+            const today = new Date();
+            const weekDays: { day: string; date: string; minutes: number; isToday: boolean }[] = [];
+            for (let i = 6; i >= 0; i--) {
+              const d = new Date(today);
+              d.setDate(today.getDate() - i);
+              const iso = d.toISOString().slice(0, 10);
+              const dayName = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][d.getDay()];
+              const minsToday = progress
+                .filter((p) => p.completed && p.completed_at && p.completed_at.slice(0, 10) === iso)
+                .reduce((sum, p) => {
+                  const lesson = lessons.find((l) => l.id === p.lesson_id);
+                  return sum + (lesson?.duration_minutes || 0);
+                }, 0);
+              weekDays.push({ day: dayName, date: iso, minutes: minsToday, isToday: i === 0 });
+            }
+            const maxMin = Math.max(...weekDays.map((d) => d.minutes), 1);
+            const totalWeekMin = weekDays.reduce((s, d) => s + d.minutes, 0);
+
+            // Activity Feed: letzte 5 Aktivitäten
+            const activities: { icon: typeof Activity; text: string; sub: string; ago: string; iconColor: string }[] = [];
+            const recentCompleted = progress
+              .filter((p) => p.completed && p.completed_at)
+              .sort((a, b) => (b.completed_at! > a.completed_at! ? 1 : -1))
+              .slice(0, 5);
+            for (const p of recentCompleted) {
+              const lesson = lessons.find((l) => l.id === p.lesson_id);
+              if (!lesson) continue;
+              const course = courses.find((c) => c.id === lesson.course_id);
+              const ago = formatTimeAgo(p.completed_at!);
+              activities.push({
+                icon: CheckCircle2,
+                text: lesson.title,
+                sub: course?.title || "",
+                ago,
+                iconColor: "text-emerald-400",
+              });
+            }
+            const recentComments = comments
+              .filter((c) => c.customer_id === session?.customer_id)
+              .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))
+              .slice(0, 3);
+            for (const cm of recentComments) {
+              const lesson = lessons.find((l) => l.id === cm.lesson_id);
+              activities.push({
+                icon: MessageSquare,
+                text: `Kommentar geschrieben`,
+                sub: lesson?.title || "",
+                ago: formatTimeAgo(cm.created_at),
+                iconColor: "text-violet-400",
+              });
+            }
+            // Sort all combined by recency
+            activities.sort((a, b) => 0); // already roughly sorted
+
+            return (
+              <div className="grid lg:grid-cols-3 gap-4">
+                {/* Wochen-Lernzeit */}
+                <div className={`lg:col-span-2 rounded-2xl border backdrop-blur-xl p-6 ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                  <div className="flex items-center justify-between mb-5">
+                    <div>
+                      <h3 className={`text-base font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Diese Woche</h3>
+                      <p className={`text-xs mt-0.5 ${isDark ? "text-white/30" : "text-gray-400"}`}>Lernzeit nach Tag</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{totalWeekMin}<span className={`text-xs ml-1 font-normal ${isDark ? "text-white/30" : "text-gray-400"}`}>Min</span></p>
+                      <p className={`text-[10px] uppercase tracking-wider ${isDark ? "text-white/30" : "text-gray-400"}`}>Total</p>
+                    </div>
+                  </div>
+                  <div className="flex items-end justify-between gap-2 sm:gap-3 h-32">
+                    {weekDays.map((d) => {
+                      const heightPct = d.minutes === 0 ? 4 : Math.max(8, (d.minutes / maxMin) * 100);
+                      return (
+                        <div key={d.date} className="flex-1 flex flex-col items-center gap-2">
+                          <div className="w-full flex-1 flex items-end">
+                            <div
+                              className={`w-full rounded-lg transition-all duration-500 ${
+                                d.minutes > 0
+                                  ? "bg-gradient-to-t from-violet-500 to-indigo-400"
+                                  : isDark ? "bg-white/[0.04]" : "bg-gray-100"
+                              } ${d.isToday ? "ring-2 ring-violet-400/40" : ""}`}
+                              style={{ height: `${heightPct}%` }}
+                              title={`${d.minutes} Min`}
+                            />
+                          </div>
+                          <span className={`text-[10px] font-medium ${d.isToday ? (isDark ? "text-violet-300" : "text-violet-600") : (isDark ? "text-white/30" : "text-gray-400")}`}>{d.day}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Activity Feed */}
+                <div className={`rounded-2xl border backdrop-blur-xl p-6 ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                  <div className="flex items-center gap-2 mb-5">
+                    <Activity className={`h-4 w-4 ${isDark ? "text-white/40" : "text-gray-400"}`} />
+                    <h3 className={`text-base font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Letzte Aktivität</h3>
+                  </div>
+                  {activities.length === 0 ? (
+                    <div className={`text-sm py-8 text-center ${isDark ? "text-white/30" : "text-gray-400"}`}>
+                      Noch keine Aktivität — leg los! ✨
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {activities.slice(0, 5).map((a, i) => (
+                        <div key={i} className="flex items-start gap-3">
+                          <div className={`shrink-0 mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center ${isDark ? "bg-white/[0.04]" : "bg-gray-100"}`}>
+                            <a.icon className={`h-3.5 w-3.5 ${a.iconColor}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>{a.text}</p>
+                            <p className={`text-xs truncate ${isDark ? "text-white/30" : "text-gray-400"}`}>{a.sub}</p>
+                          </div>
+                          <span className={`shrink-0 text-[10px] uppercase tracking-wider ${isDark ? "text-white/30" : "text-gray-400"}`}>{a.ago}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Empfohlene nächste Lektion */}
+          {(() => {
+            // Suche erste nicht-completed Lektion in Order
+            let nextLesson: Lesson | null = null;
+            let nextCourse: Course | null = null;
+            for (const c of [...courses].sort((a, b) => a.sort_order - b.sort_order)) {
+              const ls = lessons.filter((l) => l.course_id === c.id).sort((a, b) => a.sort_order - b.sort_order);
+              const next = ls.find((l) => !progress.some((p) => p.lesson_id === l.id && p.completed));
+              if (next) { nextLesson = next; nextCourse = c; break; }
+            }
+            if (!nextLesson || !nextCourse) return null;
+            // Wenn das schon der lastWatched ist, skip (Continue Learning zeigt's eh)
+            if (lastWatched?.lesson.id === nextLesson.id) return null;
+
+            return (
+              <div
+                className={`rounded-2xl border backdrop-blur-xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] hover:shadow-xl ${isDark ? "border-violet-500/20 bg-gradient-to-r from-violet-500/[0.06] to-indigo-500/[0.06] hover:border-violet-500/40" : "border-violet-200 bg-gradient-to-r from-violet-50 to-indigo-50 hover:border-violet-400"}`}
+                onClick={() => goToPlayer(nextCourse!.id, nextLesson!.id)}
+              >
+                <div className="flex items-center gap-4 sm:gap-6 p-6">
+                  <div className="shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                    <Rocket className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs uppercase tracking-wider font-semibold mb-1 ${isDark ? "text-violet-300" : "text-violet-600"}`}>Empfohlen als nächstes</p>
+                    <h3 className={`text-base sm:text-lg font-bold truncate ${isDark ? "text-white" : "text-gray-900"}`}>{nextLesson.title}</h3>
+                    <p className={`text-xs sm:text-sm truncate ${isDark ? "text-white/40" : "text-gray-500"}`}>{nextCourse.title}{nextLesson.duration_minutes ? ` · ${nextLesson.duration_minutes} Min` : ""}</p>
+                  </div>
+                  <Button
+                    className="shrink-0 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl shadow-lg shadow-violet-500/20 transition-all duration-300 h-10 px-5 text-sm"
+                    onClick={(e) => { e.stopPropagation(); goToPlayer(nextCourse!.id, nextLesson!.id); }}
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    Starten
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* My Courses */}
           <div>
