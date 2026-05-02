@@ -18,7 +18,6 @@ import type { Deal } from "@/store/deals";
 import type { Expense, ExpenseStatus, MonthlyExpense } from "@/store/expenses";
 
 import type { PaymentStatus, ServiceType, MonthlyPayment } from "@/store/deals";
-import { RevolutCard } from "@/components/finances/RevolutCard";
 
 const serviceTypes: { value: ServiceType; label: string; description: string }[] = [
   { value: "done4you", label: "Done 4 You", description: "Wir machen alles — Kunde lehnt sich zurück." },
@@ -1013,9 +1012,6 @@ export default function Finances() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Revolut Business Integration */}
-          <RevolutCard categories={expenseCategories} />
 
           {/* Expense Filter */}
           <div className="flex flex-wrap items-center gap-3">
