@@ -592,6 +592,12 @@ function PipelineDetail({
   const [reportOpen, setReportOpen] = useState(false);
   const [taskCreateOpen, setTaskCreateOpen] = useState(false);
   const [taskForm, setTaskForm] = useState<{ title: string; description: string; priority: "low" | "med" | "high"; dueDate: string; category: string }>({ title: "", description: "", priority: "med", dueDate: "", category: "Allgemein" });
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>("");
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUserEmail(session?.user?.email || "");
+    });
+  }, []);
 
   // Drag & Drop
   const [dragId, setDragId] = useState<string | null>(null);
@@ -726,9 +732,11 @@ function PipelineDetail({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
-              <PanelRight className="h-3.5 w-3.5 mr-1" /> Kunden-Portal
-            </Button>
+            {!isDWY && (
+              <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
+                <PanelRight className="h-3.5 w-3.5 mr-1" /> Kunden-Portal
+              </Button>
+            )}
             <Select
               value={project.status}
               onValueChange={(v) => updatePipelineProject(projectId, { status: v as any })}
@@ -1082,6 +1090,7 @@ function PipelineDetail({
                   category: taskForm.category.trim() || "Allgemein",
                   col: "todo",
                   client_id: project.clientId || null,
+                  assignee: currentUserEmail || null,
                 });
                 if (error) {
                   toast.error("Task konnte nicht angelegt werden");
@@ -3296,63 +3305,92 @@ function DWYSetupDashboard({
         </div>
       </div>
 
-      {/* Compact Module-Pipeline (nur Status-Pills, keine Detail-Liste) */}
+      {/* Module-Übersicht — Grid-Layout, große Cards je Modul */}
       <div className="rounded-2xl border bg-card overflow-hidden">
-        <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <GraduationCap className="h-4 w-4 text-violet-500" />
-            <h3 className="text-sm font-semibold">Module-Übersicht</h3>
-            <span className="text-[11px] text-muted-foreground">auto-synced</span>
+        <div className="px-6 py-4 border-b bg-muted/20 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-violet-500/20 to-indigo-500/10 flex items-center justify-center">
+              <GraduationCap className="h-4.5 w-4.5 text-violet-500" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold">Module-Übersicht</h3>
+              <p className="text-[11px] text-muted-foreground">auto-synced mit Academy-Fortschritt</p>
+            </div>
           </div>
           <Button variant="outline" size="sm" onClick={onJumpToAcademy}>
-            <ChevronRight className="h-3.5 w-3.5 mr-1" /> Detail-Ansicht
+            Detail-Ansicht <ChevronRight className="h-3.5 w-3.5 ml-1" />
           </Button>
         </div>
-        <div className="p-5 overflow-x-auto">
-          <div className="flex items-stretch gap-2 min-w-fit">
+        <div className="p-6">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {courseStats.map((cs, idx) => {
               const StatusIcon = cs.status === "done" ? CheckCircle2 : cs.status === "active" ? Play : Circle;
               const statusColor =
                 cs.status === "done" ? "text-emerald-500"
                 : cs.status === "active" ? "text-blue-500"
-                : "text-muted-foreground";
+                : "text-muted-foreground/50";
+              const statusLabel =
+                cs.status === "done" ? "Fertig"
+                : cs.status === "active" ? "Aktiv"
+                : "Offen";
               return (
-                <div key={cs.course.id} className="flex items-stretch gap-2 shrink-0">
-                  <div
-                    className={cn(
-                      "w-[160px] rounded-lg border bg-background p-3 flex flex-col gap-1.5",
-                      cs.status === "done" && "border-emerald-500/40 bg-emerald-500/[0.04]",
-                      cs.status === "active" && "border-blue-500/40 bg-blue-500/[0.04]",
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                        Modul {idx + 1}
-                      </span>
-                      <StatusIcon className={cn("h-3.5 w-3.5", statusColor)} />
-                    </div>
-                    <h4 className="font-semibold text-xs leading-tight line-clamp-2">{cs.course.title}</h4>
-                    <div className="h-1 rounded-full bg-muted overflow-hidden mt-auto">
+                <div
+                  key={cs.course.id}
+                  className={cn(
+                    "group rounded-xl border p-4 transition-all hover:shadow-md flex flex-col gap-3 min-h-[150px]",
+                    cs.status === "done" && "border-emerald-500/40 bg-emerald-500/[0.04] hover:border-emerald-500/60",
+                    cs.status === "active" && "border-blue-500/40 bg-blue-500/[0.04] hover:border-blue-500/60",
+                    cs.status === "todo" && "border-border bg-card hover:border-foreground/30",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
                       <div
                         className={cn(
-                          "h-full rounded-full transition-all",
-                          cs.status === "done" ? "bg-emerald-500"
-                          : cs.status === "active" ? "bg-blue-500"
-                          : "bg-muted-foreground/30",
+                          "h-7 w-7 rounded-lg flex items-center justify-center text-[11px] font-bold",
+                          cs.status === "done" && "bg-emerald-500/20 text-emerald-600",
+                          cs.status === "active" && "bg-blue-500/20 text-blue-600",
+                          cs.status === "todo" && "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {idx + 1}
+                      </div>
+                      <span className={cn(
+                        "text-[10px] uppercase tracking-wider font-semibold",
+                        cs.status === "done" && "text-emerald-600",
+                        cs.status === "active" && "text-blue-600",
+                        cs.status === "todo" && "text-muted-foreground",
+                      )}>
+                        {statusLabel}
+                      </span>
+                    </div>
+                    <StatusIcon className={cn("h-4 w-4", statusColor)} />
+                  </div>
+                  <h4 className="font-bold text-sm leading-tight line-clamp-2 flex-1">{cs.course.title}</h4>
+                  <div className="space-y-1.5">
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all duration-500",
+                          cs.status === "done" && "bg-gradient-to-r from-emerald-500 to-teal-500",
+                          cs.status === "active" && "bg-gradient-to-r from-blue-500 to-violet-500",
+                          cs.status === "todo" && "bg-muted-foreground/30",
                         )}
                         style={{ width: `${cs.pct}%` }}
                       />
                     </div>
-                    <div className="text-[10px] text-muted-foreground">{cs.pct}% · {cs.done}/{cs.total}</div>
-                  </div>
-                  {idx < courseStats.length - 1 && (
-                    <div className="flex items-center">
-                      <div className={cn(
-                        "h-0.5 w-2",
-                        cs.status === "done" ? "bg-emerald-500" : "bg-border",
-                      )} />
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-muted-foreground">{cs.done}/{cs.total} Lektionen</span>
+                      <span className={cn(
+                        "text-xs font-bold",
+                        cs.status === "done" && "text-emerald-600",
+                        cs.status === "active" && "text-blue-600",
+                        cs.status === "todo" && "text-muted-foreground",
+                      )}>
+                        {cs.pct}%
+                      </span>
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })}
