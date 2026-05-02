@@ -2510,11 +2510,21 @@ export default function AcademyPortal() {
               </DialogDescription>
             </DialogHeader>
           </div>
-          <div
-            className="calendly-inline-widget"
-            data-url={`https://calendly.com/consulting-og-info/kickoff-call-alex-adslift?background_color=${isDark ? "0a0a0f" : "ffffff"}&text_color=${isDark ? "ffffff" : "111111"}&primary_color=6366f1&hide_gdpr_banner=1`}
-            style={{ minWidth: 320, height: 700, background: isDark ? "#0a0a0f" : "#ffffff" }}
-          />
+          <div style={{ background: isDark ? "#0a0a0f" : "#ffffff" }} className="kickoff-calendly-wrap">
+            <style>{`
+              .kickoff-calendly-wrap .calendly-inline-widget,
+              .kickoff-calendly-wrap iframe {
+                background: ${isDark ? "#0a0a0f" : "#ffffff"} !important;
+                border: 0 !important;
+                color-scheme: ${isDark ? "dark" : "light"};
+              }
+            `}</style>
+            <div
+              className="calendly-inline-widget"
+              data-url={`https://calendly.com/consulting-og-info/kickoff-call-alex-adslift?background_color=${isDark ? "0a0a0f" : "ffffff"}&text_color=${isDark ? "ffffff" : "111111"}&primary_color=6366f1&hide_gdpr_banner=1&hide_landing_page_details=1`}
+              style={{ minWidth: 320, height: 700 }}
+            />
+          </div>
           <div className="p-4 border-t border-white/[0.06] flex justify-end">
             <Button variant="ghost" onClick={() => setShowKickoffModal(false)}>
               Später buchen
