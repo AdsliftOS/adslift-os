@@ -52,7 +52,7 @@ import {
   Star, Award, Eye, Timer, Play, SkipForward, X, Printer,
   StickyNote, TrendingUp, Flame, Bell, MessageSquare, Send,
   FileText, Trophy, Target, Zap, Bookmark, Heart, Sparkles,
-  User, Settings, ChevronLeft, Sun, Moon, Mail, KeyRound, HelpCircle, Filter,
+  User, Settings, ChevronLeft, Sun, Moon, Mail, KeyRound, HelpCircle, Filter, Calendar as CalendarIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -134,13 +134,6 @@ type LessonComment = {
   created_at: string;
 };
 
-type Achievement = {
-  id: string;
-  customer_id: string;
-  type: string;
-  earned_at: string;
-};
-
 type CustomerSession = {
   customer_id: string;
   email: string;
@@ -149,31 +142,7 @@ type CustomerSession = {
 };
 
 // ─── Views ───────────────────────────────────────────────────────────────────
-type PortalView = "login" | "dashboard" | "courses" | "course-detail" | "player" | "downloads" | "achievements" | "profile" | "search" | "forgot-password";
-
-// ─── Achievement Definitions ─────────────────────────────────────────────────
-const ACHIEVEMENT_DEFS: { type: string; label: string; description: string; icon: string; color: string }[] = [
-  { type: "first_lesson", label: "Erster Schritt", description: "Erste Lektion abgeschlossen", icon: "target", color: "from-blue-500 to-cyan-500" },
-  { type: "streak_7", label: "Streak Master", description: "7 Tage Streak", icon: "flame", color: "from-orange-500 to-red-500" },
-  { type: "first_course", label: "Bucherwurm", description: "Ersten Kurs abgeschlossen", icon: "book", color: "from-emerald-500 to-teal-500" },
-  { type: "all_courses", label: "Champion", description: "Alle Kurse abgeschlossen", icon: "trophy", color: "from-amber-500 to-yellow-500" },
-  { type: "perfect_quiz", label: "Quiz-Profi", description: "Perfektes Quiz-Ergebnis", icon: "zap", color: "from-purple-500 to-pink-500" },
-  { type: "bookmarks_10", label: "Sammler", description: "10 Lesezeichen gesetzt", icon: "star", color: "from-indigo-500 to-violet-500" },
-  { type: "first_comment", label: "Aktiv", description: "Ersten Kommentar geschrieben", icon: "message", color: "from-pink-500 to-rose-500" },
-];
-
-function getAchievementIcon(type: string) {
-  switch (type) {
-    case "target": return <Target className="h-5 w-5" />;
-    case "flame": return <Flame className="h-5 w-5" />;
-    case "book": return <BookOpen className="h-5 w-5" />;
-    case "trophy": return <Trophy className="h-5 w-5" />;
-    case "zap": return <Zap className="h-5 w-5" />;
-    case "star": return <Star className="h-5 w-5" />;
-    case "message": return <MessageSquare className="h-5 w-5" />;
-    default: return <Award className="h-5 w-5" />;
-  }
-}
+type PortalView = "login" | "dashboard" | "courses" | "course-detail" | "player" | "downloads" | "profile" | "search" | "forgot-password";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getGreeting(): string {
@@ -270,7 +239,6 @@ export default function AcademyPortal() {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
   const [comments, setComments] = useState<LessonComment[]>([]);
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
 
   // Navigation
   const [selectedCourseId, setSelectedCourseId] = useState<string>("");
@@ -370,7 +338,7 @@ export default function AcademyPortal() {
       if (quizzesRes.data) setQuizzes(quizzesRes.data);
       return;
     }
-    const [coursesRes, chaptersRes, lessonsRes, progressRes, quizzesRes, quizResultsRes, commentsRes, achievementsRes] = await Promise.all([
+    const [coursesRes, chaptersRes, lessonsRes, progressRes, quizzesRes, quizResultsRes, commentsRes] = await Promise.all([
       supabase.from("courses").select("*").eq("is_published", true).order("created_at", { ascending: false }),
       supabase.from("chapters").select("*").order("sort_order", { ascending: true }),
       supabase.from("lessons").select("*").eq("is_published", true).order("sort_order", { ascending: true }),
@@ -378,7 +346,6 @@ export default function AcademyPortal() {
       supabase.from("quizzes").select("*").order("sort_order", { ascending: true }),
       supabase.from("quiz_results").select("*").eq("customer_id", session.customer_id),
       supabase.from("lesson_comments").select("*").order("created_at", { ascending: true }),
-      supabase.from("achievements").select("*").eq("customer_id", session.customer_id),
     ]);
     if (coursesRes.data) setCourses(coursesRes.data);
     if (chaptersRes.data) setChapters(chaptersRes.data);
@@ -387,7 +354,6 @@ export default function AcademyPortal() {
     if (quizzesRes.data) setQuizzes(quizzesRes.data);
     if (quizResultsRes.data) setQuizResults(quizResultsRes.data);
     if (commentsRes.data) setComments(commentsRes.data);
-    if (achievementsRes.data) setAchievements(achievementsRes.data);
   }, [session, previewMode]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -703,22 +669,6 @@ export default function AcademyPortal() {
     setPwLoading(false);
   };
 
-  // ─── Achievement checker ───────────────────────────────────────────────────
-  const checkAndAwardAchievement = useCallback(async (type: string) => {
-    if (!session) return;
-    if (achievements.some((a) => a.type === type)) return;
-    const { data } = await supabase.from("achievements").insert({
-      customer_id: session.customer_id,
-      type,
-      earned_at: new Date().toISOString(),
-    }).select().single();
-    if (data) {
-      setAchievements((prev) => [...prev, data]);
-      const def = ACHIEVEMENT_DEFS.find((d) => d.type === type);
-      toast.success(`Achievement freigeschaltet: ${def?.label || type}!`);
-    }
-  }, [session, achievements]);
-
   // ─── Progress helpers ──────────────────────────────────────────────────────
   const getCourseProgress = useCallback((courseId: string) => {
     const cls = lessons.filter((l) => l.course_id === courseId);
@@ -762,9 +712,6 @@ export default function AcademyPortal() {
       }).select().single();
       if (data) setProgress((prev) => [...prev, data]);
     }
-    // Check bookmark achievement
-    const totalBookmarks = progress.filter((p) => p.bookmarked).length + (newVal ? 1 : 0);
-    if (totalBookmarks >= 10) checkAndAwardAchievement("bookmarks_10");
   };
 
   const saveNote = async (lessonId: string, note: string) => {
@@ -791,7 +738,7 @@ export default function AcademyPortal() {
       setProgress((prev) => prev.map((p) => p.id === existing.id ? { ...p, completed: newCompleted } : p));
       if (newCompleted) {
         startAutoAdvance(lessonId);
-        await checkCompletionAchievements(lessonId);
+        updateStreak();
       }
     } else {
       const { data } = await supabase.from("lesson_progress").insert({
@@ -801,32 +748,8 @@ export default function AcademyPortal() {
       if (data) {
         setProgress((prev) => [...prev, data]);
         startAutoAdvance(lessonId);
-        await checkCompletionAchievements(lessonId);
+        updateStreak();
       }
-    }
-  };
-
-  const checkCompletionAchievements = async (lessonId: string) => {
-    // Update streak on lesson completion
-    updateStreak();
-
-    // First lesson
-    const completedCount = progress.filter((p) => p.completed).length + 1;
-    if (completedCount === 1) await checkAndAwardAchievement("first_lesson");
-
-    // First course completed
-    const lesson = lessons.find((l) => l.id === lessonId);
-    if (lesson) {
-      const courseLessons = lessons.filter((l) => l.course_id === lesson.course_id);
-      const allDone = courseLessons.every((l) => l.id === lessonId || progress.some((p) => p.lesson_id === l.id && p.completed));
-      if (allDone) await checkAndAwardAchievement("first_course");
-
-      // All courses completed
-      const allCoursesDone = courses.every((c) => {
-        const cls = lessons.filter((l) => l.course_id === c.id);
-        return cls.length > 0 && cls.every((l) => l.id === lessonId || progress.some((p) => p.lesson_id === l.id && p.completed));
-      });
-      if (allCoursesDone && courses.length > 0) await checkAndAwardAchievement("all_courses");
     }
   };
 
@@ -877,10 +800,6 @@ export default function AcademyPortal() {
     if (data) {
       setComments((prev) => [...prev, data]);
       setNewComment("");
-      // First comment achievement
-      if (comments.filter((c) => c.customer_id === session.customer_id).length === 0) {
-        await checkAndAwardAchievement("first_comment");
-      }
     }
   };
 
@@ -906,7 +825,6 @@ export default function AcademyPortal() {
     setQuizSubmitted(true);
     if (allCorrect) {
       toast.success("Perfekt! Alle Fragen richtig!");
-      await checkAndAwardAchievement("perfect_quiz");
     } else {
       toast.info("Quiz abgeschlossen. Einige Antworten waren falsch.");
     }
@@ -1075,7 +993,7 @@ export default function AcademyPortal() {
           {/* Logo */}
           <div className="text-center mb-10">
             <img src="/adslift-icon.png" alt="Adslift" className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-6 rounded-3xl" />
-            <h1 className={`text-3xl sm:text-4xl font-bold tracking-tight ${isDark ? "text-white" : "text-gray-900"}`}>Adslift Academy</h1>
+            <h1 className={`text-3xl sm:text-4xl font-bold tracking-tight ${isDark ? "text-white" : "text-gray-900"}`}>Adslift Kundenbereich</h1>
             <p className={`mt-3 text-base sm:text-lg ${isDark ? "text-white/40" : "text-gray-400"}`}>
               {view === "forgot-password" ? "Passwort zurucksetzen" : "Willkommen zuruck"}
             </p>
@@ -1225,7 +1143,7 @@ export default function AcademyPortal() {
               className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
             >
               <img src="/adslift-icon.png" alt="Adslift" className="w-8 h-8 rounded-xl" />
-              <span className={`font-bold text-base hidden sm:block ${isDark ? "text-white" : "text-gray-900"}`}>Academy</span>
+              <span className={`font-bold text-base hidden sm:block ${isDark ? "text-white" : "text-gray-900"}`}>Kundenbereich</span>
             </button>
           </div>
 
@@ -1279,6 +1197,16 @@ export default function AcademyPortal() {
               <Search className="h-4 w-4" />
             </Button>
 
+            {/* Meeting buchen */}
+            <Button
+              variant="ghost" size="sm"
+              onClick={() => window.open("https://calendly.com/consulting-og-info/kundenmeeting-alex-adslift", "_blank")}
+              className={`rounded-xl gap-1.5 ${isDark ? "text-white/40 hover:text-white hover:bg-white/[0.05]" : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"}`}
+            >
+              <CalendarIcon className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs">Meeting buchen</span>
+            </Button>
+
             {/* Bookmarks */}
             <Button
               variant="ghost" size="sm"
@@ -1312,7 +1240,6 @@ export default function AcademyPortal() {
                     </div>
                     {[
                       { label: "Profil", icon: User, view: "profile" as PortalView },
-                      { label: "Achievements", icon: Award, view: "achievements" as PortalView },
                       { label: "Downloads", icon: Download, view: "downloads" as PortalView },
                     ].map((item) => (
                       <button
@@ -1431,45 +1358,13 @@ export default function AcademyPortal() {
             ))}
           </div>
 
-          {/* Overall Progress + Achievements */}
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Overall Progress */}
-            <div className={`rounded-2xl border backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
-              <ProgressRing percent={overallProgress} size={140} strokeWidth={10} textClass="text-2xl" isDark={isDark} />
-              <h3 className={`text-lg font-bold mt-5 ${isDark ? "text-white" : "text-gray-900"}`}>Gesamtfortschritt</h3>
-              <p className={`text-sm mt-1 ${isDark ? "text-white/30" : "text-gray-400"}`}>
-                {lessons.filter((l) => isLessonCompleted(l.id)).length} von {lessons.length} Lektionen
-              </p>
-            </div>
-
-            {/* Achievements preview */}
-            <div className={`lg:col-span-2 rounded-2xl border backdrop-blur-xl p-6 ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Achievements</h3>
-                <button onClick={() => setView("achievements")} className="text-sm text-violet-400 hover:text-violet-300 transition-colors">
-                  Alle anzeigen <ChevronRight className="h-3.5 w-3.5 inline" />
-                </button>
-              </div>
-              <div className="flex gap-4 overflow-x-auto pb-2">
-                {ACHIEVEMENT_DEFS.map((def) => {
-                  const earned = achievements.some((a) => a.type === def.type);
-                  return (
-                    <div key={def.type} className="shrink-0 flex flex-col items-center gap-2 w-20">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                        earned
-                          ? `bg-gradient-to-br ${def.color} shadow-lg ring-2 ring-white/10`
-                          : isDark ? "bg-white/[0.04] border border-white/[0.06]" : "bg-gray-100 border border-gray-200"
-                      }`}>
-                        <span className={earned ? "text-white" : isDark ? "text-white/20" : "text-gray-300"}>
-                          {getAchievementIcon(def.icon)}
-                        </span>
-                      </div>
-                      <span className={`text-xs text-center leading-tight ${earned ? (isDark ? "text-white/60" : "text-gray-600") : (isDark ? "text-white/20" : "text-gray-300")}`}>{def.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+          {/* Overall Progress */}
+          <div className={`rounded-2xl border backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+            <ProgressRing percent={overallProgress} size={140} strokeWidth={10} textClass="text-2xl" isDark={isDark} />
+            <h3 className={`text-lg font-bold mt-5 ${isDark ? "text-white" : "text-gray-900"}`}>Gesamtfortschritt</h3>
+            <p className={`text-sm mt-1 ${isDark ? "text-white/30" : "text-gray-400"}`}>
+              {lessons.filter((l) => isLessonCompleted(l.id)).length} von {lessons.length} Lektionen
+            </p>
           </div>
 
           {/* My Courses */}
@@ -2318,52 +2213,6 @@ export default function AcademyPortal() {
         </main>
       )}
 
-      {/* ══════════════════ ACHIEVEMENTS ══════════════════ */}
-      {view === "achievements" && (
-        <main className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              <Award className="h-8 w-8 text-amber-400" />
-              Achievements
-            </h1>
-            <p className={`mt-2 ${isDark ? "text-white/30" : "text-gray-400"}`}>{achievements.length} von {ACHIEVEMENT_DEFS.length} freigeschaltet</p>
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {ACHIEVEMENT_DEFS.map((def) => {
-              const earned = achievements.find((a) => a.type === def.type);
-              return (
-                <div key={def.type} className={`rounded-2xl border p-6 transition-all duration-300 ${
-                  earned
-                    ? isDark ? "border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.06] shadow-lg" : "border-gray-200 bg-white hover:bg-gray-50 shadow-lg"
-                    : isDark ? "border-white/[0.04] bg-white/[0.01] opacity-50" : "border-gray-100 bg-gray-50 opacity-50"
-                }`}>
-                  <div className="flex items-center gap-4">
-                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${
-                      earned
-                        ? `bg-gradient-to-br ${def.color} shadow-lg ring-2 ring-white/10`
-                        : isDark ? "bg-white/[0.04] border border-white/[0.06]" : "bg-gray-100 border border-gray-200"
-                    }`}>
-                      <span className={earned ? "text-white" : isDark ? "text-white/20" : "text-gray-300"}>
-                        {getAchievementIcon(def.icon)}
-                      </span>
-                    </div>
-                    <div>
-                      <h3 className={`font-bold ${earned ? (isDark ? "text-white" : "text-gray-900") : (isDark ? "text-white/30" : "text-gray-400")}`}>{def.label}</h3>
-                      <p className={`text-sm mt-0.5 ${earned ? (isDark ? "text-white/50" : "text-gray-500") : (isDark ? "text-white/15" : "text-gray-300")}`}>{def.description}</p>
-                      {earned ? (
-                        <p className={`text-xs mt-1 ${isDark ? "text-white/25" : "text-gray-400"}`}>Freigeschaltet am {new Date(earned.earned_at).toLocaleDateString("de-DE")}</p>
-                      ) : (
-                        <p className={`text-xs mt-1 ${isDark ? "text-white/15" : "text-gray-300"}`}>Noch nicht freigeschaltet</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </main>
-      )}
-
       {/* ══════════════════ PROFILE ══════════════════ */}
       {view === "profile" && (
         <main className="relative z-10 max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
@@ -2385,36 +2234,17 @@ export default function AcademyPortal() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             {[
               { label: "Kurse gestartet", value: stats.coursesStarted },
               { label: "Videos geschaut", value: stats.videosWatched },
               { label: "Stunden gelernt", value: stats.hoursLearned },
-              { label: "Achievements", value: achievements.length },
             ].map((s) => (
               <div key={s.label} className={`rounded-xl border p-4 text-center ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
                 <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{s.value}</p>
                 <p className={`text-xs mt-1 ${isDark ? "text-white/30" : "text-gray-400"}`}>{s.label}</p>
               </div>
             ))}
-          </div>
-
-          {/* Achievements earned */}
-          <div className={`rounded-2xl border p-6 ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
-            <h3 className="text-lg font-bold mb-4">Meine Achievements</h3>
-            <div className="flex flex-wrap gap-3">
-              {ACHIEVEMENT_DEFS.map((def) => {
-                const earned = achievements.some((a) => a.type === def.type);
-                return (
-                  <div key={def.type} className={`flex items-center gap-2 px-3 py-2 rounded-xl ${
-                    earned ? `bg-gradient-to-r ${def.color} bg-opacity-10` : isDark ? "bg-white/[0.03] opacity-30" : "bg-gray-100 opacity-30"
-                  }`}>
-                    <span className={earned ? "text-white" : isDark ? "text-white/20" : "text-gray-300"}>{getAchievementIcon(def.icon)}</span>
-                    <span className={`text-sm ${earned ? "text-white" : isDark ? "text-white/20" : "text-gray-300"}`}>{def.label}</span>
-                  </div>
-                );
-              })}
-            </div>
           </div>
 
           {/* Password Change */}
@@ -2554,7 +2384,7 @@ export default function AcademyPortal() {
                 <p className={`text-sm ${isDark ? "text-white/25" : "text-gray-400"}`}>Abgeschlossen am</p>
                 <p className={`font-medium mt-1 ${isDark ? "text-white" : "text-gray-900"}`}>{new Date().toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })}</p>
               </div>
-              <p className={`text-sm ${isDark ? "text-white/15" : "text-gray-300"}`}>Adslift Academy</p>
+              <p className={`text-sm ${isDark ? "text-white/15" : "text-gray-300"}`}>Adslift Kundenbereich</p>
             </div>
 
             <div className="flex justify-center mt-8">
