@@ -317,7 +317,7 @@ export default function Pipeline() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-2.5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        <div className="grid gap-2 grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8">
           {filtered.map((p) => (
             <ProjectCard
               key={p.id}
@@ -499,7 +499,7 @@ function ProjectCard({
         isDWY ? "from-violet-500 to-indigo-500" : "from-emerald-500 to-teal-500",
       )} />
 
-      <div className="p-2.5 flex-1 flex flex-col gap-2">
+      <div className="p-2 flex-1 flex flex-col gap-1.5">
         {/* Top: Variant + Status */}
         <div className="flex items-center justify-between gap-1">
           <span className={cn(
