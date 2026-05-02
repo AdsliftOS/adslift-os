@@ -53,7 +53,7 @@ import {
   StickyNote, TrendingUp, Flame, Bell, MessageSquare, Send,
   FileText, Trophy, Target, Zap, Bookmark, Heart, Sparkles,
   User, Settings, ChevronLeft, Sun, Moon, Mail, KeyRound, HelpCircle, Filter, Calendar as CalendarIcon,
-  Rocket, Activity, MessageCircle,
+  Activity, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -1282,7 +1282,7 @@ export default function AcademyPortal() {
 
       {/* ══════════════════ DASHBOARD ══════════════════ */}
       {view === "dashboard" && (
-        <main className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-8 sm:space-y-10">
+        <main className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-5 sm:space-y-6">
           {/* Greeting */}
           <div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">
@@ -1294,117 +1294,106 @@ export default function AcademyPortal() {
             <p className={`mt-2 text-lg ${isDark ? "text-white/30" : "text-gray-400"}`}>Dein nachster Erfolg wartet auf dich.</p>
           </div>
 
-          {/* Continue Learning */}
-          {lastWatched && (
-            <div className={`rounded-2xl border backdrop-blur-xl overflow-hidden group hover:border-violet-500/20 transition-all duration-300 ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
-              <div className="flex flex-col sm:flex-row">
-                <div className="sm:w-72 h-44 sm:h-auto bg-gradient-to-br from-violet-600/20 to-indigo-600/20 relative shrink-0 overflow-hidden">
-                  {lastWatched.course.thumbnail_url ? (
-                    <img src={lastWatched.course.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <PlayCircle className="h-14 w-14 text-violet-400/30" />
-                    </div>
-                  )}
-                  <div className={`absolute inset-0 bg-gradient-to-r from-transparent hidden sm:block ${isDark ? "to-[#0a0a0f]/80" : "to-white/80"}`} />
-                </div>
-                <div className="flex-1 p-6 sm:p-8 flex flex-col justify-between">
-                  <div>
-                    <Badge className="bg-violet-500/10 text-violet-300 border-violet-500/20 hover:bg-violet-500/10 mb-3 text-xs">
-                      Weiter lernen
-                    </Badge>
-                    <h3 className={`text-xl font-bold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>{lastWatched.lesson.title}</h3>
-                    <p className={`text-sm ${isDark ? "text-white/40" : "text-gray-400"}`}>{lastWatched.course.title}</p>
-                  </div>
-                  <div className="mt-5">
-                    <div className={`h-1.5 rounded-full overflow-hidden mb-5 ${isDark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
-                      <div className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500" style={{ width: `${getCourseProgress(lastWatched.course.id)}%` }} />
-                    </div>
-                    <Button
-                      onClick={() => goToPlayer(lastWatched.course.id, lastWatched.lesson.id)}
-                      className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] h-11 px-6"
-                    >
-                      <Play className="h-4 w-4 mr-2" />
-                      Weiter lernen
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Hero: Continue Learning ODER nächste empfohlene Lektion */}
+          {(() => {
+            let heroCourse: Course | null = null;
+            let heroLesson: Lesson | null = null;
+            let heroBadge = "Weiter lernen";
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            {/* Gesamtfortschritt — als erste Card mit Mini-Ring */}
-            <div className={`rounded-2xl border backdrop-blur-xl p-5 transition-all duration-300 group ${isDark ? "border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.05]" : "border-gray-200 bg-white hover:bg-gray-100"}`}>
-              <div className="w-10 h-10 mb-3 group-hover:scale-110 transition-transform duration-300">
-                <ProgressRing percent={overallProgress} size={40} strokeWidth={4} textClass="text-[9px]" isDark={isDark} />
-              </div>
-              <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{overallProgress}%</p>
-              <p className={`text-sm mt-0.5 ${isDark ? "text-white/30" : "text-gray-400"}`}>Gesamtfortschritt</p>
-            </div>
+            if (lastWatched) {
+              heroCourse = lastWatched.course;
+              heroLesson = lastWatched.lesson;
+            } else {
+              for (const c of [...courses].sort((a, b) => a.sort_order - b.sort_order)) {
+                const ls = lessons.filter((l) => l.course_id === c.id).sort((a, b) => a.sort_order - b.sort_order);
+                const next = ls.find((l) => !progress.some((p) => p.lesson_id === l.id && p.completed));
+                if (next) { heroCourse = c; heroLesson = next; heroBadge = "Empfohlen als nächstes"; break; }
+              }
+            }
+            if (!heroCourse || !heroLesson) return null;
+            const courseProgress = getCourseProgress(heroCourse.id);
 
-            {[
-              { icon: BookOpen, label: "Kurse gestartet", value: String(stats.coursesStarted), color: "from-violet-500/20 to-violet-600/20", iconColor: "text-violet-400" },
-              { icon: Eye, label: "Videos geschaut", value: String(stats.videosWatched), color: "from-blue-500/20 to-blue-600/20", iconColor: "text-blue-400" },
-              { icon: Timer, label: "Stunden gelernt", value: String(stats.hoursLearned), color: "from-emerald-500/20 to-emerald-600/20", iconColor: "text-emerald-400" },
-              { icon: Flame, label: "Streak", value: `${stats.streak} Tage`, color: "from-orange-500/20 to-red-500/20", iconColor: "text-orange-400" },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className={`rounded-2xl border backdrop-blur-xl p-5 transition-all duration-300 group ${isDark ? "border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.05]" : "border-gray-200 bg-white hover:bg-gray-100"}`}
-              >
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300`}>
-                  <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
+            return (
+              <div className={`rounded-2xl border backdrop-blur-xl overflow-hidden group hover:border-violet-500/20 transition-all duration-300 ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                <div className="flex flex-col sm:flex-row">
+                  <div className="sm:w-72 h-36 sm:h-auto bg-gradient-to-br from-violet-600/20 to-indigo-600/20 relative shrink-0 overflow-hidden">
+                    {heroCourse.thumbnail_url ? (
+                      <img src={heroCourse.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <PlayCircle className="h-14 w-14 text-violet-400/30" />
+                      </div>
+                    )}
+                    <div className={`absolute inset-0 bg-gradient-to-r from-transparent hidden sm:block ${isDark ? "to-[#0a0a0f]/80" : "to-white/80"}`} />
+                  </div>
+                  <div className="flex-1 p-5 sm:p-6 flex flex-col justify-between gap-4">
+                    <div>
+                      <Badge className="bg-violet-500/10 text-violet-300 border-violet-500/20 hover:bg-violet-500/10 mb-2 text-[10px]">
+                        {heroBadge}
+                      </Badge>
+                      <h3 className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>{heroLesson.title}</h3>
+                      <p className={`text-sm ${isDark ? "text-white/40" : "text-gray-400"}`}>{heroCourse.title}{heroLesson.duration_minutes ? ` · ${heroLesson.duration_minutes} Min` : ""}</p>
+                    </div>
+                    <div>
+                      <div className={`h-1.5 rounded-full overflow-hidden mb-4 ${isDark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
+                        <div className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500" style={{ width: `${courseProgress}%` }} />
+                      </div>
+                      <Button
+                        onClick={() => goToPlayer(heroCourse!.id, heroLesson!.id)}
+                        className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] h-10 px-5 text-sm"
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        {courseProgress > 0 ? "Weiter lernen" : "Starten"}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{stat.value}</p>
-                <p className={`text-sm mt-0.5 ${isDark ? "text-white/30" : "text-gray-400"}`}>{stat.label}</p>
               </div>
-            ))}
+            );
+          })()}
+
+          {/* Stats + Quick Actions Bar (kompakt, eine Zeile) */}
+          <div className={`rounded-2xl border backdrop-blur-xl ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y sm:divide-y-0 lg:divide-y-0 sm:[&>*:nth-child(-n+3)]:border-b-0 lg:[&>*:nth-child(-n+5)]:border-b-0 [&>*]:border-white/[0.04] dark:[&>*]:border-white/[0.04]"
+              style={{}}>
+              {[
+                { icon: <ProgressRing percent={overallProgress} size={32} strokeWidth={3} textClass="text-[8px]" isDark={isDark} />, label: "Gesamt", value: `${overallProgress}%`, raw: true },
+                { icon: <BookOpen className="h-4 w-4 text-violet-400" />, label: "Kurse", value: String(stats.coursesStarted) },
+                { icon: <Eye className="h-4 w-4 text-blue-400" />, label: "Videos", value: String(stats.videosWatched) },
+                { icon: <Timer className="h-4 w-4 text-emerald-400" />, label: "Stunden", value: String(stats.hoursLearned) },
+                { icon: <Flame className="h-4 w-4 text-orange-400" />, label: "Streak", value: `${stats.streak}d` },
+              ].map((s, i) => (
+                <div key={i} className={`px-4 py-3.5 flex items-center gap-3 border-l-0 ${i === 0 ? "" : (isDark ? "border-white/[0.06]" : "border-gray-200")}`} style={{ borderLeftWidth: i === 0 ? 0 : 1 }}>
+                  <div className="shrink-0 w-8 h-8 flex items-center justify-center">{s.icon}</div>
+                  <div className="min-w-0">
+                    <p className={`text-base font-bold leading-none ${isDark ? "text-white" : "text-gray-900"}`}>{s.value}</p>
+                    <p className={`text-[11px] mt-1 ${isDark ? "text-white/40" : "text-gray-500"}`}>{s.label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Quick Actions — kompakte Pill-Reihe */}
+          <div className="flex flex-wrap gap-2">
             {[
-              {
-                icon: CalendarIcon,
-                label: "Meeting buchen",
-                sub: "30 Min mit Alex",
-                gradient: "from-violet-500 to-indigo-600",
-                onClick: () => window.open("https://calendly.com/consulting-og-info/kundenmeeting-alex-adslift", "_blank"),
-              },
-              {
-                icon: Download,
-                label: "Skripte & Assets",
-                sub: "PDFs + Workbooks",
-                gradient: "from-blue-500 to-cyan-600",
-                onClick: () => setView("downloads"),
-              },
-              {
-                icon: BookOpen,
-                label: "Alle Module",
-                sub: "Curriculum durchsuchen",
-                gradient: "from-emerald-500 to-teal-600",
-                onClick: () => setView("courses"),
-              },
-              {
-                icon: MessageCircle,
-                label: "Frage an Alex",
-                sub: "Per WhatsApp schreiben",
-                gradient: "from-emerald-500 to-green-600",
-                onClick: () => window.open("https://api.whatsapp.com/message/6CY2BBVU45OUJ1?autoload=1&app_absent=0", "_blank"),
-              },
+              { icon: CalendarIcon, label: "Meeting buchen", color: "violet", onClick: () => window.open("https://calendly.com/consulting-og-info/kundenmeeting-alex-adslift", "_blank") },
+              { icon: MessageCircle, label: "WhatsApp", color: "emerald", onClick: () => window.open("https://api.whatsapp.com/message/6CY2BBVU45OUJ1?autoload=1&app_absent=0", "_blank") },
+              { icon: Download, label: "Skripte & Assets", color: "blue", onClick: () => setView("downloads") },
+              { icon: BookOpen, label: "Alle Module", color: "amber", onClick: () => setView("courses") },
             ].map((qa) => (
               <button
                 key={qa.label}
                 onClick={qa.onClick}
-                className={`group rounded-2xl border backdrop-blur-xl p-5 transition-all duration-300 text-left hover:scale-[1.02] hover:shadow-xl ${isDark ? "border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.05]" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all duration-200 hover:scale-[1.02] ${isDark ? "border-white/[0.06] bg-white/[0.03] text-white/80 hover:text-white hover:bg-white/[0.06]" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900"}`}
               >
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${qa.gradient} flex items-center justify-center mb-3 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                  <qa.icon className="h-5 w-5 text-white" />
-                </div>
-                <p className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{qa.label}</p>
-                <p className={`text-xs mt-0.5 ${isDark ? "text-white/30" : "text-gray-400"}`}>{qa.sub}</p>
+                <qa.icon className={`h-4 w-4 ${
+                  qa.color === "violet" ? "text-violet-400"
+                  : qa.color === "emerald" ? "text-emerald-400"
+                  : qa.color === "blue" ? "text-blue-400"
+                  : "text-amber-400"
+                }`} />
+                {qa.label}
               </button>
             ))}
           </div>
@@ -1529,46 +1518,6 @@ export default function AcademyPortal() {
                       ))}
                     </div>
                   )}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Empfohlene nächste Lektion */}
-          {(() => {
-            // Suche erste nicht-completed Lektion in Order
-            let nextLesson: Lesson | null = null;
-            let nextCourse: Course | null = null;
-            for (const c of [...courses].sort((a, b) => a.sort_order - b.sort_order)) {
-              const ls = lessons.filter((l) => l.course_id === c.id).sort((a, b) => a.sort_order - b.sort_order);
-              const next = ls.find((l) => !progress.some((p) => p.lesson_id === l.id && p.completed));
-              if (next) { nextLesson = next; nextCourse = c; break; }
-            }
-            if (!nextLesson || !nextCourse) return null;
-            // Wenn das schon der lastWatched ist, skip (Continue Learning zeigt's eh)
-            if (lastWatched?.lesson.id === nextLesson.id) return null;
-
-            return (
-              <div
-                className={`rounded-2xl border backdrop-blur-xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] hover:shadow-xl ${isDark ? "border-violet-500/20 bg-gradient-to-r from-violet-500/[0.06] to-indigo-500/[0.06] hover:border-violet-500/40" : "border-violet-200 bg-gradient-to-r from-violet-50 to-indigo-50 hover:border-violet-400"}`}
-                onClick={() => goToPlayer(nextCourse!.id, nextLesson!.id)}
-              >
-                <div className="flex items-center gap-4 sm:gap-6 p-6">
-                  <div className="shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
-                    <Rocket className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-xs uppercase tracking-wider font-semibold mb-1 ${isDark ? "text-violet-300" : "text-violet-600"}`}>Empfohlen als nächstes</p>
-                    <h3 className={`text-base sm:text-lg font-bold truncate ${isDark ? "text-white" : "text-gray-900"}`}>{nextLesson.title}</h3>
-                    <p className={`text-xs sm:text-sm truncate ${isDark ? "text-white/40" : "text-gray-500"}`}>{nextCourse.title}{nextLesson.duration_minutes ? ` · ${nextLesson.duration_minutes} Min` : ""}</p>
-                  </div>
-                  <Button
-                    className="shrink-0 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl shadow-lg shadow-violet-500/20 transition-all duration-300 h-10 px-5 text-sm"
-                    onClick={(e) => { e.stopPropagation(); goToPlayer(nextCourse!.id, nextLesson!.id); }}
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    Starten
-                  </Button>
                 </div>
               </div>
             );
