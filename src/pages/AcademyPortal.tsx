@@ -2512,8 +2512,8 @@ export default function AcademyPortal() {
           </div>
           <div
             className="calendly-inline-widget"
-            data-url="https://calendly.com/consulting-og-info/kickoff-call-alex-adslift"
-            style={{ minWidth: 320, height: 700 }}
+            data-url={`https://calendly.com/consulting-og-info/kickoff-call-alex-adslift?background_color=${isDark ? "0a0a0f" : "ffffff"}&text_color=${isDark ? "ffffff" : "111111"}&primary_color=6366f1&hide_gdpr_banner=1`}
+            style={{ minWidth: 320, height: 700, background: isDark ? "#0a0a0f" : "#ffffff" }}
           />
           <div className="p-4 border-t border-white/[0.06] flex justify-end">
             <Button variant="ghost" onClick={() => setShowKickoffModal(false)}>
