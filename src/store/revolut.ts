@@ -105,9 +105,10 @@ const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 
 export async function getRevolutAuthUrl(): Promise<string | null> {
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/revolut-auth-start`, {
-      headers: { apikey: ANON_KEY },
-    });
+    const returnTo = `${window.location.origin}${window.location.pathname}`;
+    const url = new URL(`${SUPABASE_URL}/functions/v1/revolut-auth-start`);
+    url.searchParams.set("return_to", returnTo);
+    const res = await fetch(url.toString(), { headers: { apikey: ANON_KEY } });
     const j = await res.json();
     return j.authUrl ?? null;
   } catch (e) {
