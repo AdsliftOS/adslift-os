@@ -1338,7 +1338,16 @@ export default function AcademyPortal() {
           )}
 
           {/* Stats Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Gesamtfortschritt — als erste Card mit Mini-Ring */}
+            <div className={`rounded-2xl border backdrop-blur-xl p-5 transition-all duration-300 group ${isDark ? "border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.05]" : "border-gray-200 bg-white hover:bg-gray-100"}`}>
+              <div className="w-10 h-10 mb-3 group-hover:scale-110 transition-transform duration-300">
+                <ProgressRing percent={overallProgress} size={40} strokeWidth={4} textClass="text-[9px]" isDark={isDark} />
+              </div>
+              <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{overallProgress}%</p>
+              <p className={`text-sm mt-0.5 ${isDark ? "text-white/30" : "text-gray-400"}`}>Gesamtfortschritt</p>
+            </div>
+
             {[
               { icon: BookOpen, label: "Kurse gestartet", value: String(stats.coursesStarted), color: "from-violet-500/20 to-violet-600/20", iconColor: "text-violet-400" },
               { icon: Eye, label: "Videos geschaut", value: String(stats.videosWatched), color: "from-blue-500/20 to-blue-600/20", iconColor: "text-blue-400" },
@@ -1356,15 +1365,6 @@ export default function AcademyPortal() {
                 <p className={`text-sm mt-0.5 ${isDark ? "text-white/30" : "text-gray-400"}`}>{stat.label}</p>
               </div>
             ))}
-          </div>
-
-          {/* Overall Progress */}
-          <div className={`rounded-2xl border backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
-            <ProgressRing percent={overallProgress} size={140} strokeWidth={10} textClass="text-2xl" isDark={isDark} />
-            <h3 className={`text-lg font-bold mt-5 ${isDark ? "text-white" : "text-gray-900"}`}>Gesamtfortschritt</h3>
-            <p className={`text-sm mt-1 ${isDark ? "text-white/30" : "text-gray-400"}`}>
-              {lessons.filter((l) => isLessonCompleted(l.id)).length} von {lessons.length} Lektionen
-            </p>
           </div>
 
           {/* My Courses */}
