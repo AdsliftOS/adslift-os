@@ -232,6 +232,7 @@ export default function AcademyPortal() {
   const navigate = useNavigate();
   const [view, setView] = useState<PortalView>("login");
   const [session, setSession] = useState<CustomerSession | null>(null);
+  const [showKickoffModal, setShowKickoffModal] = useState(false);
 
   // Theme
   const [theme, setTheme] = useState<"dark" | "light">(() => {
@@ -428,6 +429,51 @@ export default function AcademyPortal() {
   }, [session, previewMode]);
 
   useEffect(() => { updateStreak(); }, [updateStreak]);
+
+  // ─── Kickoff-Call Modal: auto-open nach abgeschlossenem Onboarding ────────
+  useEffect(() => {
+    if (!session || previewMode) return;
+    if (!session.onboarding_completed) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("academy_customers")
+        .select("kickoff_call_booked")
+        .eq("id", session.customer_id)
+        .single();
+      if (cancelled) return;
+      if (data && data.kickoff_call_booked === false) setShowKickoffModal(true);
+    })();
+    return () => { cancelled = true; };
+  }, [session, previewMode]);
+
+  // Calendly-Script laden wenn Modal offen
+  useEffect(() => {
+    if (!showKickoffModal) return;
+    if (document.getElementById("calendly-widget-js")) return;
+    const s = document.createElement("script");
+    s.id = "calendly-widget-js";
+    s.src = "https://assets.calendly.com/assets/external/widget.js";
+    s.async = true;
+    document.head.appendChild(s);
+  }, [showKickoffModal]);
+
+  // Booking-Event listener: Calendly postet "calendly.event_scheduled" wenn Kunde gebucht hat
+  useEffect(() => {
+    if (!showKickoffModal || !session || previewMode) return;
+    const handler = async (e: MessageEvent) => {
+      const evt = (e.data && typeof e.data === "object") ? (e.data as any).event : null;
+      if (evt === "calendly.event_scheduled") {
+        await supabase
+          .from("academy_customers")
+          .update({ kickoff_call_booked: true })
+          .eq("id", session.customer_id);
+        setTimeout(() => setShowKickoffModal(false), 2500);
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [showKickoffModal, session, previewMode]);
 
   // Load note when lesson changes
   useEffect(() => {
@@ -2443,6 +2489,39 @@ export default function AcademyPortal() {
           </Button>
         </main>
       )}
+
+      {/* ══════════════════ KICKOFF-CALL DIALOG ══════════════════ */}
+      <Dialog open={showKickoffModal} onOpenChange={setShowKickoffModal}>
+        <DialogContent
+          className={`sm:max-w-3xl rounded-2xl p-0 overflow-hidden ${isDark ? "border-white/[0.06]" : "border-gray-200"}`}
+          style={{ background: isDark ? "#0a0a0f" : "#ffffff" }}
+        >
+          <div className="p-6 sm:p-8 border-b border-white/[0.06]">
+            <DialogHeader>
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary font-semibold mb-2">
+                <Sparkles className="h-3.5 w-3.5" />
+                Letzter Schritt
+              </div>
+              <DialogTitle className="text-2xl font-bold tracking-tight">
+                Buch dir deinen Kickoff-Call mit Alex
+              </DialogTitle>
+              <DialogDescription className={isDark ? "text-white/60" : "text-gray-500"}>
+                Wir gehen gemeinsam dein Onboarding durch und planen die nächsten Schritte. Dauer: 30 Min.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div
+            className="calendly-inline-widget"
+            data-url="https://calendly.com/consulting-og-info/kickoff-call-alex-adslift"
+            style={{ minWidth: 320, height: 700 }}
+          />
+          <div className="p-4 border-t border-white/[0.06] flex justify-end">
+            <Button variant="ghost" onClick={() => setShowKickoffModal(false)}>
+              Später buchen
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ══════════════════ CERTIFICATE DIALOG ══════════════════ */}
       <Dialog open={showCertificate} onOpenChange={setShowCertificate}>
