@@ -486,7 +486,7 @@ function ProjectCard({
     <button
       onClick={onClick}
       className={cn(
-        "group text-left rounded-lg border bg-card hover:shadow-md hover:scale-[1.02] transition-all duration-200 overflow-hidden relative",
+        "group text-left aspect-square rounded-lg border bg-card hover:shadow-md hover:scale-[1.02] transition-all duration-200 overflow-hidden relative flex flex-col",
         project.status === "active" && "hover:border-blue-500/60",
         project.status === "done" && "hover:border-emerald-500/60",
         project.status === "paused" && "hover:border-amber-500/60",
@@ -499,7 +499,7 @@ function ProjectCard({
         isDWY ? "from-violet-500 to-indigo-500" : "from-emerald-500 to-teal-500",
       )} />
 
-      <div className="p-2.5 space-y-2">
+      <div className="p-2.5 flex-1 flex flex-col gap-2">
         {/* Top: Variant + Status */}
         <div className="flex items-center justify-between gap-1">
           <span className={cn(
@@ -514,7 +514,7 @@ function ProjectCard({
         </div>
 
         {/* Title */}
-        <h3 className="font-semibold text-xs leading-tight line-clamp-2 min-h-[2rem]">{project.name}</h3>
+        <h3 className="font-semibold text-xs leading-tight line-clamp-2">{project.name}</h3>
 
         {/* Client */}
         {client && (
@@ -524,27 +524,31 @@ function ProjectCard({
           </div>
         )}
 
-        {/* Progress */}
-        {steps.length > 0 && (
-          <div className="space-y-1 pt-0.5">
-            <div className="h-1 rounded-full bg-muted overflow-hidden">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-500",
-                  project.status === "done" && "bg-emerald-500",
-                  project.status === "active" && "bg-blue-500",
-                  project.status === "paused" && "bg-amber-500",
-                  project.status === "draft" && "bg-slate-400",
-                )}
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-[9px] tabular-nums">
-              <span className="text-muted-foreground">{completed}/{steps.length}</span>
-              <span className="font-semibold">{progress}%</span>
-            </div>
-          </div>
-        )}
+        {/* Progress — pinned bottom */}
+        <div className="mt-auto space-y-1">
+          {steps.length > 0 ? (
+            <>
+              <div className="h-1 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-500",
+                    project.status === "done" && "bg-emerald-500",
+                    project.status === "active" && "bg-blue-500",
+                    project.status === "paused" && "bg-amber-500",
+                    project.status === "draft" && "bg-slate-400",
+                  )}
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[9px] tabular-nums">
+                <span className="text-muted-foreground">{completed}/{steps.length}</span>
+                <span className="font-semibold">{progress}%</span>
+              </div>
+            </>
+          ) : (
+            <div className="text-[9px] text-muted-foreground">Noch keine Steps</div>
+          )}
+        </div>
       </div>
     </button>
   );
