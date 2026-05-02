@@ -167,9 +167,10 @@ export default function Pipeline() {
   const templates = useStepTemplates();
   const [clients] = useClients();
   const [filter, setFilter] = useState<"all" | "draft" | "active" | "done">("all");
+  const [variantFilter, setVariantFilter] = useState<"all" | "dwy" | "d4y">("all");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: "", clientId: "", adAccountId: "" });
+  const [createForm, setCreateForm] = useState<{ name: string; clientId: string; adAccountId: string; variant: "dwy" | "d4y" }>({ name: "", clientId: "", adAccountId: "", variant: "dwy" });
   const [createdByEmail, setCreatedByEmail] = useState<string>("");
   const [metaAccounts, setMetaAccounts] = useState<MetaAccount[]>([]);
   const [metaLoading, setMetaLoading] = useState(false);
@@ -195,9 +196,11 @@ export default function Pipeline() {
   );
 
   const filtered = useMemo(() => {
-    if (filter === "all") return projects;
-    return projects.filter((p) => p.status === filter);
-  }, [projects, filter]);
+    let list = projects;
+    if (variantFilter !== "all") list = list.filter((p) => p.variant === variantFilter);
+    if (filter !== "all") list = list.filter((p) => p.status === filter);
+    return list;
+  }, [projects, filter, variantFilter]);
 
   if (selectedProject) {
     return (
@@ -228,13 +231,35 @@ export default function Pipeline() {
         </Button>
       </div>
 
-      {/* Filter tabs */}
+      {/* Variant filter pills */}
+      <div className="flex items-center gap-2">
+        {([
+          { key: "all", label: `Alle (${projects.length})`, gradient: "from-slate-500 to-slate-600" },
+          { key: "dwy", label: `DWY (${projects.filter((p) => p.variant === "dwy").length})`, gradient: "from-violet-500 to-indigo-600" },
+          { key: "d4y", label: `D4Y (${projects.filter((p) => p.variant === "d4y").length})`, gradient: "from-emerald-500 to-teal-600" },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setVariantFilter(t.key)}
+            className={cn(
+              "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+              variantFilter === t.key
+                ? `bg-gradient-to-r ${t.gradient} text-white border-transparent shadow-sm`
+                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Status filter tabs */}
       <div className="flex items-center gap-1 border-b">
         {([
-          { key: "all", label: `Alle (${projects.length})` },
-          { key: "draft", label: `Draft (${projects.filter((p) => p.status === "draft").length})` },
-          { key: "active", label: `Live (${projects.filter((p) => p.status === "active").length})` },
-          { key: "done", label: `Done (${projects.filter((p) => p.status === "done").length})` },
+          { key: "all", label: `Alle (${filtered.length})` },
+          { key: "draft", label: `Draft (${projects.filter((p) => p.status === "draft" && (variantFilter === "all" || p.variant === variantFilter)).length})` },
+          { key: "active", label: `Live (${projects.filter((p) => p.status === "active" && (variantFilter === "all" || p.variant === variantFilter)).length})` },
+          { key: "done", label: `Done (${projects.filter((p) => p.status === "done" && (variantFilter === "all" || p.variant === variantFilter)).length})` },
         ] as const).map((t) => (
           <button
             key={t.key}
@@ -288,6 +313,30 @@ export default function Pipeline() {
             <DialogTitle>Neues Projekt anlegen</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label>Modell *</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { v: "dwy" as const, label: "Done With You", desc: "Coaching + Academy" },
+                  { v: "d4y" as const, label: "Done 4 You",    desc: "Wir machen alles" },
+                ]).map((opt) => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => setCreateForm((f) => ({ ...f, variant: opt.v }))}
+                    className={cn(
+                      "rounded-lg border p-3 text-left transition-all",
+                      createForm.variant === opt.v
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                        : "border-border hover:border-primary/30",
+                    )}
+                  >
+                    <div className="text-sm font-semibold">{opt.label}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="grid gap-2">
               <Label>Projektname *</Label>
               <Input
@@ -370,6 +419,7 @@ export default function Pipeline() {
                 const client = clients.find((c) => c.id === createForm.clientId);
                 const id = await addPipelineProject({
                   name: createForm.name.trim(),
+                  variant: createForm.variant,
                   clientId: createForm.clientId || null,
                   clientEmail: client?.email || null,
                   adAccountId: createForm.adAccountId.trim() || null,
@@ -377,7 +427,7 @@ export default function Pipeline() {
                 });
                 if (id) {
                   setCreateOpen(false);
-                  setCreateForm({ name: "", clientId: "", adAccountId: "" });
+                  setCreateForm({ name: "", clientId: "", adAccountId: "", variant: "dwy" });
                   setSelectedProjectId(id);
                 }
               }}
@@ -444,9 +494,22 @@ function ProjectCard({
         />
         <div className="flex items-start justify-between gap-2 mb-3">
           <h3 className="font-semibold leading-tight line-clamp-2">{project.name}</h3>
-          <Badge variant="outline" className={cn("text-[10px] shrink-0", statusMeta.className)}>
-            {statusMeta.label}
-          </Badge>
+          <div className="flex items-center gap-1 shrink-0">
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-[10px] font-bold border-transparent text-white",
+                project.variant === "d4y"
+                  ? "bg-gradient-to-r from-emerald-500 to-teal-600"
+                  : "bg-gradient-to-r from-violet-500 to-indigo-600",
+              )}
+            >
+              {project.variant === "d4y" ? "D4Y" : "DWY"}
+            </Badge>
+            <Badge variant="outline" className={cn("text-[10px]", statusMeta.className)}>
+              {statusMeta.label}
+            </Badge>
+          </div>
         </div>
         <div className="space-y-1.5 text-xs text-muted-foreground">
           {client && (

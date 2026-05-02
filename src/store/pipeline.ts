@@ -41,10 +41,12 @@ export type ProjectStep = {
 };
 
 export type ProjectStatus = "draft" | "active" | "paused" | "done";
+export type ProjectVariant = "dwy" | "d4y";
 
 export type PipelineProject = {
   id: string;
   name: string;
+  variant: ProjectVariant;
   clientId: string | null;
   clientEmail: string | null;
   adAccountId: string | null;
@@ -136,6 +138,7 @@ function rowToProject(r: any): PipelineProject {
   return {
     id: r.id,
     name: r.name,
+    variant: (r.variant === "d4y" ? "d4y" : "dwy") as ProjectVariant,
     clientId: r.client_id || null,
     clientEmail: r.client_email || null,
     adAccountId: r.ad_account_id || null,
@@ -170,6 +173,7 @@ function randomToken() {
 
 export async function addPipelineProject(p: {
   name: string;
+  variant?: ProjectVariant;
   clientId: string | null;
   clientEmail: string | null;
   adAccountId: string | null;
@@ -179,6 +183,7 @@ export async function addPipelineProject(p: {
     .from("pipeline_projects")
     .insert({
       name: p.name,
+      variant: p.variant || "dwy",
       client_id: p.clientId,
       client_email: p.clientEmail,
       ad_account_id: p.adAccountId,
@@ -201,6 +206,7 @@ export async function addPipelineProject(p: {
 export async function updatePipelineProject(id: string, updates: Partial<PipelineProject>) {
   const row: any = {};
   if (updates.name !== undefined) row.name = updates.name;
+  if (updates.variant !== undefined) row.variant = updates.variant;
   if (updates.clientId !== undefined) row.client_id = updates.clientId;
   if (updates.clientEmail !== undefined) row.client_email = updates.clientEmail;
   if (updates.adAccountId !== undefined) row.ad_account_id = updates.adAccountId;
