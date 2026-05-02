@@ -2510,22 +2510,11 @@ export default function AcademyPortal() {
               </DialogDescription>
             </DialogHeader>
           </div>
-          <div className="kickoff-calendly-wrap" style={{ background: "#0a0a0f", padding: 0, margin: 0 }}>
-            <style>{`
-              .kickoff-calendly-wrap, .kickoff-calendly-wrap > div, .kickoff-calendly-wrap .calendly-inline-widget {
-                background: #0a0a0f !important;
-              }
-              .kickoff-calendly-wrap iframe {
-                background: #0a0a0f !important;
-                border: 0 !important;
-                color-scheme: dark;
-                display: block !important;
-              }
-            `}</style>
+          <div style={{ background: "#ffffff", padding: 0, margin: 0 }}>
             <div
               className="calendly-inline-widget"
-              data-url="https://calendly.com/consulting-og-info/kickoff-call-alex-adslift?background_color=0a0a0f&text_color=ffffff&primary_color=6366f1&hide_gdpr_banner=1"
-              style={{ minWidth: 320, height: 720 }}
+              data-url="https://calendly.com/consulting-og-info/kickoff-call-alex-adslift?primary_color=6366f1&hide_gdpr_banner=1"
+              style={{ minWidth: 320, height: 720, background: "#ffffff" }}
             />
           </div>
           <div className="p-4 flex justify-end" style={{ background: "#0a0a0f", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
