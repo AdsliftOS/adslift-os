@@ -597,14 +597,15 @@ function PipelineDetail({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
-  // Mode tab — Setup / Live-Operations / Onboarding / Academy
+  // Mode tab — Setup / Live-Operations / Onboarding
   // Default depends on project status.
   const projectForMode = projects.find((p) => p.id === projectId);
-  const defaultMode: "setup" | "ops" | "onboarding" | "academy" =
+  const defaultMode: "setup" | "ops" | "onboarding" =
     projectForMode?.status === "active" || projectForMode?.status === "done"
       ? "ops"
       : "setup";
-  const [mode, setMode] = useState<"setup" | "ops" | "onboarding" | "academy">(defaultMode);
+  const [mode, setMode] = useState<"setup" | "ops" | "onboarding">(defaultMode);
+  const isDWY = projectForMode?.variant === "dwy";
 
   // Onboarding-Daten + Academy-Progress für die neuen Tabs
   const [onboardingProjects, setOnboardingProjects] = useState<any[]>([]);
@@ -786,37 +787,35 @@ function PipelineDetail({
           subtitle="Wizard-Daten · USP · Zielgruppe"
           accent="from-amber-500/30 to-amber-500/10"
         />
-        <ModeTab
-          active={mode === "academy"}
-          onClick={() => setMode("academy")}
-          icon={GraduationCap}
-          title="Academy"
-          subtitle="Module-Fortschritt · Lessons"
-          accent="from-violet-500/30 to-violet-500/10"
-        />
       </div>
 
-      {mode === "setup" ? (
-        <>
-          {/* Progress + Stats */}
-          {steps.length > 0 && (
-            <div className="grid gap-3 sm:grid-cols-4">
-              <Stat label="Fortschritt" value={`${progress}%`} sub={`${completedCount}/${steps.length} Steps`} tone="primary" />
-              <Stat label="Aktiv" value={activeCount} sub="Steps in Bearbeitung" tone={activeCount > 0 ? "blue" : "muted"} />
-              <Stat label="Erledigt" value={completedCount} sub="abgeschlossen" tone="success" />
-              <Stat label="Offen" value={steps.filter((s) => s.status === "todo").length} sub="warten" tone="muted" />
-            </div>
-          )}
-        </>
-      ) : (
+      {/* Setup-Stats (nur für D4Y mit Steps) */}
+      {mode === "setup" && !isDWY && steps.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-4">
+          <Stat label="Fortschritt" value={`${progress}%`} sub={`${completedCount}/${steps.length} Steps`} tone="primary" />
+          <Stat label="Aktiv" value={activeCount} sub="Steps in Bearbeitung" tone={activeCount > 0 ? "blue" : "muted"} />
+          <Stat label="Erledigt" value={completedCount} sub="abgeschlossen" tone="success" />
+          <Stat label="Offen" value={steps.filter((s) => s.status === "todo").length} sub="warten" tone="muted" />
+        </div>
+      )}
+
+      {/* Live-Operations-Header — nur in ops-mode */}
+      {mode === "ops" && (
         <OperationsHeader project={project} steps={steps} />
       )}
 
-      {mode === "setup" && steps.length > 0 && (
+      {/* Files-Panel nur für D4Y im Setup */}
+      {mode === "setup" && !isDWY && steps.length > 0 && (
         <ProjectFilesPanel steps={steps} onOpenStep={(id) => setEditingStepId(id)} />
       )}
 
-      {mode === "setup" && (
+      {/* Setup für DWY: Academy-Pipeline statt Step-Builder */}
+      {mode === "setup" && isDWY && (
+        <AcademyProgressView data={academyData} />
+      )}
+
+      {/* Setup für D4Y: manueller Step-Builder */}
+      {mode === "setup" && !isDWY && (
       <div className="rounded-2xl border bg-gradient-to-br from-background via-muted/10 to-background overflow-hidden">
         <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -914,13 +913,8 @@ function PipelineDetail({
         </div>
       )}
 
-      {/* Academy content — Module-Progress des Kunden */}
-      {mode === "academy" && (
-        <AcademyProgressView data={academyData} />
-      )}
-
-      {/* Gantt-Timeline — Setup defaults to Steps, Live-Ops defaults to Campaigns */}
-      {mode !== "onboarding" && mode !== "academy" && (steps.length > 0 || campaigns.length > 0) && (
+      {/* Gantt-Timeline — nur bei D4Y im Setup oder bei Live-Ops */}
+      {((mode === "setup" && !isDWY) || mode === "ops") && (steps.length > 0 || campaigns.length > 0) && (
         <PipelineGantt
           steps={steps}
           campaigns={campaigns}
