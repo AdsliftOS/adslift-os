@@ -317,7 +317,7 @@ export default function Pipeline() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-2.5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {filtered.map((p) => (
             <ProjectCard
               key={p.id}
@@ -486,91 +486,65 @@ function ProjectCard({
     <button
       onClick={onClick}
       className={cn(
-        "group text-left aspect-square rounded-2xl border bg-card hover:shadow-xl hover:scale-[1.02] transition-all duration-300 overflow-hidden relative flex flex-col",
-        project.status === "active" && "hover:border-blue-500/60 hover:shadow-blue-500/10",
-        project.status === "done" && "hover:border-emerald-500/60 hover:shadow-emerald-500/10",
-        project.status === "paused" && "hover:border-amber-500/60 hover:shadow-amber-500/10",
-        project.status === "draft" && "hover:border-primary/60 hover:shadow-primary/10",
+        "group text-left rounded-lg border bg-card hover:shadow-md hover:scale-[1.02] transition-all duration-200 overflow-hidden relative",
+        project.status === "active" && "hover:border-blue-500/60",
+        project.status === "done" && "hover:border-emerald-500/60",
+        project.status === "paused" && "hover:border-amber-500/60",
+        project.status === "draft" && "hover:border-primary/60",
       )}
     >
-      {/* subtle radial gradient bg per status */}
-      <div
-        className={cn(
-          "absolute inset-0 opacity-50 pointer-events-none",
-          project.status === "active" && "bg-gradient-to-br from-blue-500/[0.08] via-transparent to-transparent",
-          project.status === "done" && "bg-gradient-to-br from-emerald-500/[0.08] via-transparent to-transparent",
-          project.status === "paused" && "bg-gradient-to-br from-amber-500/[0.08] via-transparent to-transparent",
-        )}
-      />
-
-      {/* Variant gradient header */}
+      {/* Variant gradient strip */}
       <div className={cn(
-        "relative h-1 w-full bg-gradient-to-r",
-        isDWY ? "from-violet-500 via-indigo-500 to-violet-500" : "from-emerald-500 via-teal-500 to-emerald-500",
+        "h-0.5 w-full bg-gradient-to-r",
+        isDWY ? "from-violet-500 to-indigo-500" : "from-emerald-500 to-teal-500",
       )} />
 
-      {/* Top: Variant Badge + Status Badge */}
-      <div className="relative px-5 pt-4 pb-2 flex items-center justify-between gap-2">
-        <div className={cn(
-          "px-2 py-0.5 rounded-md text-[10px] font-bold text-white shadow-sm bg-gradient-to-r",
-          isDWY ? "from-violet-500 to-indigo-600" : "from-emerald-500 to-teal-600",
-        )}>
-          {isDWY ? "DWY" : "D4Y"}
+      <div className="p-2.5 space-y-2">
+        {/* Top: Variant + Status */}
+        <div className="flex items-center justify-between gap-1">
+          <span className={cn(
+            "px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-gradient-to-r",
+            isDWY ? "from-violet-500 to-indigo-600" : "from-emerald-500 to-teal-600",
+          )}>
+            {isDWY ? "DWY" : "D4Y"}
+          </span>
+          <span className={cn("text-[9px] font-medium", statusMeta.className.split(" ").filter(c => c.startsWith("text-")).join(" "))}>
+            {statusMeta.label}
+          </span>
         </div>
-        <Badge variant="outline" className={cn("text-[10px]", statusMeta.className)}>
-          {statusMeta.label}
-        </Badge>
-      </div>
 
-      {/* Title + Client */}
-      <div className="relative px-5 pb-2 flex-1 flex flex-col">
-        <h3 className="font-bold text-base leading-tight line-clamp-2 mb-2">{project.name}</h3>
-        <div className="space-y-1 text-xs text-muted-foreground mt-auto">
-          {client && (
-            <div className="flex items-center gap-1.5">
-              <Building2 className="h-3 w-3 shrink-0" />
-              <span className="truncate">{client.name}</span>
-            </div>
-          )}
-          {project.clientEmail && (
-            <div className="flex items-center gap-1.5">
-              <Mail className="h-3 w-3 shrink-0" />
-              <span className="truncate">{project.clientEmail}</span>
-            </div>
-          )}
-        </div>
-      </div>
+        {/* Title */}
+        <h3 className="font-semibold text-xs leading-tight line-clamp-2 min-h-[2rem]">{project.name}</h3>
 
-      {/* Progress Section */}
-      <div className="relative px-5 pt-3 pb-3 space-y-2">
-        {steps.length > 0 ? (
-          <>
-            <div className="flex items-center justify-between text-[10px] tabular-nums">
-              <span className="text-muted-foreground">{completed}/{steps.length} Steps</span>
-              <span className="font-bold">{progress}%</span>
-            </div>
-            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        {/* Client */}
+        {client && (
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Building2 className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">{client.name}</span>
+          </div>
+        )}
+
+        {/* Progress */}
+        {steps.length > 0 && (
+          <div className="space-y-1 pt-0.5">
+            <div className="h-1 rounded-full bg-muted overflow-hidden">
               <div
                 className={cn(
                   "h-full rounded-full transition-all duration-500",
-                  project.status === "done" && "bg-gradient-to-r from-emerald-500 to-teal-500",
-                  project.status === "active" && "bg-gradient-to-r from-blue-500 to-violet-500",
-                  project.status === "paused" && "bg-gradient-to-r from-amber-500 to-orange-500",
-                  project.status === "draft" && "bg-gradient-to-r from-slate-400 to-slate-500",
+                  project.status === "done" && "bg-emerald-500",
+                  project.status === "active" && "bg-blue-500",
+                  project.status === "paused" && "bg-amber-500",
+                  project.status === "draft" && "bg-slate-400",
                 )}
                 style={{ width: `${progress}%` }}
               />
             </div>
-          </>
-        ) : (
-          <div className="text-[10px] text-muted-foreground">Noch keine Steps</div>
+            <div className="flex items-center justify-between text-[9px] tabular-nums">
+              <span className="text-muted-foreground">{completed}/{steps.length}</span>
+              <span className="font-semibold">{progress}%</span>
+            </div>
+          </div>
         )}
-      </div>
-
-      {/* Footer */}
-      <div className="relative px-5 py-2.5 bg-muted/30 text-[10px] text-muted-foreground border-t flex items-center justify-between group-hover:bg-primary/5 transition-colors">
-        <span className="font-medium">{active > 0 ? `${active} aktiv` : "Klick → öffnen"}</span>
-        <ChevronRight className="h-3 w-3 opacity-50 group-hover:translate-x-0.5 group-hover:opacity-100 transition-all" />
       </div>
     </button>
   );
