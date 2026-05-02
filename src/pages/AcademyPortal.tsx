@@ -1028,7 +1028,7 @@ export default function AcademyPortal() {
         <div className="w-full max-w-md relative z-10">
           {/* Logo */}
           <div className="text-center mb-10">
-            <img src="/adslift-icon.png" alt="Adslift" className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-6 rounded-3xl shadow-2xl shadow-blue-600/30" />
+            <img src="/adslift-icon.png" alt="Adslift" className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-6 rounded-3xl" />
             <h1 className={`text-3xl sm:text-4xl font-bold tracking-tight ${isDark ? "text-white" : "text-gray-900"}`}>Adslift Academy</h1>
             <p className={`mt-3 text-base sm:text-lg ${isDark ? "text-white/40" : "text-gray-400"}`}>
               {view === "forgot-password" ? "Passwort zurucksetzen" : "Willkommen zuruck"}
@@ -1178,7 +1178,7 @@ export default function AcademyPortal() {
               onClick={() => { cancelAutoAdvance(); setView("dashboard"); }}
               className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
             >
-              <img src="/adslift-icon.png" alt="Adslift" className="w-8 h-8 rounded-xl shadow-lg shadow-blue-600/20" />
+              <img src="/adslift-icon.png" alt="Adslift" className="w-8 h-8 rounded-xl" />
               <span className={`font-bold text-base hidden sm:block ${isDark ? "text-white" : "text-gray-900"}`}>Academy</span>
             </button>
           </div>
