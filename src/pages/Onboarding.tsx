@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronRight, ChevronLeft, Building2, Target, DollarSign, KeyRound, Megaphone, Users, CheckCircle2, Sparkles, FolderOpen, ExternalLink, Handshake, PlayCircle } from "lucide-react";
+import { ChevronRight, ChevronLeft, Building2, Target, DollarSign, KeyRound, Megaphone, Users, CheckCircle2, Sparkles, FolderOpen, ExternalLink, PlayCircle } from "lucide-react";
 import { addClient as addClientDB } from "@/store/clients";
 import { addProject as addProjectDB } from "@/store/projects";
 import type { Project } from "@/store/projects";
@@ -27,9 +27,6 @@ type OnboardingData = {
   contactPhone: string;
   teamSize: string;
   services: string[];
-  // Rechnungs-Daten
-  billingAddress: string;
-  vatId: string;
   // Step 2 — Angebot & Positionierung
   mainOffer: string;
   priceRange: string;
@@ -72,9 +69,8 @@ type OnboardingData = {
 };
 
 const initialData: OnboardingData = {
-  variant: "",
+  variant: "donewithyou",
   companyName: "", website: "", contactName: "", contactEmail: "", contactPhone: "", teamSize: "", services: [],
-  billingAddress: "", vatId: "",
   mainOffer: "", priceRange: "", uspChoice: "", usp: "", caseStudies: "", currentClients: "",
   idealClient: "", idealIndustry: [], idealBudget: "", clientProblems: "", targetAudienceChoice: "",
   currentMarketing: [], monthlyLeads: "", closingRate: "", biggestChallenge: "",
@@ -105,7 +101,6 @@ const marketingOptions = [
 ];
 
 const steps = [
-  { title: "Modell wählen", icon: Handshake, description: "Wie möchtest du mit uns zusammenarbeiten?" },
   { title: "Deine Agentur", icon: Building2, description: "Erzähl uns von deinem Business" },
   { title: "Angebot & USP", icon: Megaphone, description: "Was bietest du an und was macht dich besonders?" },
   { title: "Traumkunden", icon: Target, description: "Welche Kunden willst du gewinnen?" },
@@ -185,25 +180,13 @@ export default function Onboarding() {
 
   const canProceed = () => {
     switch (step) {
-      case 0: return !!data.variant;
-      case 1: return data.companyName && data.contactName && data.contactEmail && data.contactPhone && data.website && data.teamSize && data.services.length > 0 && data.billingAddress && data.vatId;
-      case 2: return data.mainOffer && data.priceRange && data.uspChoice && (data.uspChoice === "unknown" || data.usp) && data.caseStudies && data.currentClients;
-      case 3: return data.targetAudienceChoice && data.idealBudget && data.clientProblems && (data.targetAudienceChoice === "together" || data.idealClient);
-      case 4: return data.currentMarketing.length > 0 && data.monthlyLeads && data.closingRate && data.biggestChallenge;
-      case 5: return data.monthlyAdBudget && data.adGoal.length > 0 && data.adExperience && data.targetLeadsPerMonth;
-      case 6: return data.driveLink.startsWith("https://") && data.existingAds;
-      case 7: {
-        const baseValid = data.additionalNotes !== undefined;
-        if (data.variant === "done4you") {
-          if (!data.hasMetaBusinessManager) return false;
-          if (data.hasMetaBusinessManager === "yes") {
-            return data.websiteForAds && data.metaBusinessManager && data.adAccountId && data.pixelId && baseValid;
-          }
-          // No MBM yet → only websiteForAds required
-          return data.websiteForAds && baseValid;
-        }
-        return baseValid;
-      }
+      case 0: return data.companyName && data.contactName && data.contactEmail && data.contactPhone && data.website && data.teamSize && data.services.length > 0;
+      case 1: return data.mainOffer && data.priceRange && data.uspChoice && (data.uspChoice === "unknown" || data.usp) && data.caseStudies && data.currentClients;
+      case 2: return data.targetAudienceChoice && data.idealBudget && data.clientProblems && (data.targetAudienceChoice === "together" || data.idealClient);
+      case 3: return data.currentMarketing.length > 0 && data.monthlyLeads && data.closingRate && data.biggestChallenge;
+      case 4: return data.monthlyAdBudget && data.adGoal.length > 0 && data.adExperience && data.targetLeadsPerMonth;
+      case 5: return data.driveLink.startsWith("https://") && data.existingAds;
+      case 6: return data.additionalNotes !== undefined;
       default: return true;
     }
   };
@@ -333,7 +316,6 @@ export default function Onboarding() {
             <CardContent className="p-5 space-y-3">
               <h3 className="font-semibold text-sm">Zusammenfassung</h3>
               <div className="grid gap-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Modell</span><span className="font-medium">{data.variant === "done4you" ? "Done 4 You" : "Done With You"}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Agentur</span><span className="font-medium">{data.companyName}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Ziel</span><span className="font-medium">{data.adGoal.join(", ")}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Ad-Budget</span><span className="font-medium">{data.monthlyAdBudget}</span></div>
@@ -475,33 +457,8 @@ export default function Onboarding() {
 
         <Card>
           <CardContent className="p-6">
-            {/* Step 0 — Modell wählen (D4Y / DWY) */}
+            {/* Step 0 — Deine Agentur */}
             {step === 0 && (
-              <div className="grid gap-4">
-                <Label>Welches Modell passt zu dir?</Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <button
-                    onClick={() => update("variant", "done4you")}
-                    className={`rounded-xl border-2 p-6 text-center transition-all ${data.variant === "done4you" ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border hover:border-primary/30"}`}
-                  >
-                    <div className="text-2xl mb-2">🚀</div>
-                    <div className="font-bold text-base">Done 4 You</div>
-                    <p className="text-xs text-muted-foreground mt-2">Wir übernehmen alles für dich — Strategie, Creatives, Kampagnen-Management.</p>
-                  </button>
-                  <button
-                    onClick={() => update("variant", "donewithyou")}
-                    className={`rounded-xl border-2 p-6 text-center transition-all ${data.variant === "donewithyou" ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border hover:border-primary/30"}`}
-                  >
-                    <div className="text-2xl mb-2">🤝</div>
-                    <div className="font-bold text-base">Done With You</div>
-                    <p className="text-xs text-muted-foreground mt-2">Wir arbeiten zusammen — du bekommst Coaching, Templates und unsere Unterstützung.</p>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 1 — Deine Agentur */}
-            {step === 1 && (
               <div className="grid gap-4">
                 <div className="grid gap-2">
                   <Label>Name deiner Agentur / Firma</Label>
@@ -551,27 +508,11 @@ export default function Onboarding() {
                   </div>
                 </div>
 
-                {/* Rechnungsdaten — Reverse Charge */}
-                <div className="grid gap-3 mt-2 p-4 rounded-lg border border-border bg-muted/30">
-                  <div>
-                    <p className="text-sm font-semibold">Rechnungsdaten</p>
-                    <p className="text-[11px] text-muted-foreground">Brauchen wir für Reverse-Charge-Rechnungen.</p>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Rechnungsadresse (Firma, Straße, PLZ, Ort, Land)</Label>
-                    <Textarea rows={3} placeholder="Pixel Perfect GmbH&#10;Musterstraße 12&#10;10115 Berlin&#10;Deutschland" value={data.billingAddress} onChange={(e) => update("billingAddress", e.target.value)} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Umsatzsteuer-ID (USt-ID)</Label>
-                    <Input placeholder="z.B. DE123456789" value={data.vatId} onChange={(e) => update("vatId", e.target.value.toUpperCase())} />
-                    <p className="text-[10px] text-muted-foreground">Format: 2 Buchstaben Ländercode + Zahlen (DE / AT / CH-Format).</p>
-                  </div>
-                </div>
               </div>
             )}
 
             {/* Step 2 — Angebot & USP */}
-            {step === 2 && (
+            {step === 1 && (
               <div className="grid gap-4">
                 <div className="grid gap-2">
                   <Label>Was ist dein Hauptangebot?</Label>
@@ -631,7 +572,7 @@ export default function Onboarding() {
             )}
 
             {/* Step 3 — Traumkunden */}
-            {step === 3 && (
+            {step === 2 && (
               <div className="grid gap-4">
                 <div className="grid gap-2">
                   <Label>Beschreibe deinen Traumkunden</Label>
@@ -674,7 +615,7 @@ export default function Onboarding() {
             )}
 
             {/* Step 4 — Aktuelle Kundengewinnung */}
-            {step === 4 && (
+            {step === 3 && (
               <div className="grid gap-4">
                 <div className="grid gap-2">
                   <Label>Wie gewinnst du aktuell Kunden?</Label>
@@ -721,7 +662,7 @@ export default function Onboarding() {
             )}
 
             {/* Step 5 — Ads & Budget */}
-            {step === 5 && (
+            {step === 4 && (
               <div className="grid gap-4">
                 <div className="grid gap-2">
                   <Label>Hast du schon mal Ads geschaltet?</Label>
@@ -776,7 +717,7 @@ export default function Onboarding() {
             )}
 
             {/* Step 6 — Material & Assets */}
-            {step === 6 && (
+            {step === 5 && (
               <div className="grid gap-4">
                 <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-4">
                   <div className="flex items-start gap-3">
@@ -842,7 +783,7 @@ export default function Onboarding() {
             )}
 
             {/* Step 7 — Zugänge */}
-            {step === 7 && (
+            {step === 6 && (
               <div className="grid gap-4">
                 {/* Meta Ads access — only for D4Y */}
                 {data.variant === "done4you" && (
