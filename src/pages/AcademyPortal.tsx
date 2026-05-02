@@ -2493,42 +2493,32 @@ export default function AcademyPortal() {
       {/* ══════════════════ KICKOFF-CALL DIALOG ══════════════════ */}
       <Dialog open={showKickoffModal} onOpenChange={setShowKickoffModal}>
         <DialogContent
-          className="sm:max-w-3xl rounded-2xl p-0 overflow-hidden border-0"
-          style={{ background: isDark ? "#0a0a0f" : "#ffffff", boxShadow: "0 30px 80px rgba(0,0,0,0.6)" }}
+          className="sm:max-w-5xl rounded-2xl p-0 overflow-hidden border-0"
+          style={{ background: "#ffffff", boxShadow: "0 30px 80px rgba(0,0,0,0.6)" }}
         >
-          <div className="p-6 sm:p-8" style={{ background: isDark ? "#0a0a0f" : "#ffffff", borderBottom: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid #e5e7eb" }}>
+          <div className="p-6 sm:p-8" style={{ background: "#ffffff", borderBottom: "1px solid #e5e7eb" }}>
             <DialogHeader>
               <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary font-semibold mb-2">
                 <Sparkles className="h-3.5 w-3.5" />
                 Letzter Schritt
               </div>
-              <DialogTitle className="text-2xl font-bold tracking-tight">
+              <DialogTitle className="text-2xl font-bold tracking-tight text-gray-900">
                 Buch dir deinen Kickoff-Call mit Alex
               </DialogTitle>
-              <DialogDescription className={isDark ? "text-white/60" : "text-gray-500"}>
-                Wir gehen gemeinsam dein Onboarding durch und planen die nächsten Schritte. Dauer: 30 Min.
+              <DialogDescription className="text-gray-500">
+                Wir gehen gemeinsam dein Onboarding durch und planen die nächsten Schritte. Dauer: 45–60 Min.
               </DialogDescription>
             </DialogHeader>
           </div>
-          <div style={{ background: isDark ? "#0a0a0f" : "#ffffff", padding: 0, margin: 0 }} className="kickoff-calendly-wrap">
-            <style>{`
-              .kickoff-calendly-wrap, .kickoff-calendly-wrap * {
-                background-color: ${isDark ? "#0a0a0f" : "#ffffff"} !important;
-              }
-              .kickoff-calendly-wrap iframe {
-                border: 0 !important;
-                color-scheme: ${isDark ? "dark" : "light"};
-                display: block !important;
-              }
-            `}</style>
+          <div style={{ background: "#ffffff", padding: 0, margin: 0 }}>
             <div
               className="calendly-inline-widget"
-              data-url={`https://calendly.com/consulting-og-info/kickoff-call-alex-adslift?background_color=${isDark ? "0a0a0f" : "ffffff"}&text_color=${isDark ? "ffffff" : "111111"}&primary_color=6366f1&hide_gdpr_banner=1&hide_landing_page_details=1`}
-              style={{ minWidth: 320, height: 700 }}
+              data-url="https://calendly.com/consulting-og-info/kickoff-call-alex-adslift?primary_color=6366f1&hide_gdpr_banner=1"
+              style={{ minWidth: 320, height: 720, background: "#ffffff" }}
             />
           </div>
-          <div className="p-4 flex justify-end" style={{ background: isDark ? "#0a0a0f" : "#ffffff", borderTop: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid #e5e7eb" }}>
-            <Button variant="ghost" onClick={() => setShowKickoffModal(false)}>
+          <div className="p-4 flex justify-end" style={{ background: "#ffffff", borderTop: "1px solid #e5e7eb" }}>
+            <Button variant="ghost" onClick={() => setShowKickoffModal(false)} className="text-gray-600 hover:text-gray-900">
               Später buchen
             </Button>
           </div>
