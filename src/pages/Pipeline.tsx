@@ -236,49 +236,67 @@ export default function Pipeline() {
         </Button>
       </div>
 
-      {/* Variant filter pills */}
-      <div className="flex items-center gap-2">
-        {([
-          { key: "all", label: `Alle (${projects.length})`, gradient: "from-slate-500 to-slate-600" },
-          { key: "dwy", label: `DWY (${projects.filter((p) => p.variant === "dwy").length})`, gradient: "from-violet-500 to-indigo-600" },
-          { key: "d4y", label: `D4Y (${projects.filter((p) => p.variant === "d4y").length})`, gradient: "from-emerald-500 to-teal-600" },
-        ] as const).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setVariantFilter(t.key)}
-            className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
-              variantFilter === t.key
-                ? `bg-gradient-to-r ${t.gradient} text-white border-transparent shadow-sm`
-                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* Filter Bar — Variant Segmented Control + Status Pills */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        {/* Variant segmented control */}
+        <div className="inline-flex items-center p-1 rounded-xl bg-muted/40 border">
+          {([
+            { key: "all", label: "Alle", count: projects.length, color: "from-slate-500 to-slate-600", textColor: "text-slate-600" },
+            { key: "dwy", label: "DWY", count: projects.filter((p) => p.variant === "dwy").length, color: "from-violet-500 to-indigo-600", textColor: "text-violet-600" },
+            { key: "d4y", label: "D4Y", count: projects.filter((p) => p.variant === "d4y").length, color: "from-emerald-500 to-teal-600", textColor: "text-emerald-600" },
+          ] as const).map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setVariantFilter(t.key)}
+              className={cn(
+                "relative px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2",
+                variantFilter === t.key
+                  ? `bg-gradient-to-r ${t.color} text-white shadow-md shadow-black/10`
+                  : `text-muted-foreground hover:${t.textColor} hover:bg-background`,
+              )}
+            >
+              {t.label}
+              <span className={cn(
+                "min-w-[1.25rem] px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums",
+                variantFilter === t.key
+                  ? "bg-white/25 text-white"
+                  : "bg-muted text-muted-foreground",
+              )}>
+                {t.count}
+              </span>
+            </button>
+          ))}
+        </div>
 
-      {/* Status filter tabs */}
-      <div className="flex items-center gap-1 border-b">
-        {([
-          { key: "all", label: `Alle (${filtered.length})` },
-          { key: "draft", label: `Draft (${projects.filter((p) => p.status === "draft" && (variantFilter === "all" || p.variant === variantFilter)).length})` },
-          { key: "active", label: `Live (${projects.filter((p) => p.status === "active" && (variantFilter === "all" || p.variant === variantFilter)).length})` },
-          { key: "done", label: `Done (${projects.filter((p) => p.status === "done" && (variantFilter === "all" || p.variant === variantFilter)).length})` },
-        ] as const).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setFilter(t.key)}
-            className={cn(
-              "px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors",
-              filter === t.key
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
+        {/* Status pills */}
+        <div className="inline-flex items-center gap-1.5">
+          {([
+            { key: "all", label: "Alle", count: filtered.length, dot: "bg-slate-400" },
+            { key: "draft", label: "Draft", count: projects.filter((p) => p.status === "draft" && (variantFilter === "all" || p.variant === variantFilter)).length, dot: "bg-slate-400" },
+            { key: "active", label: "Live", count: projects.filter((p) => p.status === "active" && (variantFilter === "all" || p.variant === variantFilter)).length, dot: "bg-blue-500" },
+            { key: "done", label: "Done", count: projects.filter((p) => p.status === "done" && (variantFilter === "all" || p.variant === variantFilter)).length, dot: "bg-emerald-500" },
+          ] as const).map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setFilter(t.key)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2",
+                filter === t.key
+                  ? "bg-foreground text-background shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
+              )}
+            >
+              <span className={cn("h-1.5 w-1.5 rounded-full", t.dot)} />
+              {t.label}
+              <span className={cn(
+                "tabular-nums text-[10px]",
+                filter === t.key ? "opacity-70" : "opacity-50",
+              )}>
+                {t.count}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -299,7 +317,7 @@ export default function Pipeline() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((p) => (
             <ProjectCard
               key={p.id}
@@ -462,12 +480,13 @@ function ProjectCard({
   const active = steps.filter((s) => s.status === "active").length;
   const progress = steps.length > 0 ? Math.round((completed / steps.length) * 100) : 0;
   const statusMeta = PROJECT_STATUS_META[project.status] || PROJECT_STATUS_META.draft;
+  const isDWY = project.variant === "dwy";
 
   return (
     <button
       onClick={onClick}
       className={cn(
-        "group text-left rounded-2xl border bg-card hover:shadow-xl transition-all overflow-hidden relative",
+        "group text-left aspect-square rounded-2xl border bg-card hover:shadow-xl hover:scale-[1.02] transition-all duration-300 overflow-hidden relative flex flex-col",
         project.status === "active" && "hover:border-blue-500/60 hover:shadow-blue-500/10",
         project.status === "done" && "hover:border-emerald-500/60 hover:shadow-emerald-500/10",
         project.status === "paused" && "hover:border-amber-500/60 hover:shadow-amber-500/10",
@@ -477,90 +496,81 @@ function ProjectCard({
       {/* subtle radial gradient bg per status */}
       <div
         className={cn(
-          "absolute inset-0 opacity-40 pointer-events-none",
-          project.status === "active" && "bg-gradient-to-br from-blue-500/[0.06] via-transparent to-transparent",
-          project.status === "done" && "bg-gradient-to-br from-emerald-500/[0.06] via-transparent to-transparent",
-          project.status === "paused" && "bg-gradient-to-br from-amber-500/[0.06] via-transparent to-transparent",
+          "absolute inset-0 opacity-50 pointer-events-none",
+          project.status === "active" && "bg-gradient-to-br from-blue-500/[0.08] via-transparent to-transparent",
+          project.status === "done" && "bg-gradient-to-br from-emerald-500/[0.08] via-transparent to-transparent",
+          project.status === "paused" && "bg-gradient-to-br from-amber-500/[0.08] via-transparent to-transparent",
         )}
       />
-      <div className="relative p-5">
-        {/* gradient accent strip */}
-        <div
-          className={cn(
-            "absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r",
-            project.status === "active"
-              ? "from-blue-500 via-blue-400 to-blue-500"
-              : project.status === "done"
-              ? "from-emerald-500 to-emerald-400"
-              : project.status === "paused"
-              ? "from-amber-500 to-amber-400"
-              : "from-slate-500/40 to-slate-500/20",
-          )}
-        />
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <h3 className="font-semibold leading-tight line-clamp-2">{project.name}</h3>
-          <div className="flex items-center gap-1 shrink-0">
-            <Badge
-              variant="outline"
-              className={cn(
-                "text-[10px] font-bold border-transparent text-white",
-                project.variant === "d4y"
-                  ? "bg-gradient-to-r from-emerald-500 to-teal-600"
-                  : "bg-gradient-to-r from-violet-500 to-indigo-600",
-              )}
-            >
-              {project.variant === "d4y" ? "D4Y" : "DWY"}
-            </Badge>
-            <Badge variant="outline" className={cn("text-[10px]", statusMeta.className)}>
-              {statusMeta.label}
-            </Badge>
-          </div>
+
+      {/* Variant gradient header */}
+      <div className={cn(
+        "relative h-1 w-full bg-gradient-to-r",
+        isDWY ? "from-violet-500 via-indigo-500 to-violet-500" : "from-emerald-500 via-teal-500 to-emerald-500",
+      )} />
+
+      {/* Top: Variant Badge + Status Badge */}
+      <div className="relative px-5 pt-4 pb-2 flex items-center justify-between gap-2">
+        <div className={cn(
+          "px-2 py-0.5 rounded-md text-[10px] font-bold text-white shadow-sm bg-gradient-to-r",
+          isDWY ? "from-violet-500 to-indigo-600" : "from-emerald-500 to-teal-600",
+        )}>
+          {isDWY ? "DWY" : "D4Y"}
         </div>
-        <div className="space-y-1.5 text-xs text-muted-foreground">
+        <Badge variant="outline" className={cn("text-[10px]", statusMeta.className)}>
+          {statusMeta.label}
+        </Badge>
+      </div>
+
+      {/* Title + Client */}
+      <div className="relative px-5 pb-2 flex-1 flex flex-col">
+        <h3 className="font-bold text-base leading-tight line-clamp-2 mb-2">{project.name}</h3>
+        <div className="space-y-1 text-xs text-muted-foreground mt-auto">
           {client && (
             <div className="flex items-center gap-1.5">
-              <Building2 className="h-3 w-3" />
+              <Building2 className="h-3 w-3 shrink-0" />
               <span className="truncate">{client.name}</span>
             </div>
           )}
           {project.clientEmail && (
             <div className="flex items-center gap-1.5">
-              <Mail className="h-3 w-3" />
+              <Mail className="h-3 w-3 shrink-0" />
               <span className="truncate">{project.clientEmail}</span>
             </div>
           )}
         </div>
+      </div>
 
-        {/* Mini step preview */}
-        {steps.length > 0 && (
-          <div className="mt-4 space-y-2">
-            <div className="flex items-center gap-0.5">
-              {steps.slice(0, 8).map((s) => (
-                <div
-                  key={s.id}
-                  className={cn(
-                    "flex-1 h-1.5 rounded-full",
-                    s.status === "done" && "bg-emerald-500",
-                    s.status === "active" && "bg-blue-500",
-                    s.status === "todo" && "bg-muted",
-                    s.status === "skipped" && "bg-rose-300/50",
-                  )}
-                />
-              ))}
-              {steps.length > 8 && (
-                <span className="text-[9px] text-muted-foreground ml-1">+{steps.length - 8}</span>
-              )}
+      {/* Progress Section */}
+      <div className="relative px-5 pt-3 pb-3 space-y-2">
+        {steps.length > 0 ? (
+          <>
+            <div className="flex items-center justify-between text-[10px] tabular-nums">
+              <span className="text-muted-foreground">{completed}/{steps.length} Steps</span>
+              <span className="font-bold">{progress}%</span>
             </div>
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
-              <span>{completed}/{steps.length} Steps</span>
-              <span>{progress}%</span>
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-500",
+                  project.status === "done" && "bg-gradient-to-r from-emerald-500 to-teal-500",
+                  project.status === "active" && "bg-gradient-to-r from-blue-500 to-violet-500",
+                  project.status === "paused" && "bg-gradient-to-r from-amber-500 to-orange-500",
+                  project.status === "draft" && "bg-gradient-to-r from-slate-400 to-slate-500",
+                )}
+                style={{ width: `${progress}%` }}
+              />
             </div>
-          </div>
+          </>
+        ) : (
+          <div className="text-[10px] text-muted-foreground">Noch keine Steps</div>
         )}
       </div>
-      <div className="px-5 py-2 bg-muted/30 text-[10px] text-muted-foreground border-t flex items-center justify-between group-hover:bg-primary/5 transition-colors">
-        <span>{active > 0 ? `${active} aktiv` : "Klick → öffnen"}</span>
-        <ChevronRight className="h-3 w-3 opacity-50 group-hover:translate-x-0.5 transition-transform" />
+
+      {/* Footer */}
+      <div className="relative px-5 py-2.5 bg-muted/30 text-[10px] text-muted-foreground border-t flex items-center justify-between group-hover:bg-primary/5 transition-colors">
+        <span className="font-medium">{active > 0 ? `${active} aktiv` : "Klick → öffnen"}</span>
+        <ChevronRight className="h-3 w-3 opacity-50 group-hover:translate-x-0.5 group-hover:opacity-100 transition-all" />
       </div>
     </button>
   );
