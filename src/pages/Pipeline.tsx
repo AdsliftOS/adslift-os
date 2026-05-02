@@ -3449,7 +3449,7 @@ function ProjectTasksSection({
         ) : (
           <>
             {open.map((t) => (
-              <TaskRow key={t.id} task={t} onToggle={() => toggleDone(t.id, t.col)} onDelete={() => deleteTask(t.id)} />
+              <ClientTaskRow key={t.id} task={t} onToggle={() => toggleDone(t.id, t.col)} onDelete={() => deleteTask(t.id)} />
             ))}
             {done.length > 0 && (
               <div className="px-5 py-2 text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/10 border-y">
@@ -3457,7 +3457,7 @@ function ProjectTasksSection({
               </div>
             )}
             {done.map((t) => (
-              <TaskRow key={t.id} task={t} onToggle={() => toggleDone(t.id, t.col)} onDelete={() => deleteTask(t.id)} dimmed />
+              <ClientTaskRow key={t.id} task={t} onToggle={() => toggleDone(t.id, t.col)} onDelete={() => deleteTask(t.id)} dimmed />
             ))}
           </>
         )}
@@ -3466,7 +3466,7 @@ function ProjectTasksSection({
   );
 }
 
-function TaskRow({
+function ClientTaskRow({
   task,
   onToggle,
   onDelete,
