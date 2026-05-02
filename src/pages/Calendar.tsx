@@ -197,6 +197,31 @@ export default function Calendar() {
   const [syncing, setSyncing] = useState(false);
   const noshowList = useNoShows();
 
+  // Account visibility filter — persisted to localStorage
+  const VISIBILITY_KEY = "calendar-hidden-accounts";
+  const [hiddenAccounts, setHiddenAccounts] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(VISIBILITY_KEY);
+      if (stored) return new Set(JSON.parse(stored));
+    } catch {}
+    return new Set();
+  });
+  const toggleAccountVisibility = (email: string) => {
+    setHiddenAccounts((prev) => {
+      const next = new Set(prev);
+      if (next.has(email)) next.delete(email);
+      else next.add(email);
+      try { localStorage.setItem(VISIBILITY_KEY, JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
+  };
+
+  const accountLabel = (email: string) => {
+    if (email === "info@consulting-og.de") return "Alex";
+    if (email === "office@consulting-og.de") return "Daniel";
+    return email.split("@")[0];
+  };
+
   // Calendly integration
   const [calendlyOpen, setCalendlyOpen] = useState(false);
   const [calendlyStep, setCalendlyStep] = useState<"select" | "book">("select");
@@ -346,8 +371,9 @@ export default function Calendar() {
       }));
     const linkedGoogleIds = new Set(events.map((e) => e.googleEventId).filter(Boolean) as string[]);
     const gcalDeduped = googleEvents.filter((e) => !e.googleEventId || !linkedGoogleIds.has(e.googleEventId));
-    return [...events, ...deadlineEvents, ...gcalDeduped];
-  }, [events, projects, googleEvents]);
+    const gcalVisible = gcalDeduped.filter((e) => !e.accountEmail || !hiddenAccounts.has(e.accountEmail));
+    return [...events, ...deadlineEvents, ...gcalVisible];
+  }, [events, projects, googleEvents, hiddenAccounts]);
 
   // Month grid
   const monthStart = startOfMonth(monthDate);
@@ -674,6 +700,27 @@ export default function Calendar() {
               </button>
             ))}
           </div>
+          {/* Account Visibility Toggle */}
+          {googleAccounts.length > 1 && (
+            <div className="flex items-center rounded-lg border bg-card p-0.5 gap-0.5">
+              {googleAccounts.map((acc) => {
+                const visible = !hiddenAccounts.has(acc.email);
+                return (
+                  <button
+                    key={acc.email}
+                    onClick={() => toggleAccountVisibility(acc.email)}
+                    title={visible ? `${acc.email} ausblenden` : `${acc.email} einblenden`}
+                    className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-all ${
+                      visible ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground opacity-60"
+                    }`}
+                  >
+                    <span className={`h-2 w-2 rounded-full ${acc.color} ${!visible ? "opacity-40" : ""}`} />
+                    <span>{accountLabel(acc.email)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {googleAccounts.length > 0 && (
             <Button variant="ghost" size="sm" onClick={syncGoogleCalendar} disabled={syncing} className="gap-1.5">
               <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
