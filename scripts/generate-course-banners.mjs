@@ -24,33 +24,32 @@ const COURSES = [
 ];
 
 function bannerHTML({ title, subtitle, gradient, emoji }) {
+  // Content vertikal zentriert, weil das Frontend einen dunklen Fade von unten drüberlegt.
+  // Aspect-Ratio passt zum Card-Thumbnail (~2.5:1 → 1280x520).
   return `<!doctype html><html><head><meta charset="utf-8">
 <style>
   html,body{margin:0;padding:0;}
   .banner{
-    width:1280px;height:480px;
+    width:1280px;height:520px;
     background:linear-gradient(135deg, ${gradient[0]} 0%, ${gradient[1]} 100%);
     position:relative;overflow:hidden;
     font-family:-apple-system,BlinkMacSystemFont,"Inter","SF Pro Display",sans-serif;
     color:white;
   }
-  .glow{position:absolute;width:600px;height:600px;border-radius:50%;background:rgba(255,255,255,0.12);filter:blur(80px);}
-  .glow-1{top:-200px;right:-100px;}
-  .glow-2{bottom:-300px;left:-150px;background:rgba(0,0,0,0.15);}
+  .glow{position:absolute;width:700px;height:700px;border-radius:50%;background:rgba(255,255,255,0.14);filter:blur(80px);}
+  .glow-1{top:-280px;right:-180px;}
+  .glow-2{bottom:-360px;left:-220px;background:rgba(0,0,0,0.18);}
   .grain{position:absolute;inset:0;opacity:0.05;background-image:radial-gradient(circle at 1px 1px, white 1px, transparent 0);background-size:24px 24px;}
-  .content{position:absolute;inset:0;padding:80px;display:flex;flex-direction:column;justify-content:flex-end;gap:12px;}
-  .emoji{position:absolute;top:60px;right:80px;font-size:160px;opacity:0.9;filter:drop-shadow(0 8px 24px rgba(0,0,0,0.25));}
-  .label{font-size:18px;font-weight:600;letter-spacing:6px;text-transform:uppercase;color:rgba(255,255,255,0.7);}
+  .content{position:absolute;inset:0;padding:80px;display:flex;flex-direction:column;justify-content:center;gap:14px;max-width:75%;}
+  .emoji{position:absolute;top:50%;right:90px;transform:translateY(-50%);font-size:200px;opacity:0.9;filter:drop-shadow(0 12px 30px rgba(0,0,0,0.25));}
+  .label{font-size:20px;font-weight:600;letter-spacing:7px;text-transform:uppercase;color:rgba(255,255,255,0.75);}
   .title{font-size:96px;font-weight:800;letter-spacing:-3px;line-height:0.95;}
-  .subtitle{font-size:30px;font-weight:500;color:rgba(255,255,255,0.85);}
-  .brand{position:absolute;top:80px;left:80px;display:flex;align-items:center;gap:12px;font-size:18px;font-weight:600;color:rgba(255,255,255,0.85);letter-spacing:1px;}
-  .dot{width:8px;height:8px;border-radius:50%;background:white;}
+  .subtitle{font-size:30px;font-weight:500;color:rgba(255,255,255,0.88);}
 </style></head><body>
 <div class="banner">
   <div class="glow glow-1"></div>
   <div class="glow glow-2"></div>
   <div class="grain"></div>
-  <div class="brand"><div class="dot"></div>ADSLIFT KUNDENBEREICH</div>
   <div class="emoji">${emoji}</div>
   <div class="content">
     <div class="label">Modul</div>
@@ -80,13 +79,13 @@ console.log('Bucket:', bucketRes.status, bucketRes.ok ? 'created' : 'maybe exist
 
 // Render banners
 const browser = await chromium.launch({ headless: true });
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 480 } });
+const ctx = await browser.newContext({ viewport: { width: 1280, height: 520 } });
 const page = await ctx.newPage();
 
 const urls = {};
 for (const c of COURSES) {
   await page.setContent(bannerHTML(c), { waitUntil: 'load' });
-  const buf = await page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: 1280, height: 480 } });
+  const buf = await page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: 1280, height: 520 } });
   const path = `${c.slug}.png`;
   const { error } = await sb.storage.from('course-banners').upload(path, buf, {
     contentType: 'image/png', upsert: true,
