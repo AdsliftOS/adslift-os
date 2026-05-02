@@ -89,7 +89,29 @@ export default function CloserHandoff() {
         if (acErr) throw acErr;
       }
 
-      // 3. Trigger n8n webhook → Welcome-Email
+      // 3. Pipeline-Project anlegen (falls noch keins für diesen Client existiert)
+      const pipelineVariant = form.variant === "done4you" ? "d4y" : "dwy";
+      const { data: existingPipelineProject } = await supabase
+        .from("pipeline_projects")
+        .select("id")
+        .eq("client_id", clientId)
+        .limit(1)
+        .maybeSingle();
+
+      if (!existingPipelineProject) {
+        const portalToken = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10);
+        const { error: ppErr } = await supabase.from("pipeline_projects").insert({
+          name: `Meta Ads — ${company}`,
+          variant: pipelineVariant,
+          client_id: clientId,
+          client_email: email,
+          status: "draft",
+          customer_portal_token: portalToken,
+        });
+        if (ppErr) console.warn("pipeline_projects insert failed:", ppErr.message);
+      }
+
+      // 4. Trigger n8n webhook → Welcome-Email
       const r = await fetch(N8N_WEBHOOK, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
