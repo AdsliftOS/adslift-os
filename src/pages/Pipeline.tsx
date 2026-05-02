@@ -3321,74 +3321,96 @@ function DWYSetupDashboard({
             Detail-Ansicht <ChevronRight className="h-3.5 w-3.5 ml-1" />
           </Button>
         </div>
-        <div className="p-6">
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="p-6 overflow-x-auto">
+          <div className="flex gap-3 min-w-fit">
             {courseStats.map((cs, idx) => {
               const StatusIcon = cs.status === "done" ? CheckCircle2 : cs.status === "active" ? Play : Circle;
-              const statusColor =
-                cs.status === "done" ? "text-emerald-500"
-                : cs.status === "active" ? "text-blue-500"
-                : "text-muted-foreground/50";
-              const statusLabel =
-                cs.status === "done" ? "Fertig"
-                : cs.status === "active" ? "Aktiv"
-                : "Offen";
+              const gradient =
+                cs.status === "done" ? "from-emerald-500 to-teal-600"
+                : cs.status === "active" ? "from-blue-500 to-violet-600"
+                : "from-slate-700/40 to-slate-900/40";
+              const ringGradient =
+                cs.status === "done" ? "from-emerald-400/40 to-teal-500/40"
+                : cs.status === "active" ? "from-blue-400/40 to-violet-500/40"
+                : "from-transparent to-transparent";
               return (
                 <div
                   key={cs.course.id}
                   className={cn(
-                    "group rounded-xl border p-4 transition-all hover:shadow-md flex flex-col gap-3 min-h-[150px]",
-                    cs.status === "done" && "border-emerald-500/40 bg-emerald-500/[0.04] hover:border-emerald-500/60",
-                    cs.status === "active" && "border-blue-500/40 bg-blue-500/[0.04] hover:border-blue-500/60",
-                    cs.status === "todo" && "border-border bg-card hover:border-foreground/30",
+                    "group relative shrink-0 w-[170px] h-[170px] rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl",
+                    cs.status === "done" && "shadow-lg shadow-emerald-500/20",
+                    cs.status === "active" && "shadow-lg shadow-blue-500/20",
                   )}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={cn(
-                          "h-7 w-7 rounded-lg flex items-center justify-center text-[11px] font-bold",
-                          cs.status === "done" && "bg-emerald-500/20 text-emerald-600",
-                          cs.status === "active" && "bg-blue-500/20 text-blue-600",
-                          cs.status === "todo" && "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        {idx + 1}
-                      </div>
-                      <span className={cn(
-                        "text-[10px] uppercase tracking-wider font-semibold",
-                        cs.status === "done" && "text-emerald-600",
-                        cs.status === "active" && "text-blue-600",
-                        cs.status === "todo" && "text-muted-foreground",
-                      )}>
-                        {statusLabel}
-                      </span>
-                    </div>
-                    <StatusIcon className={cn("h-4 w-4", statusColor)} />
+                  {/* Gradient background */}
+                  <div className={cn(
+                    "absolute inset-0 bg-gradient-to-br",
+                    gradient,
+                  )} />
+                  {/* Glow ring */}
+                  <div className={cn(
+                    "absolute inset-0 bg-gradient-to-br opacity-60",
+                    ringGradient,
+                  )} />
+                  {/* Subtle texture */}
+                  <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "16px 16px" }} />
+                  {/* Big number watermark */}
+                  <div className={cn(
+                    "absolute -bottom-4 -right-2 text-[120px] font-black leading-none select-none pointer-events-none",
+                    cs.status === "todo" ? "text-white/[0.08]" : "text-white/15",
+                  )}>
+                    {idx + 1}
                   </div>
-                  <h4 className="font-bold text-sm leading-tight line-clamp-2 flex-1">{cs.course.title}</h4>
-                  <div className="space-y-1.5">
-                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all duration-500",
-                          cs.status === "done" && "bg-gradient-to-r from-emerald-500 to-teal-500",
-                          cs.status === "active" && "bg-gradient-to-r from-blue-500 to-violet-500",
-                          cs.status === "todo" && "bg-muted-foreground/30",
-                        )}
-                        style={{ width: `${cs.pct}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] text-muted-foreground">{cs.done}/{cs.total} Lektionen</span>
-                      <span className={cn(
-                        "text-xs font-bold",
-                        cs.status === "done" && "text-emerald-600",
-                        cs.status === "active" && "text-blue-600",
-                        cs.status === "todo" && "text-muted-foreground",
+                  {/* Content */}
+                  <div className="relative h-full p-4 flex flex-col justify-between">
+                    <div className="flex items-start justify-between">
+                      <div className={cn(
+                        "px-2 py-0.5 rounded-md text-[9px] uppercase tracking-wider font-bold backdrop-blur-sm",
+                        cs.status === "done" && "bg-white/20 text-white",
+                        cs.status === "active" && "bg-white/20 text-white",
+                        cs.status === "todo" && "bg-white/10 text-white/70",
                       )}>
-                        {cs.pct}%
-                      </span>
+                        Modul {idx + 1}
+                      </div>
+                      <div className={cn(
+                        "h-7 w-7 rounded-full flex items-center justify-center backdrop-blur-sm",
+                        cs.status === "done" && "bg-white/25",
+                        cs.status === "active" && "bg-white/25",
+                        cs.status === "todo" && "bg-white/10",
+                      )}>
+                        <StatusIcon className={cn(
+                          "h-3.5 w-3.5",
+                          cs.status === "todo" ? "text-white/50" : "text-white",
+                        )} />
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className={cn(
+                        "font-bold text-sm leading-tight line-clamp-2 mb-2",
+                        cs.status === "todo" ? "text-white/80" : "text-white",
+                      )}>
+                        {cs.course.title}
+                      </h4>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className={cn(
+                          "text-[10px]",
+                          cs.status === "todo" ? "text-white/50" : "text-white/80",
+                        )}>
+                          {cs.done}/{cs.total} Lektionen
+                        </span>
+                        <span className={cn(
+                          "text-sm font-black",
+                          cs.status === "todo" ? "text-white/60" : "text-white",
+                        )}>
+                          {cs.pct}%
+                        </span>
+                      </div>
+                      <div className="h-1 rounded-full bg-black/20 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-white/90 transition-all duration-500"
+                          style={{ width: `${cs.pct}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
