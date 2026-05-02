@@ -2493,10 +2493,10 @@ export default function AcademyPortal() {
       {/* ══════════════════ KICKOFF-CALL DIALOG ══════════════════ */}
       <Dialog open={showKickoffModal} onOpenChange={setShowKickoffModal}>
         <DialogContent
-          className={`sm:max-w-3xl rounded-2xl p-0 overflow-hidden ${isDark ? "border-white/[0.06]" : "border-gray-200"}`}
-          style={{ background: isDark ? "#0a0a0f" : "#ffffff" }}
+          className="sm:max-w-3xl rounded-2xl p-0 overflow-hidden border-0"
+          style={{ background: isDark ? "#0a0a0f" : "#ffffff", boxShadow: "0 30px 80px rgba(0,0,0,0.6)" }}
         >
-          <div className="p-6 sm:p-8 border-b border-white/[0.06]">
+          <div className="p-6 sm:p-8" style={{ background: isDark ? "#0a0a0f" : "#ffffff", borderBottom: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid #e5e7eb" }}>
             <DialogHeader>
               <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary font-semibold mb-2">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -2510,13 +2510,15 @@ export default function AcademyPortal() {
               </DialogDescription>
             </DialogHeader>
           </div>
-          <div style={{ background: isDark ? "#0a0a0f" : "#ffffff" }} className="kickoff-calendly-wrap">
+          <div style={{ background: isDark ? "#0a0a0f" : "#ffffff", padding: 0, margin: 0 }} className="kickoff-calendly-wrap">
             <style>{`
-              .kickoff-calendly-wrap .calendly-inline-widget,
+              .kickoff-calendly-wrap, .kickoff-calendly-wrap * {
+                background-color: ${isDark ? "#0a0a0f" : "#ffffff"} !important;
+              }
               .kickoff-calendly-wrap iframe {
-                background: ${isDark ? "#0a0a0f" : "#ffffff"} !important;
                 border: 0 !important;
                 color-scheme: ${isDark ? "dark" : "light"};
+                display: block !important;
               }
             `}</style>
             <div
@@ -2525,7 +2527,7 @@ export default function AcademyPortal() {
               style={{ minWidth: 320, height: 700 }}
             />
           </div>
-          <div className="p-4 border-t border-white/[0.06] flex justify-end">
+          <div className="p-4 flex justify-end" style={{ background: isDark ? "#0a0a0f" : "#ffffff", borderTop: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid #e5e7eb" }}>
             <Button variant="ghost" onClick={() => setShowKickoffModal(false)}>
               Später buchen
             </Button>
