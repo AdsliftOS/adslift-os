@@ -45,12 +45,17 @@ import {
   MessageSquare,
   Download,
   FolderOpen,
+  GraduationCap,
+  ClipboardList,
+  CheckCircle2,
+  Circle,
 } from "lucide-react";
 import { format, differenceInDays, addDays, isToday, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useClients } from "@/store/clients";
+import { OnboardingDetails } from "@/pages/ClientDetail";
 import {
   usePipelineProjects,
   useProjectSteps,
@@ -585,19 +590,64 @@ function PipelineDetail({
   const [editingStepId, setEditingStepId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [taskCreateOpen, setTaskCreateOpen] = useState(false);
+  const [taskForm, setTaskForm] = useState<{ title: string; description: string; priority: "low" | "med" | "high"; dueDate: string; category: string }>({ title: "", description: "", priority: "med", dueDate: "", category: "Allgemein" });
 
   // Drag & Drop
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
-  // Mode tab — Setup (Pipeline-Builder) vs Live-Operations (running)
+  // Mode tab — Setup / Live-Operations / Onboarding / Academy
   // Default depends on project status.
   const projectForMode = projects.find((p) => p.id === projectId);
-  const defaultMode: "setup" | "ops" =
+  const defaultMode: "setup" | "ops" | "onboarding" | "academy" =
     projectForMode?.status === "active" || projectForMode?.status === "done"
       ? "ops"
       : "setup";
-  const [mode, setMode] = useState<"setup" | "ops">(defaultMode);
+  const [mode, setMode] = useState<"setup" | "ops" | "onboarding" | "academy">(defaultMode);
+
+  // Onboarding-Daten + Academy-Progress für die neuen Tabs
+  const [onboardingProjects, setOnboardingProjects] = useState<any[]>([]);
+  const [academyData, setAcademyData] = useState<{
+    customer: any | null;
+    courses: any[];
+    chapters: any[];
+    lessons: any[];
+    progress: any[];
+  }>({ customer: null, courses: [], chapters: [], lessons: [], progress: [] });
+
+  useEffect(() => {
+    if (!projectForMode?.clientId) {
+      setOnboardingProjects([]);
+      setAcademyData({ customer: null, courses: [], chapters: [], lessons: [], progress: [] });
+      return;
+    }
+    (async () => {
+      // 1. Legacy projects mit Onboarding-JSON
+      const { data: legacy } = await supabase
+        .from("projects").select("*").eq("client_id", projectForMode.clientId);
+      setOnboardingProjects(legacy ?? []);
+
+      // 2. Academy-Customer + Progress
+      const { data: customer } = await supabase
+        .from("academy_customers").select("*").eq("client_id", projectForMode.clientId).maybeSingle();
+      const [coursesRes, chaptersRes, lessonsRes, progressRes] = await Promise.all([
+        supabase.from("courses").select("*").eq("is_published", true).order("sort_order", { ascending: true }),
+        supabase.from("chapters").select("*").order("sort_order", { ascending: true }),
+        supabase.from("lessons").select("*").eq("is_published", true).order("sort_order", { ascending: true }),
+        customer
+          ? supabase.from("lesson_progress").select("*").eq("customer_id", customer.id)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      setAcademyData({
+        customer: customer || null,
+        courses: coursesRes.data ?? [],
+        chapters: chaptersRes.data ?? [],
+        lessons: lessonsRes.data ?? [],
+        progress: (progressRes.data as any[]) ?? [],
+      });
+    })();
+  }, [projectForMode?.clientId]);
 
   // Live campaigns from Meta — fed into Operations panel + Gantt
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -675,6 +725,9 @@ function PipelineDetail({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setTaskCreateOpen(true)}>
+              <ClipboardList className="h-3.5 w-3.5 mr-1" /> Task
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
               <PanelRight className="h-3.5 w-3.5 mr-1" /> Kunden-Portal
             </Button>
@@ -706,8 +759,8 @@ function PipelineDetail({
         </div>
       </div>
 
-      {/* Mode tabs — Setup vs Live-Operations */}
-      <div className="flex items-center gap-2 p-1.5 rounded-xl bg-muted/30 border w-fit">
+      {/* Mode tabs — Setup / Live-Ops / Onboarding / Academy */}
+      <div className="flex items-center gap-2 p-1.5 rounded-xl bg-muted/30 border w-fit flex-wrap">
         <ModeTab
           active={mode === "setup"}
           onClick={() => setMode("setup")}
@@ -724,6 +777,22 @@ function PipelineDetail({
           subtitle="Ads laufen · Reports · Optimierungen"
           accent="from-emerald-500/30 to-emerald-500/10"
           badge={isLive ? "LIVE" : undefined}
+        />
+        <ModeTab
+          active={mode === "onboarding"}
+          onClick={() => setMode("onboarding")}
+          icon={ClipboardList}
+          title="Onboarding"
+          subtitle="Wizard-Daten · USP · Zielgruppe"
+          accent="from-amber-500/30 to-amber-500/10"
+        />
+        <ModeTab
+          active={mode === "academy"}
+          onClick={() => setMode("academy")}
+          icon={GraduationCap}
+          title="Academy"
+          subtitle="Module-Fortschritt · Lessons"
+          accent="from-violet-500/30 to-violet-500/10"
         />
       </div>
 
@@ -826,8 +895,32 @@ function PipelineDetail({
         />
       )}
 
+      {/* Onboarding content */}
+      {mode === "onboarding" && (
+        <div>
+          {project.clientId ? (
+            onboardingProjects.length > 0 && onboardingProjects.some((p) => p.onboarding && Object.keys(p.onboarding).length > 0) ? (
+              <OnboardingDetails projects={onboardingProjects} />
+            ) : (
+              <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
+                Kunde hat das Onboarding-Form noch nicht ausgefüllt.
+              </CardContent></Card>
+            )
+          ) : (
+            <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
+              Diesem Projekt ist kein Kunde zugeordnet — Onboarding-Daten nicht verknüpfbar.
+            </CardContent></Card>
+          )}
+        </div>
+      )}
+
+      {/* Academy content — Module-Progress des Kunden */}
+      {mode === "academy" && (
+        <AcademyProgressView data={academyData} />
+      )}
+
       {/* Gantt-Timeline — Setup defaults to Steps, Live-Ops defaults to Campaigns */}
-      {(steps.length > 0 || campaigns.length > 0) && (
+      {mode !== "onboarding" && mode !== "academy" && (steps.length > 0 || campaigns.length > 0) && (
         <PipelineGantt
           steps={steps}
           campaigns={campaigns}
@@ -904,6 +997,86 @@ function PipelineDetail({
           onDeleted={() => setEditingStepId(null)}
         />
       )}
+
+      {/* Task create dialog */}
+      <Dialog open={taskCreateOpen} onOpenChange={setTaskCreateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Task für {project.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label>Titel *</Label>
+              <Input
+                placeholder="z.B. Creative-Briefing erstellen"
+                value={taskForm.title}
+                onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
+                autoFocus
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Beschreibung</Label>
+              <Textarea
+                rows={3}
+                placeholder="Details zur Task..."
+                value={taskForm.description}
+                onChange={(e) => setTaskForm((f) => ({ ...f, description: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label>Priorität</Label>
+                <Select value={taskForm.priority} onValueChange={(v) => setTaskForm((f) => ({ ...f, priority: v as any }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Niedrig</SelectItem>
+                    <SelectItem value="med">Mittel</SelectItem>
+                    <SelectItem value="high">Hoch</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>Fälligkeit</Label>
+                <Input type="date" value={taskForm.dueDate} onChange={(e) => setTaskForm((f) => ({ ...f, dueDate: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Kategorie</Label>
+              <Input
+                placeholder="z.B. Setup / Creative / Sales"
+                value={taskForm.category}
+                onChange={(e) => setTaskForm((f) => ({ ...f, category: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTaskCreateOpen(false)}>Abbrechen</Button>
+            <Button
+              onClick={async () => {
+                if (!taskForm.title.trim()) return toast.error("Titel ist erforderlich");
+                const { error } = await supabase.from("tasks").insert({
+                  title: taskForm.title.trim(),
+                  description: taskForm.description.trim() || null,
+                  priority: taskForm.priority,
+                  due_date: taskForm.dueDate || null,
+                  category: taskForm.category.trim() || "Allgemein",
+                  col: "todo",
+                  client_id: project.clientId || null,
+                });
+                if (error) {
+                  toast.error("Task konnte nicht angelegt werden");
+                  return;
+                }
+                toast.success("Task angelegt");
+                setTaskForm({ title: "", description: "", priority: "med", dueDate: "", category: "Allgemein" });
+                setTaskCreateOpen(false);
+              }}
+            >
+              Anlegen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Report send dialog */}
       <ReportDialog
@@ -2843,5 +3016,157 @@ function TaskRow({ stepId, task }: { stepId: string; task: StepTask }) {
         <X className="h-3 w-3" />
       </Button>
     </li>
+  );
+}
+
+// ─── Academy-Progress-View ──────────────────────────────────────────
+function AcademyProgressView({ data }: {
+  data: {
+    customer: any | null;
+    courses: any[];
+    chapters: any[];
+    lessons: any[];
+    progress: any[];
+  };
+}) {
+  if (!data.customer) {
+    return (
+      <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
+        Kunde hat noch keinen Academy-Account oder ist nicht verknüpft.
+      </CardContent></Card>
+    );
+  }
+
+  const totalLessons = data.lessons.length;
+  const completedLessons = data.progress.filter((p) => p.completed).length;
+  const overall = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
+  // Pro Course: Lessons + completion
+  const courseStats = data.courses.map((c) => {
+    const cls = data.lessons.filter((l) => l.course_id === c.id);
+    const done = cls.filter((l) => data.progress.some((p) => p.lesson_id === l.id && p.completed)).length;
+    const pct = cls.length > 0 ? Math.round((done / cls.length) * 100) : 0;
+    const status: "done" | "active" | "todo" =
+      pct === 100 ? "done"
+      : done > 0 ? "active"
+      : "todo";
+    return { course: c, lessons: cls, done, total: cls.length, pct, status };
+  }).sort((a, b) => (a.course.sort_order ?? 0) - (b.course.sort_order ?? 0));
+
+  return (
+    <div className="space-y-5">
+      {/* Header-Stats */}
+      <div className="grid sm:grid-cols-4 gap-3">
+        <Stat label="Gesamtfortschritt" value={`${overall}%`} sub={`${completedLessons}/${totalLessons} Lektionen`} tone="primary" />
+        <Stat label="Module fertig" value={courseStats.filter((c) => c.status === "done").length} sub={`von ${courseStats.length}`} tone="success" />
+        <Stat label="Aktiv" value={courseStats.filter((c) => c.status === "active").length} sub="in Bearbeitung" tone="blue" />
+        <Stat label="Offen" value={courseStats.filter((c) => c.status === "todo").length} sub="noch nicht gestartet" tone="muted" />
+      </div>
+
+      {/* Pipeline-Style: Module als auto-synced Steps */}
+      <div className="rounded-2xl border bg-gradient-to-br from-background via-muted/10 to-background overflow-hidden">
+        <div className="px-5 py-3 border-b bg-muted/20 flex items-center gap-2">
+          <GraduationCap className="h-4 w-4 text-violet-500" />
+          <h3 className="text-sm font-semibold">Academy-Pipeline</h3>
+          <span className="text-[11px] text-muted-foreground">
+            {courseStats.length} Module · auto-synced mit Kunden-Fortschritt
+          </span>
+        </div>
+        <div className="p-6 overflow-x-auto">
+          <div className="flex items-stretch gap-2 min-w-fit">
+            {courseStats.map((cs, idx) => {
+              const StatusIcon = cs.status === "done" ? CheckCircle2 : cs.status === "active" ? Play : Circle;
+              const statusColor =
+                cs.status === "done" ? "text-emerald-500"
+                : cs.status === "active" ? "text-blue-500"
+                : "text-muted-foreground";
+              return (
+                <div key={cs.course.id} className="flex items-stretch gap-2 shrink-0">
+                  <div
+                    className={cn(
+                      "w-[220px] rounded-xl border bg-card p-4 flex flex-col gap-2",
+                      cs.status === "done" && "border-emerald-500/40 bg-emerald-500/[0.04]",
+                      cs.status === "active" && "border-blue-500/40 bg-blue-500/[0.04]",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                        Modul {idx + 1}
+                      </span>
+                      <StatusIcon className={cn("h-4 w-4", statusColor)} />
+                    </div>
+                    <h4 className="font-semibold text-sm leading-tight line-clamp-2">{cs.course.title}</h4>
+                    <div className="text-[11px] text-muted-foreground">
+                      {cs.done}/{cs.total} Lektionen
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          cs.status === "done" ? "bg-gradient-to-r from-emerald-500 to-teal-500"
+                          : cs.status === "active" ? "bg-gradient-to-r from-blue-500 to-violet-500"
+                          : "bg-muted-foreground/30",
+                        )}
+                        style={{ width: `${cs.pct}%` }}
+                      />
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {cs.pct}% abgeschlossen
+                    </div>
+                  </div>
+                  {idx < courseStats.length - 1 && (
+                    <div className="flex items-center">
+                      <div className={cn(
+                        "h-0.5 w-3",
+                        cs.status === "done" ? "bg-emerald-500" : "bg-border",
+                      )} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Lesson-Detail-Liste pro Modul */}
+      <div className="space-y-3">
+        {courseStats.map((cs) => (
+          <div key={cs.course.id} className="rounded-xl border bg-card overflow-hidden">
+            <div className="px-4 py-3 border-b bg-muted/20 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <GraduationCap className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+                <span className="text-sm font-semibold truncate">{cs.course.title}</span>
+              </div>
+              <Badge variant="outline" className="text-[10px] shrink-0">
+                {cs.done}/{cs.total}
+              </Badge>
+            </div>
+            <div className="divide-y">
+              {cs.lessons.length === 0 ? (
+                <div className="px-4 py-3 text-xs text-muted-foreground">Keine Lektionen.</div>
+              ) : cs.lessons.map((l: any) => {
+                const done = data.progress.some((p: any) => p.lesson_id === l.id && p.completed);
+                return (
+                  <div key={l.id} className="px-4 py-2.5 flex items-center gap-3 text-sm">
+                    {done ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                    ) : (
+                      <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
+                    )}
+                    <span className={cn("flex-1 truncate", done && "text-muted-foreground line-through")}>
+                      {l.title}
+                    </span>
+                    {l.duration_minutes ? (
+                      <span className="text-[10px] text-muted-foreground shrink-0">{l.duration_minutes} Min</span>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

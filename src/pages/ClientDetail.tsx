@@ -280,7 +280,7 @@ function RowCard({ children, onClick }: { children: React.ReactNode; onClick?: (
   );
 }
 
-function OnboardingDetails({ projects }: { projects: any[] }) {
+export function OnboardingDetails({ projects }: { projects: any[] }) {
   // Find the most recent project that has onboarding data
   const projectWithOnboarding = projects.find((p) => p.onboarding && Object.keys(p.onboarding).length > 0);
   const data = projectWithOnboarding?.onboarding;
