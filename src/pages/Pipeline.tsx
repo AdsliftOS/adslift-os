@@ -589,6 +589,8 @@ function PipelineDetail({
   const [taskForm, setTaskForm] = useState<{ title: string; description: string; priority: "low" | "med" | "high"; dueDate: string; category: string }>({ title: "", description: "", priority: "med", dueDate: "", category: "Allgemein" });
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  const [siblingCreateOpen, setSiblingCreateOpen] = useState(false);
+  const [siblingName, setSiblingName] = useState("");
   const [currentUserEmail, setCurrentUserEmail] = useState<string>("");
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -828,21 +830,9 @@ function PipelineDetail({
             size="sm"
             variant="outline"
             className="h-7 text-xs ml-1"
-            onClick={async () => {
-              const name = window.prompt(`Name für neues Projekt von ${client?.name || project.name}?`, `${project.name} (Kampagne 2)`);
-              if (!name?.trim()) return;
-              const id = await addPipelineProject({
-                name: name.trim(),
-                variant: project.variant,
-                clientId: project.clientId,
-                clientEmail: project.clientEmail,
-                adAccountId: null,
-                createdByEmail: createdByEmail || null,
-              });
-              if (id) {
-                toast.success("Projekt angelegt");
-                onSwitchProject(id);
-              }
+            onClick={() => {
+              setSiblingName(`${project.name} — Kampagne ${siblingProjects.length + 1}`);
+              setSiblingCreateOpen(true);
             }}
           >
             <Plus className="h-3 w-3 mr-1" /> Weiteres
@@ -1166,6 +1156,75 @@ function PipelineDetail({
           onDeleted={() => setEditingStepId(null)}
         />
       )}
+
+      {/* Sibling-Project-Create Dialog */}
+      <Dialog open={siblingCreateOpen} onOpenChange={setSiblingCreateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Neues Projekt für {client?.name || project.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label>Projektname *</Label>
+              <Input
+                placeholder={`z.B. ${project.name} — Kampagne 2`}
+                value={siblingName}
+                onChange={(e) => setSiblingName(e.target.value)}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && siblingName.trim()) {
+                    (async () => {
+                      const id = await addPipelineProject({
+                        name: siblingName.trim(),
+                        variant: project.variant,
+                        clientId: project.clientId,
+                        clientEmail: project.clientEmail,
+                        adAccountId: project.adAccountId,
+                        createdByEmail: createdByEmail || null,
+                      });
+                      if (id) {
+                        toast.success("Projekt angelegt");
+                        setSiblingCreateOpen(false);
+                        onSwitchProject(id);
+                      }
+                    })();
+                  }
+                }}
+              />
+            </div>
+            {project.adAccountId && (
+              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-xs">
+                <p className="text-emerald-700 dark:text-emerald-300">
+                  ✓ Werbekonto <span className="font-mono">{project.adAccountId}</span> wird automatisch übernommen
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSiblingCreateOpen(false)}>Abbrechen</Button>
+            <Button
+              onClick={async () => {
+                if (!siblingName.trim()) return toast.error("Name ist erforderlich");
+                const id = await addPipelineProject({
+                  name: siblingName.trim(),
+                  variant: project.variant,
+                  clientId: project.clientId,
+                  clientEmail: project.clientEmail,
+                  adAccountId: project.adAccountId,
+                  createdByEmail: createdByEmail || null,
+                });
+                if (id) {
+                  toast.success("Projekt angelegt");
+                  setSiblingCreateOpen(false);
+                  onSwitchProject(id);
+                }
+              }}
+            >
+              Anlegen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Task create dialog */}
       <Dialog open={taskCreateOpen} onOpenChange={setTaskCreateOpen}>
