@@ -568,7 +568,7 @@ export default function AcademyPortal() {
         .from("academy_customers")
         .select("*")
         .eq("email", loginEmail.trim().toLowerCase())
-        .eq("password_hash", loginPassword)
+        .eq("password_hash", loginPassword.trim())
         .single();
 
       if (error || !data) {
@@ -703,7 +703,7 @@ export default function AcademyPortal() {
         .from("academy_customers")
         .select("id")
         .eq("id", session.customer_id)
-        .eq("password_hash", pwCurrent)
+        .eq("password_hash", pwCurrent.trim())
         .single();
       if (!data) {
         toast.error("Aktuelles Passwort ist falsch");
