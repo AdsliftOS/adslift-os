@@ -725,6 +725,7 @@ export default function D4YPortal() {
                               <Tooltip
                                 contentStyle={{ background: "#0f0f14", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
                                 labelStyle={{ color: "rgba(255,255,255,0.6)" }}
+                                itemStyle={{ color: chartMetric === "leads" ? "#3b82f6" : chartMetric === "spend" ? "#10b981" : "#8b5cf6" }}
                                 cursor={{ fill: "rgba(255,255,255,0.04)" }}
                               />
                               <Area
@@ -769,6 +770,8 @@ export default function D4YPortal() {
                                 <YAxis stroke="rgba(255,255,255,0.3)" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 9 }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
                                 <Tooltip
                                   contentStyle={{ background: "#0f0f14", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
+                                  labelStyle={{ color: "rgba(255,255,255,0.6)" }}
+                                  itemStyle={{ color: "#3b82f6" }}
                                   cursor={{ fill: "rgba(255,255,255,0.04)" }}
                                 />
                                 <Bar dataKey="Leads" radius={[4, 4, 0, 0]}>
@@ -804,6 +807,8 @@ export default function D4YPortal() {
                                 </Pie>
                                 <Tooltip
                                   contentStyle={{ background: "#0f0f14", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 11 }}
+                                  itemStyle={{ color: "#fff" }}
+                                  labelStyle={{ color: "rgba(255,255,255,0.6)" }}
                                   formatter={(v: number) => `${v.toFixed(2)} €`}
                                 />
                               </PieChart>
