@@ -58,6 +58,11 @@ export type PipelineProject = {
   createdByEmail: string | null;
   createdAt: string;
   updatedAt: string;
+  // D4Y-spezifisch
+  creativesHtml: string | null;
+  adCopyHtml: string | null;
+  driveLink: string | null;
+  meetingNotes: string | null;
 };
 
 // ─── Templates store ─────────────────────────────────────────────────
@@ -150,6 +155,10 @@ function rowToProject(r: any): PipelineProject {
     createdByEmail: r.created_by_email || null,
     createdAt: r.created_at,
     updatedAt: r.updated_at || r.created_at,
+    creativesHtml: r.creatives_html ?? null,
+    adCopyHtml: r.ad_copy_html ?? null,
+    driveLink: r.drive_link ?? null,
+    meetingNotes: r.meeting_notes ?? null,
   };
 }
 
@@ -207,6 +216,10 @@ export async function updatePipelineProject(id: string, updates: Partial<Pipelin
   const row: any = {};
   if (updates.name !== undefined) row.name = updates.name;
   if (updates.variant !== undefined) row.variant = updates.variant;
+  if (updates.creativesHtml !== undefined) row.creatives_html = updates.creativesHtml;
+  if (updates.adCopyHtml !== undefined) row.ad_copy_html = updates.adCopyHtml;
+  if (updates.driveLink !== undefined) row.drive_link = updates.driveLink;
+  if (updates.meetingNotes !== undefined) row.meeting_notes = updates.meetingNotes;
   if (updates.clientId !== undefined) row.client_id = updates.clientId;
   if (updates.clientEmail !== undefined) row.client_email = updates.clientEmail;
   if (updates.adAccountId !== undefined) row.ad_account_id = updates.adAccountId;

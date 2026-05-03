@@ -838,8 +838,8 @@ function PipelineDetail({
         }} />
       )}
 
-      {/* Tasks-Section auf Setup-Page (für DWY und D4Y) */}
-      {mode === "setup" && project.clientId && (
+      {/* DWY: Tasks-Section direkt nach Dashboard */}
+      {mode === "setup" && isDWY && project.clientId && (
         <ProjectTasksSection
           clientId={project.clientId}
           clientName={client?.name || project.name}
@@ -920,6 +920,43 @@ function PipelineDetail({
         )}
       </div>
 
+      )}
+
+      {/* D4Y Setup: 3 Asset-Cards (Creatives / Ad-Copy / Drive) */}
+      {mode === "setup" && !isDWY && (
+        <div className="grid gap-3 md:grid-cols-3">
+          <D4YHtmlAssetCard
+            project={project}
+            field="creativesHtml"
+            title="Creative-Board"
+            subtitle="HTML hochladen — Kunde sieht die Ad-Vorschauen"
+            icon={ImageIcon}
+            accent="from-violet-500 to-fuchsia-500"
+          />
+          <D4YHtmlAssetCard
+            project={project}
+            field="adCopyHtml"
+            title="Ad-Copy"
+            subtitle="HTML mit Copy-Varianten"
+            icon={FileText}
+            accent="from-blue-500 to-cyan-500"
+          />
+          <D4YDriveCard project={project} />
+        </div>
+      )}
+
+      {/* D4Y Setup: Bottom-Row — Meeting-Notes (links) + Tasks (rechts) */}
+      {mode === "setup" && !isDWY && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          <D4YMeetingNotesCard project={project} />
+          {project.clientId && (
+            <ProjectTasksSection
+              clientId={project.clientId}
+              clientName={client?.name || project.name}
+              onCreateClick={() => setTaskCreateOpen(true)}
+            />
+          )}
+        </div>
       )}
 
       {/* Operations content */}
@@ -3682,6 +3719,237 @@ function D4YStatusHero({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── D4Y HTML-Asset-Card (Creatives / Ad-Copy) ───────────────────────
+function D4YHtmlAssetCard({
+  project,
+  field,
+  title,
+  subtitle,
+  icon: Icon,
+  accent,
+}: {
+  project: ReturnType<typeof usePipelineProjects>[number];
+  field: "creativesHtml" | "adCopyHtml";
+  title: string;
+  subtitle: string;
+  icon: typeof Box;
+  accent: string;
+}) {
+  const value = project[field];
+  const [showPreview, setShowPreview] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (file: File) => {
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("HTML zu groß (max. 2 MB)");
+      return;
+    }
+    const text = await file.text();
+    await updatePipelineProject(project.id, { [field]: text } as any);
+    toast.success(`${title} hochgeladen`);
+  };
+
+  const handleRemove = async () => {
+    await updatePipelineProject(project.id, { [field]: null } as any);
+    toast.success(`${title} entfernt`);
+  };
+
+  return (
+    <>
+      <div className={cn(
+        "rounded-xl border bg-card overflow-hidden transition-all hover:shadow-md flex flex-col min-h-[180px]",
+        value && "border-primary/20",
+      )}>
+        <div className="px-4 py-3 border-b flex items-center gap-2.5">
+          <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center bg-gradient-to-br", accent)}>
+            <Icon className="h-4 w-4 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold truncate">{title}</h3>
+            <p className="text-[10px] text-muted-foreground truncate">{subtitle}</p>
+          </div>
+          {value && <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 shrink-0">aktiv</Badge>}
+        </div>
+        <div className="flex-1 p-4 flex flex-col gap-2">
+          {value ? (
+            <>
+              <div className="text-[10px] text-muted-foreground tabular-nums">
+                {(new Blob([value]).size / 1024).toFixed(1)} KB · {value.length.toLocaleString()} Zeichen
+              </div>
+              <div className="flex gap-2 mt-auto">
+                <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => setShowPreview(true)}>
+                  <Eye className="h-3.5 w-3.5 mr-1" /> Vorschau
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => fileRef.current?.click()}>
+                  <Upload className="h-3.5 w-3.5 mr-1" /> Ersetzen
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" onClick={handleRemove}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </>
+          ) : (
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="flex-1 rounded-lg border-2 border-dashed border-muted-foreground/20 hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:text-primary p-4"
+            >
+              <Upload className="h-5 w-5" />
+              <span className="text-[11px] font-medium">HTML-Datei hochladen</span>
+            </button>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".html,text/html"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      </div>
+
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="sm:max-w-5xl h-[85vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="p-4 border-b shrink-0">
+            <DialogTitle className="text-sm">{title} — Vorschau</DialogTitle>
+          </DialogHeader>
+          <iframe srcDoc={value || ""} className="flex-1 w-full bg-white" sandbox="allow-same-origin allow-scripts" />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ─── D4Y Drive-Link-Card ─────────────────────────────────────────────
+function D4YDriveCard({ project }: { project: ReturnType<typeof usePipelineProjects>[number] }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(project.driveLink || "");
+
+  // Auto-fallback aus Onboarding-Daten
+  const [fallbackLink, setFallbackLink] = useState<string | null>(null);
+  useEffect(() => {
+    if (project.driveLink || !project.clientId) return;
+    (async () => {
+      const { data } = await supabase
+        .from("projects").select("onboarding").eq("client_id", project.clientId);
+      const onb = (data ?? []).find((p: any) => p.onboarding?.driveLink)?.onboarding;
+      if (onb?.driveLink) setFallbackLink(onb.driveLink);
+    })();
+  }, [project.clientId, project.driveLink]);
+
+  const link = project.driveLink || fallbackLink;
+
+  const save = async () => {
+    await updatePipelineProject(project.id, { driveLink: draft.trim() || null });
+    setEditing(false);
+    toast.success("Drive-Link gespeichert");
+  };
+
+  return (
+    <div className="rounded-xl border bg-card overflow-hidden transition-all hover:shadow-md flex flex-col min-h-[180px]">
+      <div className="px-4 py-3 border-b flex items-center gap-2.5">
+        <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-amber-500 to-orange-500">
+          <FolderOpen className="h-4 w-4 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-bold truncate">Google Drive</h3>
+          <p className="text-[10px] text-muted-foreground truncate">Brand-Assets vom Kunden</p>
+        </div>
+        {link && <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 shrink-0">verknüpft</Badge>}
+      </div>
+      <div className="flex-1 p-4 flex flex-col gap-2">
+        {editing ? (
+          <>
+            <Input
+              placeholder="https://drive.google.com/..."
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              className="text-xs h-9"
+              autoFocus
+            />
+            <div className="flex gap-2 mt-auto">
+              <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => { setEditing(false); setDraft(project.driveLink || ""); }}>Abbrechen</Button>
+              <Button size="sm" className="flex-1 h-8 text-xs" onClick={save}>Speichern</Button>
+            </div>
+          </>
+        ) : link ? (
+          <>
+            <div className="text-[11px] text-muted-foreground break-all line-clamp-2 font-mono">{link}</div>
+            <div className="flex gap-2 mt-auto">
+              <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => window.open(link, "_blank")}>
+                <ExternalLink className="h-3.5 w-3.5 mr-1" /> Öffnen
+              </Button>
+              <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => { setDraft(project.driveLink || link); setEditing(true); }}>
+                Bearbeiten
+              </Button>
+            </div>
+          </>
+        ) : (
+          <button
+            onClick={() => setEditing(true)}
+            className="flex-1 rounded-lg border-2 border-dashed border-muted-foreground/20 hover:border-amber-500 hover:bg-amber-500/5 transition-all flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:text-amber-600 p-4"
+          >
+            <FolderOpen className="h-5 w-5" />
+            <span className="text-[11px] font-medium">Drive-Link hinzufügen</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── D4Y Meeting-Notes-Card ──────────────────────────────────────────
+function D4YMeetingNotesCard({ project }: { project: ReturnType<typeof usePipelineProjects>[number] }) {
+  const [draft, setDraft] = useState(project.meetingNotes || "");
+  const [saving, setSaving] = useState(false);
+
+  // Sync wenn Project-Update von außen kommt
+  useEffect(() => {
+    setDraft(project.meetingNotes || "");
+  }, [project.meetingNotes]);
+
+  const save = async () => {
+    setSaving(true);
+    await updatePipelineProject(project.id, { meetingNotes: draft });
+    setSaving(false);
+    toast.success("Meeting-Notes gespeichert");
+  };
+
+  const isDirty = draft !== (project.meetingNotes || "");
+
+  return (
+    <div className="rounded-2xl border bg-card overflow-hidden flex flex-col min-h-[280px]">
+      <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-rose-500/20 to-pink-500/10 flex items-center justify-center">
+            <FileText className="h-4 w-4 text-rose-500" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold">Meeting-Notes</h3>
+            <p className="text-[11px] text-muted-foreground">Zusammenfassungen aus Calls (später automatisch via Close)</p>
+          </div>
+        </div>
+        {isDirty && (
+          <Button size="sm" onClick={save} disabled={saving} className="h-8 text-xs">
+            {saving ? "Speichert..." : "Speichern"}
+          </Button>
+        )}
+      </div>
+      <div className="flex-1 p-4">
+        <Textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Hier kommen die Meeting-Zusammenfassungen rein. Später ziehen wir das automatisch aus Close."
+          className="h-full min-h-[200px] resize-none text-sm border-none shadow-none focus-visible:ring-0 p-0"
+        />
+      </div>
     </div>
   );
 }

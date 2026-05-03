@@ -379,24 +379,24 @@ export function OnboardingDetails({ projects }: { projects: any[] }) {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-3 md:grid-cols-2">
       {sections.map((s) => {
         const visibleFields = s.fields.filter((f) => f.value && f.value !== "—" && f.value !== "");
         if (visibleFields.length === 0) return null;
         return (
-          <Card key={s.title}>
-            <CardContent className="p-5 space-y-3">
-              <h3 className="text-sm font-bold uppercase tracking-wider">{s.title}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
-                {visibleFields.map((f) => (
-                  <div key={f.label}>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{f.label}</div>
-                    <div className="text-sm font-medium mt-0.5 whitespace-pre-wrap break-words">{f.value}</div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <div key={s.title} className="rounded-xl border bg-card overflow-hidden">
+            <div className="px-4 py-2.5 border-b bg-muted/20">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{s.title}</h3>
+            </div>
+            <div className="divide-y divide-border/40">
+              {visibleFields.map((f) => (
+                <div key={f.label} className="px-4 py-2 flex items-start justify-between gap-3 text-xs">
+                  <span className="text-muted-foreground shrink-0">{f.label}</span>
+                  <span className="font-medium text-right whitespace-pre-wrap break-words max-w-[60%]">{f.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         );
       })}
     </div>
