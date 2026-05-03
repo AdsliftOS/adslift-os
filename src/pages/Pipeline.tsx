@@ -57,6 +57,8 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useClients } from "@/store/clients";
 import { OnboardingDetails } from "@/pages/ClientDetail";
+import { getDailyBreakdown, type DailyDataPoint } from "@/lib/meta-ads-project";
+import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie } from "recharts";
 import {
   usePipelineProjects,
   useProjectSteps,
@@ -2983,51 +2985,429 @@ function OperationsView({
 
   return (
     <div className="space-y-4">
-      {/* Row 1: Campaigns (2/3) + Feedback (1/3) */}
+      {/* Hauptbereich: Meta-Ads-Dashboard (volle Breite) */}
+      <LiveOpsAdsDashboard project={project} />
+
+      {/* Row: Feedback + Quick Actions */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <ActiveCampaignsPanel project={project} />
-        </div>
         <FeedbackPanel
           projectId={project.id}
           feedback={feedback}
           unread={unreadFeedbackCount}
           onOpenStep={onOpenStep}
         />
+        <div className="lg:col-span-2 rounded-2xl border bg-gradient-to-r from-muted/20 via-card to-card overflow-hidden">
+          <div className="px-4 py-2 border-b border-border/40">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
+              Quick Actions
+            </span>
+          </div>
+          <div className="p-3 flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const url = project.customerPortalToken
+                  ? `${window.location.origin}/p/${project.customerPortalToken}`
+                  : null;
+                if (!url) return toast.error("Kein Portal-Token");
+                navigator.clipboard.writeText(url);
+                toast.success("Portal-Link kopiert");
+              }}
+            >
+              <Copy className="h-3.5 w-3.5 mr-1" /> Portal-Link
+            </Button>
+            <Button variant="outline" size="sm" onClick={onJumpToSetup}>
+              <Sparkles className="h-3.5 w-3.5 mr-1" /> Zum Setup
+            </Button>
+            {monitoringStep && (
+              <Button variant="outline" size="sm" onClick={() => onOpenStep(monitoringStep.id)}>
+                <Activity className="h-3.5 w-3.5 mr-1" /> Monitoring öffnen
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Live-Ops Meta-Ads Dashboard (Admin-Side, mirror Customer) ─────────
+function LiveOpsAdsDashboard({ project }: { project: ReturnType<typeof usePipelineProjects>[number] }) {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [dailyData, setDailyData] = useState<DailyDataPoint[]>([]);
+  const [preset, setPreset] = useState<Preset>("last_30d");
+  const [activeOnly, setActiveOnly] = useState(true);
+  const [chartMetric, setChartMetric] = useState<"leads" | "spend" | "clicks">("leads");
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!project.adAccountId) {
+      setCampaigns([]); setDailyData([]);
+      return;
+    }
+    setLoading(true);
+    const [cmpRes, dailyRes] = await Promise.all([
+      getProjectCampaigns(project.adAccountId, preset),
+      getDailyBreakdown(project.adAccountId, preset),
+    ]);
+    setCampaigns(cmpRes.campaigns);
+    setDailyData(dailyRes.daily);
+    setLoading(false);
+  }, [project.adAccountId, preset]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const visibleCampaigns = activeOnly
+    ? campaigns.filter((c) => c.effectiveStatus === "ACTIVE")
+    : campaigns;
+
+  if (!project.adAccountId) {
+    return (
+      <div className="rounded-2xl border bg-card p-10 text-center space-y-3">
+        <div className="h-14 w-14 mx-auto rounded-2xl bg-[#0866FF]/10 ring-1 ring-[#0866FF]/30 flex items-center justify-center">
+          <img src="https://cdn.simpleicons.org/meta/0866FF" alt="Meta" className="h-7 w-7" />
+        </div>
+        <div>
+          <p className="text-sm font-medium">Meta Werbekonto noch nicht verknüpft</p>
+          <p className="text-xs text-muted-foreground mt-1">Im Header oben „Werbekonto verknüpfen" klicken</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalSpend = visibleCampaigns.reduce((s, c) => s + (c.spend || 0), 0);
+  const totalLeads = visibleCampaigns.reduce((s, c) => s + (c.leads || 0), 0);
+  const totalImpr = visibleCampaigns.reduce((s, c) => s + (c.impressions || 0), 0);
+  const totalClicks = visibleCampaigns.reduce((s, c) => s + (c.clicks || 0), 0);
+  const avgCPL = totalLeads > 0 ? totalSpend / totalLeads : 0;
+  const avgCTR = totalImpr > 0 ? (totalClicks / totalImpr) * 100 : 0;
+  const avgCPC = totalClicks > 0 ? totalSpend / totalClicks : 0;
+  const avgCPM = totalImpr > 0 ? (totalSpend / totalImpr) * 1000 : 0;
+  const bestCampaign = [...visibleCampaigns].filter((c) => c.leads > 0).sort((a, b) => a.cpl - b.cpl)[0];
+
+  // Trend: erste vs zweite Hälfte des Zeitraums
+  const half = Math.floor(dailyData.length / 2);
+  const firstHalf = dailyData.slice(0, half);
+  const secondHalf = dailyData.slice(half);
+  const sumIn = (arr: DailyDataPoint[], k: keyof DailyDataPoint) => arr.reduce((s, d) => s + (Number(d[k]) || 0), 0);
+  const trend = (curr: number, prev: number) => prev === 0 ? null : Math.round(((curr - prev) / prev) * 100);
+  const leadsTrend = trend(sumIn(secondHalf, "leads"), sumIn(firstHalf, "leads"));
+  const spendTrend = trend(sumIn(secondHalf, "spend"), sumIn(firstHalf, "spend"));
+  const cplCurr = sumIn(secondHalf, "leads") > 0 ? sumIn(secondHalf, "spend") / sumIn(secondHalf, "leads") : 0;
+  const cplPrev = sumIn(firstHalf, "leads") > 0 ? sumIn(firstHalf, "spend") / sumIn(firstHalf, "leads") : 0;
+  const cplTrend = cplPrev > 0 ? Math.round(((cplCurr - cplPrev) / cplPrev) * 100) : null;
+
+  const chartData = dailyData.map((d) => ({
+    date: d.date,
+    dateLabel: new Date(d.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }),
+    Leads: d.leads,
+    Spend: Math.round(d.spend * 100) / 100,
+    Klicks: d.clicks,
+  }));
+
+  const spendDistribution = visibleCampaigns
+    .filter((c) => c.spend > 0)
+    .sort((a, b) => b.spend - a.spend)
+    .map((c) => ({ name: c.name.length > 28 ? c.name.slice(0, 25) + "..." : c.name, value: Math.round(c.spend * 100) / 100 }));
+
+  const PIE_COLORS = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ec4899", "#06b6d4", "#14b8a6", "#f97316"];
+
+  return (
+    <div className="space-y-3">
+      {/* Filter-Bar */}
+      <div className="rounded-xl border bg-card p-3 flex flex-col sm:flex-row gap-3 sm:items-center">
+        <div className="flex items-center gap-2.5 flex-1">
+          <img src="https://cdn.simpleicons.org/meta/0866FF" alt="Meta" className="h-5 w-5 shrink-0" />
+          <div>
+            <h3 className="text-sm font-bold">Live-Performance</h3>
+            <p className="text-[11px] text-muted-foreground">{visibleCampaigns.length} Kampagne{visibleCampaigns.length !== 1 ? "n" : ""}{activeOnly ? " (aktiv)" : ""} · <span className="font-mono">{project.adAccountId}</span></p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>
+            <SelectTrigger className="h-9 w-auto text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Heute</SelectItem>
+              <SelectItem value="yesterday">Gestern</SelectItem>
+              <SelectItem value="last_7d">Letzte 7 Tage</SelectItem>
+              <SelectItem value="last_14d">Letzte 14 Tage</SelectItem>
+              <SelectItem value="last_30d">Letzte 30 Tage</SelectItem>
+              <SelectItem value="this_month">Diesen Monat</SelectItem>
+              <SelectItem value="last_month">Letzten Monat</SelectItem>
+              <SelectItem value="this_quarter">Dieses Quartal</SelectItem>
+              <SelectItem value="last_quarter">Letztes Quartal</SelectItem>
+              <SelectItem value="lifetime">Gesamt</SelectItem>
+            </SelectContent>
+          </Select>
+          <button
+            onClick={() => setActiveOnly((v) => !v)}
+            className={cn(
+              "px-3 h-9 rounded-md text-xs font-medium border transition-all",
+              activeOnly ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/30" : "bg-card text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {activeOnly ? "Nur aktive" : "Alle"}
+          </button>
+          <Button size="sm" variant="outline" className="h-9 text-xs" disabled={loading} onClick={load}>
+            <TrendingUp className={cn("h-3.5 w-3.5 mr-1", loading && "animate-pulse")} /> Refresh
+          </Button>
+        </div>
       </div>
 
-      {/* Row 2: Quick Actions horizontal */}
-      <div className="rounded-2xl border bg-gradient-to-r from-muted/20 via-card to-card overflow-hidden">
-        <div className="px-4 py-2 border-b border-border/40">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
-            Quick Actions
-          </span>
+      {campaigns.length === 0 ? (
+        <div className="rounded-2xl border bg-card p-10 text-center">
+          <p className="text-sm font-medium">Noch keine Kampagnen-Daten</p>
+          <p className="text-xs text-muted-foreground mt-1">Sobald Kampagnen laufen, siehst du hier alle KPIs.</p>
         </div>
-        <div className="p-3 flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const url = project.customerPortalToken
-                ? `${window.location.origin}/p/${project.customerPortalToken}`
-                : null;
-              if (!url) return toast.error("Kein Portal-Token");
-              navigator.clipboard.writeText(url);
-              toast.success("Portal-Link kopiert");
-            }}
-          >
-            <Copy className="h-3.5 w-3.5 mr-1" /> Portal-Link
-          </Button>
-          <Button variant="outline" size="sm" onClick={onJumpToSetup}>
-            <Sparkles className="h-3.5 w-3.5 mr-1" /> Zum Setup
-          </Button>
-          {monitoringStep && (
-            <Button variant="outline" size="sm" onClick={() => onOpenStep(monitoringStep.id)}>
-              <Activity className="h-3.5 w-3.5 mr-1" /> Monitoring öffnen
-            </Button>
+      ) : visibleCampaigns.length === 0 ? (
+        <div className="rounded-2xl border bg-card p-10 text-center">
+          <p className="text-sm text-muted-foreground">Keine aktiven Kampagnen.</p>
+          <button onClick={() => setActiveOnly(false)} className="text-xs text-primary hover:underline mt-2">Alle anzeigen →</button>
+        </div>
+      ) : (
+        <>
+          {/* Hero KPIs mit Trends */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <AdminKPICard label="Spend" value={`${totalSpend.toFixed(0)} €`} accent="from-emerald-500 to-teal-600" trend={spendTrend} icon={<TrendingUp className="h-4 w-4" />} />
+            <AdminKPICard label="Leads" value={totalLeads.toString()} accent="from-blue-500 to-cyan-600" trend={leadsTrend} positiveIsGood icon={<CheckCircle2 className="h-4 w-4" />} />
+            <AdminKPICard label="Ø CPL" value={avgCPL > 0 ? `${avgCPL.toFixed(2)} €` : "—"} accent="from-violet-500 to-fuchsia-600" trend={cplTrend} positiveIsGood={false} icon={<TrendingUp className="h-4 w-4" />} />
+            <AdminKPICard label="Ø CTR" value={avgCTR > 0 ? `${avgCTR.toFixed(2)} %` : "—"} accent="from-amber-500 to-orange-600" trend={null} icon={<Activity className="h-4 w-4" />} />
+          </div>
+
+          {/* Performance-Chart */}
+          {chartData.length > 1 && (
+            <div className="rounded-2xl border bg-card p-5">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div>
+                  <h3 className="text-sm font-bold">Performance über Zeit</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">täglich</p>
+                </div>
+                <div className="flex gap-1">
+                  {(["leads", "spend", "clicks"] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setChartMetric(m)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
+                        chartMetric === m ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {m === "leads" ? "Leads" : m === "spend" ? "Spend" : "Klicks"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="h-[280px] -mx-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 10, right: 8, left: -10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="grad-livops" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={chartMetric === "leads" ? "#3b82f6" : chartMetric === "spend" ? "#10b981" : "#8b5cf6"} stopOpacity={0.6} />
+                        <stop offset="100%" stopColor={chartMetric === "leads" ? "#3b82f6" : chartMetric === "spend" ? "#10b981" : "#8b5cf6"} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="dateLabel" stroke="rgba(127,127,127,0.4)" tick={{ fill: "rgba(127,127,127,0.7)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis stroke="rgba(127,127,127,0.4)" tick={{ fill: "rgba(127,127,127,0.7)", fontSize: 10 }} axisLine={false} tickLine={false} width={40} />
+                    <RechartsTooltip
+                      contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                      labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+                      itemStyle={{ color: chartMetric === "leads" ? "#3b82f6" : chartMetric === "spend" ? "#10b981" : "#8b5cf6" }}
+                      cursor={{ fill: "rgba(127,127,127,0.05)" }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey={chartMetric === "leads" ? "Leads" : chartMetric === "spend" ? "Spend" : "Klicks"}
+                      stroke={chartMetric === "leads" ? "#3b82f6" : chartMetric === "spend" ? "#10b981" : "#8b5cf6"}
+                      strokeWidth={2.5}
+                      fill="url(#grad-livops)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           )}
+
+          {/* Sekundäre KPIs */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <AdminSmallKPI label="Impressionen" value={totalImpr.toLocaleString("de-DE")} />
+            <AdminSmallKPI label="Klicks" value={totalClicks.toLocaleString("de-DE")} />
+            <AdminSmallKPI label="Ø CPC" value={avgCPC > 0 ? `${avgCPC.toFixed(2)} €` : "—"} />
+            <AdminSmallKPI label="Ø CPM" value={avgCPM > 0 ? `${avgCPM.toFixed(2)} €` : "—"} />
+          </div>
+
+          {/* 2-Col: Daily-Leads + Spend-Donut */}
+          <div className="grid lg:grid-cols-2 gap-3">
+            {chartData.length > 1 && (
+              <div className="rounded-2xl border bg-card p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />
+                  <div>
+                    <h3 className="text-sm font-bold">Tägliche Leads</h3>
+                    <p className="text-[10px] text-muted-foreground">Anzahl Leads pro Tag</p>
+                  </div>
+                </div>
+                <div className="h-[200px] -mx-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 10, right: 8, left: -10, bottom: 0 }}>
+                      <XAxis dataKey="dateLabel" stroke="rgba(127,127,127,0.4)" tick={{ fill: "rgba(127,127,127,0.7)", fontSize: 9 }} axisLine={false} tickLine={false} />
+                      <YAxis stroke="rgba(127,127,127,0.4)" tick={{ fill: "rgba(127,127,127,0.7)", fontSize: 9 }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
+                      <RechartsTooltip
+                        contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                        labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+                        itemStyle={{ color: "#3b82f6" }}
+                        cursor={{ fill: "rgba(127,127,127,0.05)" }}
+                      />
+                      <Bar dataKey="Leads" radius={[4, 4, 0, 0]}>
+                        {chartData.map((d, i) => (
+                          <Cell key={i} fill={d.Leads > 0 ? "#3b82f6" : "rgba(127,127,127,0.15)"} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {spendDistribution.length > 0 && (
+              <div className="rounded-2xl border bg-card p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                  <div>
+                    <h3 className="text-sm font-bold">Spend-Verteilung</h3>
+                    <p className="text-[10px] text-muted-foreground">pro Kampagne</p>
+                  </div>
+                </div>
+                <div className="h-[200px] flex items-center">
+                  <ResponsiveContainer width="55%" height="100%">
+                    <PieChart>
+                      <Pie data={spendDistribution} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2}>
+                        {spendDistribution.map((_, i) => (
+                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip
+                        contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                        itemStyle={{ color: "hsl(var(--foreground))" }}
+                        labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+                        formatter={(v: number) => `${v.toFixed(2)} €`}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex-1 space-y-1.5 max-h-[180px] overflow-y-auto pr-1">
+                    {spendDistribution.slice(0, 6).map((s, i) => (
+                      <div key={s.name} className="flex items-center gap-2 text-[10px]">
+                        <div className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                        <span className="flex-1 truncate text-muted-foreground">{s.name}</span>
+                        <span className="font-semibold tabular-nums">{s.value.toFixed(0)} €</span>
+                      </div>
+                    ))}
+                    {spendDistribution.length > 6 && (
+                      <p className="text-[10px] text-muted-foreground pt-1">+ {spendDistribution.length - 6} weitere</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Best-Performer */}
+          {bestCampaign && (
+            <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/[0.06] via-card to-card p-5 flex items-center gap-4">
+              <div className="shrink-0 h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                <CheckCircle2 className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase tracking-wider text-emerald-600 font-bold">Top Performer · niedrigster CPL</p>
+                <h4 className="text-sm font-bold mt-0.5 truncate">{bestCampaign.name}</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">{bestCampaign.leads} Leads · {bestCampaign.cpl.toFixed(2)} € CPL · {bestCampaign.spend.toFixed(0)} € Spend</p>
+              </div>
+            </div>
+          )}
+
+          {/* Campaign Detail */}
+          <div className="rounded-2xl border bg-card overflow-hidden">
+            <div className="px-5 py-3 border-b flex items-center gap-2.5">
+              <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+              <h3 className="text-sm font-bold">Kampagnen-Details</h3>
+              <span className="text-[11px] text-muted-foreground">{visibleCampaigns.length}</span>
+            </div>
+            <div className="divide-y">
+              {visibleCampaigns
+                .sort((a, b) => b.spend - a.spend)
+                .map((c) => {
+                  const sharePct = totalSpend > 0 ? (c.spend / totalSpend) * 100 : 0;
+                  return (
+                    <div key={c.id} className="px-5 py-3 hover:bg-muted/20 transition-colors">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className={cn(
+                          "h-2 w-2 rounded-full shrink-0",
+                          c.effectiveStatus === "ACTIVE" && "bg-emerald-500 animate-pulse",
+                          c.effectiveStatus === "PAUSED" && "bg-amber-500",
+                          c.effectiveStatus !== "ACTIVE" && c.effectiveStatus !== "PAUSED" && "bg-muted-foreground/40",
+                        )} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold truncate">{c.name}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{c.objective.replace("OUTCOME_", "")} · {c.effectiveStatus}</p>
+                        </div>
+                        <div className="shrink-0 text-right hidden sm:block">
+                          <p className="text-[10px] text-muted-foreground">Anteil</p>
+                          <p className="text-xs font-bold">{sharePct.toFixed(1)}%</p>
+                        </div>
+                      </div>
+                      <div className="mb-2 h-1 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full" style={{ width: `${sharePct}%` }} />
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-[11px] tabular-nums">
+                        <div className="rounded-md bg-muted/40 px-2 py-1"><p className="text-[9px] uppercase text-muted-foreground">Spend</p><p className="font-semibold">{c.spend.toFixed(0)} €</p></div>
+                        <div className="rounded-md bg-muted/40 px-2 py-1"><p className="text-[9px] uppercase text-muted-foreground">Leads</p><p className="font-semibold">{c.leads}</p></div>
+                        <div className="rounded-md bg-muted/40 px-2 py-1"><p className="text-[9px] uppercase text-muted-foreground">CPL</p><p className="font-semibold">{c.cpl > 0 ? c.cpl.toFixed(2) + " €" : "—"}</p></div>
+                        <div className="rounded-md bg-muted/40 px-2 py-1"><p className="text-[9px] uppercase text-muted-foreground">CTR</p><p className="font-semibold">{c.ctr > 0 ? c.ctr.toFixed(2) + " %" : "—"}</p></div>
+                        <div className="rounded-md bg-muted/40 px-2 py-1"><p className="text-[9px] uppercase text-muted-foreground">Impr.</p><p className="font-semibold">{c.impressions.toLocaleString("de-DE")}</p></div>
+                        <div className="rounded-md bg-muted/40 px-2 py-1"><p className="text-[9px] uppercase text-muted-foreground">Klicks</p><p className="font-semibold">{c.clicks.toLocaleString("de-DE")}</p></div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminKPICard({ label, value, accent, icon, trend, positiveIsGood = true }: {
+  label: string; value: string; accent: string; icon: React.ReactNode; trend: number | null; positiveIsGood?: boolean;
+}) {
+  const trendIsGood = trend === null ? null : positiveIsGood ? trend >= 0 : trend <= 0;
+  const trendColor = trendIsGood === null ? "text-muted-foreground" : trendIsGood ? "text-emerald-500" : "text-rose-500";
+  return (
+    <div className="rounded-2xl border bg-card p-5 relative overflow-hidden">
+      <div className={cn("absolute -top-8 -right-8 h-24 w-24 rounded-full opacity-15 blur-xl bg-gradient-to-br pointer-events-none", accent)} />
+      <div className="relative">
+        <div className="flex items-center gap-2 mb-3">
+          <div className={cn("h-7 w-7 rounded-md bg-gradient-to-br flex items-center justify-center text-white shadow-md", accent)}>{icon}</div>
+          <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">{label}</span>
         </div>
+        <p className="text-2xl font-black tracking-tight">{value}</p>
+        {trend !== null && (
+          <div className={cn("flex items-center gap-1 mt-1.5 text-[11px] font-semibold", trendColor)}>
+            <span>{trend >= 0 ? "↑" : "↓"}</span>
+            <span>{Math.abs(trend)}%</span>
+            <span className="text-muted-foreground font-normal">vs vorher</span>
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+function AdminSmallKPI({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border bg-card px-4 py-3">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</p>
+      <p className="text-lg font-bold mt-0.5 tabular-nums">{value}</p>
     </div>
   );
 }
