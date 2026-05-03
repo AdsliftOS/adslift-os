@@ -884,9 +884,6 @@ function PipelineDetail({
 
 
       {/* Live-Operations-Header — nur in ops-mode */}
-      {mode === "ops" && (
-        <OperationsHeader project={project} steps={steps} />
-      )}
 
       {/* Files-Panel nur für D4Y im Setup */}
       {mode === "setup" && !isDWY && steps.length > 0 && (
