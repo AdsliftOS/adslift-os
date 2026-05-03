@@ -125,7 +125,7 @@ export default function Onboarding() {
 
   // Wistia-Scripts laden (nur auf der Intro-Seite, einmalig)
   useEffect(() => {
-    if (!fromAcademy || introWatched) return;
+    if (!academySession || introWatched) return;
     const ids = ["wistia-player-js", "wistia-media-js"];
     const sources = [
       "https://fast.wistia.com/player.js",
@@ -142,7 +142,7 @@ export default function Onboarding() {
       document.head.appendChild(s);
       added.push(s);
     });
-  }, [fromAcademy, introWatched]);
+  }, [academySession, introWatched]);
 
   // Wenn aus Academy-Login → Session laden + Email/Name vorausfüllen
   useEffect(() => {
@@ -194,8 +194,8 @@ export default function Onboarding() {
   const handleSubmit = async () => {
     const normalizedEmail = data.contactEmail.trim().toLowerCase();
 
-    // ── Academy Mode: existing customer fills mandatory wizard ─────────────
-    if (fromAcademy && academySession) {
+    // ── Logged-in Customer: update existing data, redirect to /portal or /academy ──
+    if (academySession) {
       // 1. Update existing client (linked via academy_customers.client_id)
       const { data: ac } = await supabase
         .from("academy_customers")
@@ -306,6 +306,7 @@ export default function Onboarding() {
     await notifyTeamOnboardingComplete(data.companyName, data.contactName, normalizedEmail);
 
     setSubmitted(true);
+    setTimeout(() => navigate("/academy", { replace: true }), 2500);
   };
 
   async function notifyTeamOnboardingComplete(companyName: string, contactName: string, email: string) {
@@ -346,43 +347,18 @@ export default function Onboarding() {
             </div>
           </div>
           <div>
-            <h1 className="text-3xl font-bold">Vielen Dank, {data.contactName}!</h1>
+            <h1 className="text-3xl font-bold">Danke!</h1>
             <p className="text-muted-foreground mt-3 text-base">
-              Wir haben alle Infos erhalten und starten direkt mit der Vorbereitung deiner Ad-Kampagne.
+              Du wirst gleich weitergeleitet ...
             </p>
-          </div>
-          <Card className="text-left">
-            <CardContent className="p-5 space-y-3">
-              <h3 className="font-semibold text-sm">Zusammenfassung</h3>
-              <div className="grid gap-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Agentur</span><span className="font-medium">{data.companyName}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Ziel</span><span className="font-medium">{data.adGoal.join(", ")}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Ad-Budget</span><span className="font-medium">{data.monthlyAdBudget}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Traumkunden</span><span className="font-medium truncate ml-4">{data.idealClient.slice(0, 50)}{data.idealClient.length > 50 ? "..." : ""}</span></div>
-              </div>
-            </CardContent>
-          </Card>
-          <div className="space-y-3">
-            {fromAcademy ? (
-              <p className="text-sm text-muted-foreground">
-                Du wirst gleich zur <span className="font-medium text-foreground">Academy</span> weitergeleitet ...
-              </p>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Wir melden uns innerhalb von 24 Stunden bei dir unter <span className="font-medium text-foreground">{data.contactEmail}</span>
-                </p>
-                <p className="text-xs text-muted-foreground">Du kannst dieses Fenster jetzt schließen.</p>
-              </>
-            )}
           </div>
         </div>
       </div>
     );
   }
 
-  // ── Video-Intro vor Wizard (nur in Academy-Mode) ─────────────────────────
-  if (fromAcademy && !introWatched) {
+  // ── Video-Intro vor Wizard (nur für eingeloggte Kunden) ─────────────────────────
+  if (academySession && !introWatched) {
     return (
       <div className="min-h-screen bg-background">
         <div className="border-b bg-card">
