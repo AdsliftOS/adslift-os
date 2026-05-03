@@ -424,13 +424,13 @@ export default function D4YPortal() {
           className="sm:max-w-md rounded-2xl border-0 p-0 overflow-hidden"
           style={{ background: "#0a0a0f", boxShadow: "0 30px 80px rgba(0,0,0,0.6)" }}
         >
-          <div className="relative p-8 text-center">
-            <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-transparent pointer-events-none" />
+          <div className="relative px-8 pt-12 pb-8 text-center">
+            <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-transparent pointer-events-none" />
             <div className="relative">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl shadow-emerald-500/30 mb-5">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl shadow-emerald-500/30 mb-7">
                 <CalendarIcon className="h-8 w-8 text-white" />
               </div>
-              <DialogHeader className="space-y-2">
+              <DialogHeader className="space-y-3">
                 <div className="flex items-center justify-center gap-2 text-xs uppercase tracking-wider text-emerald-400 font-semibold">
                   <Sparkles className="h-3.5 w-3.5" />
                   Letzter Schritt
@@ -438,11 +438,11 @@ export default function D4YPortal() {
                 <DialogTitle className="text-xl font-bold tracking-tight text-white">
                   Buch dir deinen Kickoff-Call
                 </DialogTitle>
-                <DialogDescription className="text-white/60 text-sm">
+                <DialogDescription className="text-white/60 text-sm leading-relaxed">
                   Wir gehen dein Briefing gemeinsam durch und planen die nächsten Schritte. <strong className="text-white/80">Dauer: 45–60 Min.</strong>
                 </DialogDescription>
               </DialogHeader>
-              <div className="mt-6 space-y-2">
+              <div className="mt-8 space-y-2">
                 <Button
                   size="lg"
                   className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/30"
