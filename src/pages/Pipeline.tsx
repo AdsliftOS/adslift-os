@@ -813,30 +813,6 @@ function PipelineDetail({
         />
       )}
 
-      {/* Setup für D4Y: Status-Hero zeigt was Kunde im /portal sieht */}
-      {mode === "setup" && !isDWY && (
-        <D4YStatusHero project={project} steps={steps} progress={progress} onSetupTemplate={async () => {
-          if (steps.length > 0) return;
-          const D4Y_DEFAULT_STEPS = [
-            { name: "Account-Setup", description: "Meta Business Manager + Pixel + Domain-Verifizierung", icon: "settings" },
-            { name: "Briefing-Review", description: "Kunden-Briefing durchgehen + offene Fragen klären", icon: "users" },
-            { name: "Strategie & Targeting", description: "Audiences, Kampagnen-Struktur, Budget-Plan", icon: "target" },
-            { name: "Creatives produzieren", description: "Static + Video + Copy schreiben", icon: "megaphone" },
-            { name: "Tracking-Setup", description: "Pixel-Events, CAPI, Conversions konfigurieren", icon: "linkedin" },
-            { name: "Pre-Launch-Check", description: "Alles bereit, Tracking validieren, Budget freigeben", icon: "box" },
-            { name: "Launch", description: "Kampagnen aktivieren, erste 72h beobachten", icon: "gift" },
-            { name: "Optimierung", description: "Iterieren auf Best-Performer, Skalierung", icon: "activity" },
-          ];
-          for (let i = 0; i < D4Y_DEFAULT_STEPS.length; i++) {
-            await addCustomStep(projectId, {
-              name: D4Y_DEFAULT_STEPS[i].name,
-              description: D4Y_DEFAULT_STEPS[i].description,
-              icon: D4Y_DEFAULT_STEPS[i].icon,
-            }, i);
-          }
-          toast.success("8 Default-Steps angelegt");
-        }} />
-      )}
 
       {/* DWY: Tasks-Section direkt nach Dashboard */}
       {mode === "setup" && isDWY && project.clientId && (
