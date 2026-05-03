@@ -66,30 +66,52 @@ export default function D4YPortal() {
   const [loading, setLoading] = useState(true);
   const [showKickoffModal, setShowKickoffModal] = useState(false);
 
-  // Session check
+  // Session check + frische DB-Verifikation (robust gegen stale localStorage)
   useEffect(() => {
     const stored = localStorage.getItem("academy_session");
     if (!stored) {
       navigate("/academy", { replace: true });
       return;
     }
+    let parsed: Session;
     try {
-      const parsed = JSON.parse(stored) as Session;
-      // Falls DWY-Kunde fälschlich auf /portal landet → zurück
-      if (parsed.variant !== "d4y") {
-        navigate("/academy", { replace: true });
-        return;
-      }
-      // Falls Onboarding noch nicht ausgefüllt → gleicher Wizard wie DWY
-      if (!parsed.onboarding_completed) {
-        navigate("/onboarding?from=academy", { replace: true });
-        return;
-      }
-      setSession(parsed);
+      parsed = JSON.parse(stored) as Session;
     } catch {
       localStorage.removeItem("academy_session");
       navigate("/academy", { replace: true });
+      return;
     }
+    if (!parsed.customer_id) {
+      navigate("/academy", { replace: true });
+      return;
+    }
+    // Frische DB-Abfrage — localStorage könnte stale sein
+    (async () => {
+      const { data, error } = await supabase
+        .from("academy_customers")
+        .select("variant, onboarding_completed")
+        .eq("id", parsed.customer_id)
+        .single();
+      if (error || !data) {
+        localStorage.removeItem("academy_session");
+        navigate("/academy", { replace: true });
+        return;
+      }
+      if (data.variant !== "d4y") {
+        navigate("/academy", { replace: true });
+        return;
+      }
+      if (!data.onboarding_completed) {
+        // localStorage updaten
+        localStorage.setItem("academy_session", JSON.stringify({ ...parsed, onboarding_completed: false, variant: "d4y" }));
+        navigate("/onboarding?from=academy", { replace: true });
+        return;
+      }
+      // Alles ok → localStorage refreshen + Session setzen
+      const fresh = { ...parsed, onboarding_completed: true, variant: "d4y" as const };
+      localStorage.setItem("academy_session", JSON.stringify(fresh));
+      setSession(fresh);
+    })();
   }, [navigate]);
 
   // Daten laden: client_id → pipeline_project + steps
