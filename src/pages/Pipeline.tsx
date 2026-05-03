@@ -213,6 +213,8 @@ export default function Pipeline() {
         projectId={selectedProject.id}
         onBack={() => setSelectedProjectId(null)}
         templates={templates}
+        onSwitchProject={(id) => setSelectedProjectId(id)}
+        createdByEmail={createdByEmail}
       />
     );
   }
@@ -560,10 +562,14 @@ function PipelineDetail({
   projectId,
   onBack,
   templates,
+  onSwitchProject,
+  createdByEmail,
 }: {
   projectId: string;
   onBack: () => void;
   templates: StepTemplate[];
+  onSwitchProject: (id: string) => void;
+  createdByEmail: string;
 }) {
   const projects = usePipelineProjects();
   const project = projects.find((p) => p.id === projectId);
@@ -690,6 +696,13 @@ function PipelineDetail({
 
   const isLive = project.status === "active";
 
+  // Sibling-Projects: andere pipeline_projects mit gleichem client_id
+  const siblingProjects = useMemo(
+    () => project.clientId ? projects.filter((p) => p.clientId === project.clientId) : [project],
+    [projects, project.clientId, project],
+  );
+  const hasMultipleProjects = siblingProjects.length > 1;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -752,6 +765,58 @@ function PipelineDetail({
           </div>
         </div>
       </div>
+
+      {/* Sibling-Projects Switcher (wenn Kunde mehrere parallele Projekte hat) */}
+      {project.clientId && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Projekte für {client?.name || project.name}:</span>
+          {siblingProjects.map((sib) => (
+            <button
+              key={sib.id}
+              onClick={() => sib.id !== projectId && onSwitchProject(sib.id)}
+              className={cn(
+                "px-3 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5",
+                sib.id === projectId
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "border-border text-muted-foreground hover:text-foreground hover:bg-muted",
+              )}
+            >
+              <span className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                sib.status === "active" && "bg-blue-500",
+                sib.status === "done" && "bg-emerald-500",
+                sib.status === "paused" && "bg-amber-500",
+                sib.status === "draft" && "bg-slate-400",
+              )} />
+              {sib.name}
+              {sib.id === projectId && <Check className="h-3 w-3 ml-0.5" />}
+            </button>
+          ))}
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs ml-1"
+            onClick={async () => {
+              const name = window.prompt(`Name für neues Projekt von ${client?.name || project.name}?`, `${project.name} (Kampagne 2)`);
+              if (!name?.trim()) return;
+              const id = await addPipelineProject({
+                name: name.trim(),
+                variant: project.variant,
+                clientId: project.clientId,
+                clientEmail: project.clientEmail,
+                adAccountId: null,
+                createdByEmail: createdByEmail || null,
+              });
+              if (id) {
+                toast.success("Projekt angelegt");
+                onSwitchProject(id);
+              }
+            }}
+          >
+            <Plus className="h-3 w-3 mr-1" /> Weiteres
+          </Button>
+        </div>
+      )}
 
       {/* Mode tabs — Setup / Live-Ops / Onboarding / Academy */}
       <div className="flex items-center gap-2 p-1.5 rounded-xl bg-muted/30 border w-fit flex-wrap">
@@ -964,8 +1029,8 @@ function PipelineDetail({
         </div>
       )}
 
-      {/* Gantt-Timeline — nur bei D4Y im Setup oder bei Live-Ops, niemals in Onboarding/Academy */}
-      {((mode === "setup" && !isDWY) || mode === "ops") && (steps.length > 0 || campaigns.length > 0) && (
+      {/* Gantt-Timeline — nur bei Live-Ops und nur für Campaigns (Ads-Timeline) */}
+      {mode === "ops" && campaigns.length > 0 && (
         <PipelineGantt
           steps={steps}
           campaigns={campaigns}

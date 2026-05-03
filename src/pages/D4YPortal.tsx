@@ -12,8 +12,10 @@ import {
   Circle,
   ClipboardList,
   Clock,
+  ExternalLink,
   Eye,
   FileText,
+  FolderOpen,
   Image as ImageIcon,
   LogOut,
   MessageCircle,
@@ -43,6 +45,7 @@ type PipelineProject = {
   start_date: string | null;
   creatives_html: string | null;
   ad_copy_html: string | null;
+  drive_link: string | null;
 };
 
 type PipelineStep = {
@@ -274,33 +277,6 @@ export default function D4YPortal() {
           </p>
         </div>
 
-        {/* Status Hero */}
-        <div className={cn(
-          "rounded-2xl border overflow-hidden relative",
-          "border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-white/[0.01]",
-        )}>
-          <div className={cn("absolute inset-0 opacity-20 pointer-events-none bg-gradient-to-br", phaseGradient)} />
-          <div className="relative p-6 sm:p-8 flex flex-col sm:flex-row gap-6 sm:items-center">
-            <div className={cn(
-              "shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl bg-gradient-to-br",
-              phaseGradient,
-            )}>
-              {phase === "live" ? <Activity className="h-8 w-8 text-white" /> :
-               phase === "done" ? <CheckCircle2 className="h-8 w-8 text-white" /> :
-               <Rocket className="h-8 w-8 text-white" />}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] uppercase tracking-wider font-semibold text-white/50 mb-1">Aktueller Stand</p>
-              <h2 className="text-xl sm:text-2xl font-bold mb-1">{phaseLabel}</h2>
-              <p className="text-sm text-white/60">{project?.name || "Dein Adslift-Projekt"}</p>
-            </div>
-            <div className="text-left sm:text-right">
-              <p className="text-3xl font-black">{overallProgress}%</p>
-              <p className="text-[11px] uppercase tracking-wider text-white/40">Setup-Fortschritt</p>
-            </div>
-          </div>
-        </div>
-
         {/* Quick Actions */}
         <div className="flex flex-wrap gap-2">
           {[
@@ -440,41 +416,30 @@ export default function D4YPortal() {
           </div>
         </div>
 
-        {/* Asset-Cards: Creative-Board + Ad-Copy (nur wenn vom Team hochgeladen) */}
-        {(project?.creatives_html || project?.ad_copy_html) && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {project.creatives_html && (
-              <button
-                onClick={() => setPreviewType("creatives")}
-                className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-violet-500/30 transition-all text-left p-5 flex items-center gap-4"
-              >
-                <div className="shrink-0 h-12 w-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-                  <ImageIcon className="h-6 w-6 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-white">Creative-Board</h3>
-                  <p className="text-[11px] text-white/50 mt-0.5">Deine Ad-Vorschauen anschauen</p>
-                </div>
-                <Eye className="h-4 w-4 text-white/30 group-hover:text-white/80 transition-colors shrink-0" />
-              </button>
-            )}
-            {project.ad_copy_html && (
-              <button
-                onClick={() => setPreviewType("adcopy")}
-                className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-blue-500/30 transition-all text-left p-5 flex items-center gap-4"
-              >
-                <div className="shrink-0 h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                  <FileText className="h-6 w-6 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-white">Ad-Copy</h3>
-                  <p className="text-[11px] text-white/50 mt-0.5">Deine Werbe-Texte ansehen</p>
-                </div>
-                <Eye className="h-4 w-4 text-white/30 group-hover:text-white/80 transition-colors shrink-0" />
-              </button>
-            )}
-          </div>
-        )}
+        {/* Asset-Cards: Creative-Board + Ad-Copy + Google Drive (immer sichtbar) */}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <D4YPortalAssetCard
+            title="Creative-Board"
+            subtitle="Ad-Vorschauen"
+            icon={ImageIcon}
+            accent="from-violet-500 to-fuchsia-600"
+            shadow="shadow-violet-500/20"
+            hasContent={!!project?.creatives_html}
+            emptyHint="Wir laden hier bald deine Ad-Creatives hoch"
+            onClick={() => setPreviewType("creatives")}
+          />
+          <D4YPortalAssetCard
+            title="Ad-Copy"
+            subtitle="Werbe-Texte"
+            icon={FileText}
+            accent="from-blue-500 to-cyan-600"
+            shadow="shadow-blue-500/20"
+            hasContent={!!project?.ad_copy_html}
+            emptyHint="Wir laden hier bald deine Ad-Copy-Varianten hoch"
+            onClick={() => setPreviewType("adcopy")}
+          />
+          <D4YPortalDriveCard driveLink={project?.drive_link || briefing?.driveLink || null} />
+        </div>
 
         {/* Performance Preview (only if Live) */}
         {phase === "live" && project?.ad_account_id && (
@@ -723,5 +688,95 @@ export default function D4YPortal() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ─── Asset-Card im Kundenbereich (Creative/Ad-Copy mit Empty-State) ───
+function D4YPortalAssetCard({
+  title,
+  subtitle,
+  icon: Icon,
+  accent,
+  shadow,
+  hasContent,
+  emptyHint,
+  onClick,
+}: {
+  title: string;
+  subtitle: string;
+  icon: typeof Eye;
+  accent: string;
+  shadow: string;
+  hasContent: boolean;
+  emptyHint: string;
+  onClick: () => void;
+}) {
+  if (!hasContent) {
+    return (
+      <div className="rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.01] p-5 flex items-center gap-4 opacity-70">
+        <div className={cn(
+          "shrink-0 h-12 w-12 rounded-xl flex items-center justify-center bg-white/[0.04]",
+        )}>
+          <Icon className="h-6 w-6 text-white/30" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-bold text-white/70">{title}</h3>
+          <p className="text-[11px] text-white/40 mt-0.5">{emptyHint}</p>
+        </div>
+        <Clock className="h-4 w-4 text-white/20 shrink-0" />
+      </div>
+    );
+  }
+  return (
+    <button
+      onClick={onClick}
+      className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/20 transition-all text-left p-5 flex items-center gap-4"
+    >
+      <div className={cn(
+        "shrink-0 h-12 w-12 rounded-xl flex items-center justify-center shadow-lg bg-gradient-to-br",
+        accent,
+        shadow,
+      )}>
+        <Icon className="h-6 w-6 text-white" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 className="text-sm font-bold text-white">{title}</h3>
+        <p className="text-[11px] text-white/50 mt-0.5">{subtitle} ansehen</p>
+      </div>
+      <Eye className="h-4 w-4 text-white/30 group-hover:text-white/80 transition-colors shrink-0" />
+    </button>
+  );
+}
+
+// ─── Google-Drive-Card im Kundenbereich ──────────────────────────────
+function D4YPortalDriveCard({ driveLink }: { driveLink: string | null }) {
+  if (!driveLink) {
+    return (
+      <div className="rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.01] p-5 flex items-center gap-4 opacity-70">
+        <div className="shrink-0 h-12 w-12 rounded-xl bg-white/[0.04] flex items-center justify-center">
+          <FolderOpen className="h-6 w-6 text-white/30" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-bold text-white/70">Google Drive</h3>
+          <p className="text-[11px] text-white/40 mt-0.5">Noch kein Drive-Ordner verknüpft</p>
+        </div>
+        <Clock className="h-4 w-4 text-white/20 shrink-0" />
+      </div>
+    );
+  }
+  return (
+    <button
+      onClick={() => window.open(driveLink, "_blank")}
+      className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-amber-500/30 transition-all text-left p-5 flex items-center gap-4"
+    >
+      <div className="shrink-0 h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+        <FolderOpen className="h-6 w-6 text-white" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 className="text-sm font-bold text-white">Google Drive</h3>
+        <p className="text-[11px] text-white/50 mt-0.5 truncate">Brand-Assets-Ordner</p>
+      </div>
+      <ExternalLink className="h-4 w-4 text-white/30 group-hover:text-white/80 transition-colors shrink-0" />
+    </button>
   );
 }
