@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   Activity,
   Calendar as CalendarIcon,
@@ -63,6 +64,7 @@ export default function D4YPortal() {
   const [project, setProject] = useState<PipelineProject | null>(null);
   const [steps, setSteps] = useState<PipelineStep[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showKickoffModal, setShowKickoffModal] = useState(false);
 
   // Session check
   useEffect(() => {
@@ -122,6 +124,48 @@ export default function D4YPortal() {
   }, [session]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Kickoff-Modal-Auto-Open + Calendly Script + Booking-Listener
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("academy_customers")
+        .select("kickoff_call_booked")
+        .eq("id", session.customer_id)
+        .single();
+      if (cancelled) return;
+      if (data && data.kickoff_call_booked === false) setShowKickoffModal(true);
+    })();
+    return () => { cancelled = true; };
+  }, [session]);
+
+  useEffect(() => {
+    if (!showKickoffModal) return;
+    if (document.getElementById("calendly-widget-js")) return;
+    const s = document.createElement("script");
+    s.id = "calendly-widget-js";
+    s.src = "https://assets.calendly.com/assets/external/widget.js";
+    s.async = true;
+    document.head.appendChild(s);
+  }, [showKickoffModal]);
+
+  useEffect(() => {
+    if (!showKickoffModal || !session) return;
+    const handler = async (e: MessageEvent) => {
+      const evt = (e.data && typeof e.data === "object") ? (e.data as any).event : null;
+      if (evt === "calendly.event_scheduled") {
+        await supabase
+          .from("academy_customers")
+          .update({ kickoff_call_booked: true })
+          .eq("id", session.customer_id);
+        setTimeout(() => setShowKickoffModal(false), 2500);
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [showKickoffModal, session]);
 
   const handleLogout = () => {
     localStorage.removeItem("academy_session");
@@ -351,6 +395,41 @@ export default function D4YPortal() {
           Fragen? Schreib Alex direkt auf WhatsApp oder buch ein Meeting.
         </div>
       </main>
+
+      {/* Kickoff-Modal */}
+      <Dialog open={showKickoffModal} onOpenChange={setShowKickoffModal}>
+        <DialogContent
+          className="sm:max-w-5xl rounded-2xl p-0 overflow-hidden border-0"
+          style={{ background: "#0a0a0f", boxShadow: "0 30px 80px rgba(0,0,0,0.6)" }}
+        >
+          <div className="p-6 sm:p-8" style={{ background: "#0a0a0f", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <DialogHeader>
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-emerald-400 font-semibold mb-2">
+                <Sparkles className="h-3.5 w-3.5" />
+                Letzter Schritt
+              </div>
+              <DialogTitle className="text-2xl font-bold tracking-tight text-white">
+                Buch dir deinen Kickoff-Call mit Alex
+              </DialogTitle>
+              <DialogDescription className="text-white/60">
+                Wir gehen dein Briefing gemeinsam durch und planen die nächsten Schritte. Dauer: 45–60 Min.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div style={{ background: "#ffffff", padding: 0, margin: 0 }}>
+            <div
+              className="calendly-inline-widget"
+              data-url="https://calendly.com/consulting-og-info/kickoff-call-alex-adslift?primary_color=10b981&hide_gdpr_banner=1"
+              style={{ minWidth: 320, height: 720, background: "#ffffff" }}
+            />
+          </div>
+          <div className="p-4 flex justify-end" style={{ background: "#0a0a0f", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <Button variant="ghost" onClick={() => setShowKickoffModal(false)} className="text-white/60 hover:text-white">
+              Später buchen
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
