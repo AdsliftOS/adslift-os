@@ -586,6 +586,8 @@ function PipelineDetail({
   const [reportOpen, setReportOpen] = useState(false);
   const [taskCreateOpen, setTaskCreateOpen] = useState(false);
   const [taskForm, setTaskForm] = useState<{ title: string; description: string; priority: "low" | "med" | "high"; dueDate: string; category: string }>({ title: "", description: "", priority: "med", dueDate: "", category: "Allgemein" });
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
   const [currentUserEmail, setCurrentUserEmail] = useState<string>("");
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -713,7 +715,41 @@ function PipelineDetail({
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
+              {editingName ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={nameDraft}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === "Enter" && nameDraft.trim()) {
+                        await updatePipelineProject(projectId, { name: nameDraft.trim() });
+                        setEditingName(false);
+                        toast.success("Name gespeichert");
+                      } else if (e.key === "Escape") {
+                        setEditingName(false);
+                      }
+                    }}
+                    autoFocus
+                    className="text-3xl font-bold tracking-tight h-12 max-w-md"
+                  />
+                  <Button size="sm" onClick={async () => {
+                    if (!nameDraft.trim()) return;
+                    await updatePipelineProject(projectId, { name: nameDraft.trim() });
+                    setEditingName(false);
+                    toast.success("Name gespeichert");
+                  }}>OK</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}>X</Button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setNameDraft(project.name); setEditingName(true); }}
+                  className="group flex items-center gap-2 hover:bg-muted/50 rounded-lg px-2 py-1 -mx-2 -my-1 transition-colors"
+                  title="Klick zum Umbenennen"
+                >
+                  <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
+                  <span className="opacity-0 group-hover:opacity-60 text-xs text-muted-foreground">✎</span>
+                </button>
+              )}
               <Badge
                 variant="outline"
                 className={cn("text-[11px]", PROJECT_STATUS_META[project.status]?.className)}
