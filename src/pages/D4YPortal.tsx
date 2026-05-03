@@ -418,37 +418,57 @@ export default function D4YPortal() {
         </div>
       </main>
 
-      {/* Kickoff-Modal */}
+      {/* Kickoff-Modal — kompakt, Buchung öffnet in neuem Tab (kein Embed-Whitescreen-Bug) */}
       <Dialog open={showKickoffModal} onOpenChange={setShowKickoffModal}>
         <DialogContent
-          className="sm:max-w-4xl max-h-[90vh] rounded-2xl p-0 overflow-hidden border-0 flex flex-col"
+          className="sm:max-w-md rounded-2xl border-0 p-0 overflow-hidden"
           style={{ background: "#0a0a0f", boxShadow: "0 30px 80px rgba(0,0,0,0.6)" }}
         >
-          <div className="p-5 sm:p-6 shrink-0" style={{ background: "#0a0a0f", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-            <DialogHeader>
-              <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-emerald-400 font-semibold mb-1.5">
-                <Sparkles className="h-3.5 w-3.5" />
-                Letzter Schritt
+          <div className="relative p-8 text-center">
+            <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-transparent pointer-events-none" />
+            <div className="relative">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl shadow-emerald-500/30 mb-5">
+                <CalendarIcon className="h-8 w-8 text-white" />
               </div>
-              <DialogTitle className="text-xl font-bold tracking-tight text-white">
-                Buch dir deinen Kickoff-Call mit Alex
-              </DialogTitle>
-              <DialogDescription className="text-white/60 text-sm">
-                Wir gehen dein Briefing gemeinsam durch. Dauer: 45–60 Min.
-              </DialogDescription>
-            </DialogHeader>
-          </div>
-          <div className="flex-1 overflow-auto" style={{ background: "#ffffff" }}>
-            <div
-              className="calendly-inline-widget"
-              data-url="https://calendly.com/consulting-og-info/kickoff-call-alex-adslift?primary_color=10b981&hide_gdpr_banner=1"
-              style={{ minWidth: 320, height: 600, background: "#ffffff" }}
-            />
-          </div>
-          <div className="p-3 flex justify-end shrink-0" style={{ background: "#0a0a0f", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-            <Button variant="ghost" size="sm" onClick={() => setShowKickoffModal(false)} className="text-white/60 hover:text-white">
-              Später buchen
-            </Button>
+              <DialogHeader className="space-y-2">
+                <div className="flex items-center justify-center gap-2 text-xs uppercase tracking-wider text-emerald-400 font-semibold">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Letzter Schritt
+                </div>
+                <DialogTitle className="text-xl font-bold tracking-tight text-white">
+                  Buch dir deinen Kickoff-Call
+                </DialogTitle>
+                <DialogDescription className="text-white/60 text-sm">
+                  Wir gehen dein Briefing gemeinsam durch und planen die nächsten Schritte. <strong className="text-white/80">Dauer: 45–60 Min.</strong>
+                </DialogDescription>
+              </DialogHeader>
+              <div className="mt-6 space-y-2">
+                <Button
+                  size="lg"
+                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/30"
+                  onClick={async () => {
+                    window.open("https://calendly.com/consulting-og-info/kickoff-call-alex-adslift?primary_color=10b981", "_blank");
+                    if (session) {
+                      await supabase
+                        .from("academy_customers")
+                        .update({ kickoff_call_booked: true })
+                        .eq("id", session.customer_id);
+                    }
+                    setTimeout(() => setShowKickoffModal(false), 500);
+                  }}
+                >
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  Termin auswählen
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowKickoffModal(false)}
+                  className="w-full text-white/50 hover:text-white hover:bg-white/[0.04]"
+                >
+                  Später buchen
+                </Button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
