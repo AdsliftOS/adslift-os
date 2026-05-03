@@ -75,12 +75,35 @@ const steps = [
   { title: "Material & Zugänge", icon: KeyRound, description: "Brand-Assets + Meta Business Manager" },
 ];
 
+// D4Y-spezifisches Welcome-Video — Platzhalter bis Alex das aufnimmt
+const D4Y_WISTIA_MEDIA_ID = "ej5mt00bg2"; // TODO: durch echtes D4Y-Video ersetzen
+
 export default function OnboardingD4Y() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [data, setData] = useState<BriefingData>(initial);
   const [submitted, setSubmitted] = useState(false);
+  const [introWatched, setIntroWatched] = useState(false);
   const [session, setSession] = useState<{ customer_id: string; email: string; name: string } | null>(null);
+
+  // Wistia-Scripts laden (nur auf der Intro-Seite, einmalig)
+  useEffect(() => {
+    if (introWatched) return;
+    const ids = ["wistia-player-js", "wistia-d4y-media-js"];
+    const sources = [
+      "https://fast.wistia.com/player.js",
+      `https://fast.wistia.com/embed/${D4Y_WISTIA_MEDIA_ID}.js`,
+    ];
+    sources.forEach((src, i) => {
+      if (document.getElementById(ids[i])) return;
+      const s = document.createElement("script");
+      s.id = ids[i];
+      s.src = src;
+      s.async = true;
+      if (i === 1) s.type = "module";
+      document.head.appendChild(s);
+    });
+  }, [introWatched]);
 
   useEffect(() => {
     const stored = localStorage.getItem("academy_session");
@@ -184,6 +207,61 @@ export default function OnboardingD4Y() {
     setSubmitted(true);
     setTimeout(() => navigate("/portal", { replace: true }), 2500);
   };
+
+  // Intro-Video-Screen — vor dem Briefing
+  if (!introWatched && session) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="border-b bg-card">
+          <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <img src="/adslift-icon.png" alt="Adslift" className="w-8 h-8 rounded-xl" />
+              <div>
+                <span className="text-base font-bold tracking-tight">Adslift Briefing</span>
+                <p className="text-[10px] text-muted-foreground">Done 4 You</p>
+              </div>
+            </div>
+            <Badge variant="secondary" className="text-xs">Welcome</Badge>
+          </div>
+        </div>
+
+        <div className="max-w-6xl mx-auto px-4 py-12 space-y-8">
+          <div className="text-center space-y-3 max-w-3xl mx-auto">
+            <div className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-semibold">
+              <Sparkles className="h-3.5 w-3.5" />
+              Willkommen, {session.name?.split(" ")[0] ?? "bei Adslift"}
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+              Schau dir kurz dieses Video an
+            </h1>
+            <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+              In 2 Min erkläre ich dir wie der Done-4-You-Prozess abläuft und welche Daten wir gleich von dir brauchen, um direkt loszulegen.
+            </p>
+          </div>
+
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: `<style>wistia-player[media-id='${D4Y_WISTIA_MEDIA_ID}']:not(:defined) { background: center / contain no-repeat url('https://fast.wistia.com/embed/medias/${D4Y_WISTIA_MEDIA_ID}/swatch'); display: block; filter: blur(5px); padding-top:56.25%; }</style><wistia-player media-id="${D4Y_WISTIA_MEDIA_ID}" aspect="1.7777777777777777"></wistia-player>`,
+                }}
+              />
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-center">
+            <Button
+              size="lg"
+              onClick={() => setIntroWatched(true)}
+              className="gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-base px-8"
+            >
+              Briefing starten <ChevronRight className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (
