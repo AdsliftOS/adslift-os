@@ -90,47 +90,58 @@ export default function D4YPortal() {
   const [tab, setTab] = useState<"projects" | "ads">("projects");
 
   // Session check + frische DB-Verifikation (robust gegen stale localStorage)
+  // + Admin-Preview via ?as=<customer_id>
   useEffect(() => {
-    const stored = localStorage.getItem("academy_session");
-    if (!stored) {
-      navigate("/academy", { replace: true });
-      return;
-    }
-    let parsed: Session;
-    try {
-      parsed = JSON.parse(stored) as Session;
-    } catch {
-      localStorage.removeItem("academy_session");
-      navigate("/academy", { replace: true });
-      return;
-    }
-    if (!parsed.customer_id) {
-      navigate("/academy", { replace: true });
-      return;
-    }
-    // Frische DB-Abfrage — localStorage könnte stale sein
     (async () => {
+      // Admin-Preview-Mode: ?as=<academy_customer_id>
+      const url = new URL(window.location.href);
+      const asCustomerId = url.searchParams.get("as");
+      if (asCustomerId) {
+        const { data: { session: authSession } } = await supabase.auth.getSession();
+        if (authSession?.user?.email) {
+          const { data: tm } = await supabase.from("team_members").select("status").eq("email", authSession.user.email).maybeSingle();
+          if (tm?.status === "active") {
+            // Lade den Customer-Datensatz und setz' ihn als Session
+            const { data: ac } = await supabase
+              .from("academy_customers")
+              .select("id, email, name, variant, onboarding_completed")
+              .eq("id", asCustomerId)
+              .single();
+            if (ac && ac.variant === "d4y") {
+              const previewSession: Session = {
+                customer_id: ac.id, email: ac.email, name: ac.name + " (Preview)",
+                onboarding_completed: !!ac.onboarding_completed, variant: "d4y",
+              };
+              setSession(previewSession);
+              return;
+            }
+            toast.error("Customer nicht gefunden oder kein D4Y");
+            navigate("/pipeline", { replace: true });
+            return;
+          }
+        }
+        toast.error("Admin-Preview nur für eingeloggte Team-Member");
+        navigate("/academy", { replace: true });
+        return;
+      }
+
+      // Standard-Customer-Flow
+      const stored = localStorage.getItem("academy_session");
+      if (!stored) { navigate("/academy", { replace: true }); return; }
+      let parsed: Session;
+      try { parsed = JSON.parse(stored) as Session; }
+      catch { localStorage.removeItem("academy_session"); navigate("/academy", { replace: true }); return; }
+      if (!parsed.customer_id) { navigate("/academy", { replace: true }); return; }
+
       const { data, error } = await supabase
-        .from("academy_customers")
-        .select("variant, onboarding_completed")
-        .eq("id", parsed.customer_id)
-        .single();
-      if (error || !data) {
-        localStorage.removeItem("academy_session");
-        navigate("/academy", { replace: true });
-        return;
-      }
-      if (data.variant !== "d4y") {
-        navigate("/academy", { replace: true });
-        return;
-      }
+        .from("academy_customers").select("variant, onboarding_completed").eq("id", parsed.customer_id).single();
+      if (error || !data) { localStorage.removeItem("academy_session"); navigate("/academy", { replace: true }); return; }
+      if (data.variant !== "d4y") { navigate("/academy", { replace: true }); return; }
       if (!data.onboarding_completed) {
-        // localStorage updaten
         localStorage.setItem("academy_session", JSON.stringify({ ...parsed, onboarding_completed: false, variant: "d4y" }));
         navigate("/onboarding?from=academy", { replace: true });
         return;
       }
-      // Alles ok → localStorage refreshen + Session setzen
       const fresh = { ...parsed, onboarding_completed: true, variant: "d4y" as const };
       localStorage.setItem("academy_session", JSON.stringify(fresh));
       setSession(fresh);

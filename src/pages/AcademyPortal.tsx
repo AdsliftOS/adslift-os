@@ -221,12 +221,36 @@ export default function AcademyPortal() {
   const [showKickoffModal, setShowKickoffModal] = useState(false);
 
   // ?reset=1 → localStorage clearen für Tests
+  // ?as=<customer_id> → Admin-Preview-Mode
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("reset") === "1") {
       localStorage.removeItem("academy_session");
       url.searchParams.delete("reset");
       window.location.replace(url.pathname + url.search);
+      return;
+    }
+    const asCustomerId = url.searchParams.get("as");
+    if (asCustomerId) {
+      (async () => {
+        const { data: { session: authSession } } = await supabase.auth.getSession();
+        if (!authSession?.user?.email) return;
+        const { data: tm } = await supabase.from("team_members").select("status").eq("email", authSession.user.email).maybeSingle();
+        if (tm?.status !== "active") return;
+        const { data: ac } = await supabase
+          .from("academy_customers")
+          .select("id, email, name, variant, onboarding_completed")
+          .eq("id", asCustomerId)
+          .single();
+        if (!ac || ac.variant !== "dwy") return;
+        const previewSession: CustomerSession = {
+          customer_id: ac.id, email: ac.email, name: ac.name + " (Preview)",
+          onboarding_completed: !!ac.onboarding_completed, variant: "dwy",
+        };
+        localStorage.setItem("academy_session", JSON.stringify(previewSession));
+        setSession(previewSession);
+        setView("dashboard");
+      })();
     }
   }, []);
 

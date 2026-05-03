@@ -775,6 +775,29 @@ function PipelineDetail({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {project.clientId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  const { data: ac } = await supabase
+                    .from("academy_customers")
+                    .select("id")
+                    .eq("client_id", project.clientId)
+                    .maybeSingle();
+                  if (!ac?.id) {
+                    toast.error("Kein Academy-Account für diesen Kunden");
+                    return;
+                  }
+                  const url = isDWY
+                    ? `/academy?as=${ac.id}`
+                    : `/portal?as=${ac.id}`;
+                  window.open(url, "_blank");
+                }}
+              >
+                <Eye className="h-3.5 w-3.5 mr-1.5" /> Kundenansicht
+              </Button>
+            )}
             <Select
               value={project.status}
               onValueChange={(v) => updatePipelineProject(projectId, { status: v as any })}
