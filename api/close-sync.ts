@@ -13,8 +13,9 @@ import { createClient } from "@supabase/supabase-js";
 export const config = { runtime: "edge" };
 
 const CLOSE_API_KEY = process.env.CLOSE_API_KEY;
-const SUPABASE_URL = process.env.SUPABASE_URL || `https://${process.env.NEXT_PUBLIC_SUPABASE_URL?.split("//")[1] || "ofrvoxupatowfatpleji.supabase.co"}`;
-const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE;
+// Hardcoded — same as frontend (URL + anon-Key sind public, RLS regelt Zugriff)
+const SUPABASE_URL = "https://ofrvoxupatowfatpleji.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9mcnZveHVwYXRvd2ZhdHBsZWppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4Mjk0NTQsImV4cCI6MjA4OTQwNTQ1NH0.AIqVTa0JK_srhTaD-a6CH9Ik94FATjhX8P-ilToCO0U";
 
 const headers = {
   "Content-Type": "application/json",
@@ -31,9 +32,6 @@ export default async function handler(req: Request) {
   if (!CLOSE_API_KEY) {
     return new Response(JSON.stringify({ error: "CLOSE_API_KEY missing" }), { status: 500, headers });
   }
-  if (!SUPABASE_SERVICE_ROLE) {
-    return new Response(JSON.stringify({ error: "SUPABASE_SERVICE_ROLE missing" }), { status: 500, headers });
-  }
 
   let body: any;
   try { body = await req.json(); } catch { body = {}; }
@@ -42,7 +40,7 @@ export default async function handler(req: Request) {
     return new Response(JSON.stringify({ error: "clientId fehlt" }), { status: 400, headers });
   }
 
-  const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE);
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const auth = `Basic ${btoa(CLOSE_API_KEY + ":")}`;
 
   // 1. Client laden + close_lead_id (cached)
