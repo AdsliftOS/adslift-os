@@ -421,32 +421,32 @@ export default function D4YPortal() {
       {/* Kickoff-Modal */}
       <Dialog open={showKickoffModal} onOpenChange={setShowKickoffModal}>
         <DialogContent
-          className="sm:max-w-5xl rounded-2xl p-0 overflow-hidden border-0"
+          className="sm:max-w-4xl max-h-[90vh] rounded-2xl p-0 overflow-hidden border-0 flex flex-col"
           style={{ background: "#0a0a0f", boxShadow: "0 30px 80px rgba(0,0,0,0.6)" }}
         >
-          <div className="p-6 sm:p-8" style={{ background: "#0a0a0f", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div className="p-5 sm:p-6 shrink-0" style={{ background: "#0a0a0f", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
             <DialogHeader>
-              <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-emerald-400 font-semibold mb-2">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-emerald-400 font-semibold mb-1.5">
                 <Sparkles className="h-3.5 w-3.5" />
                 Letzter Schritt
               </div>
-              <DialogTitle className="text-2xl font-bold tracking-tight text-white">
+              <DialogTitle className="text-xl font-bold tracking-tight text-white">
                 Buch dir deinen Kickoff-Call mit Alex
               </DialogTitle>
-              <DialogDescription className="text-white/60">
-                Wir gehen dein Briefing gemeinsam durch und planen die nächsten Schritte. Dauer: 45–60 Min.
+              <DialogDescription className="text-white/60 text-sm">
+                Wir gehen dein Briefing gemeinsam durch. Dauer: 45–60 Min.
               </DialogDescription>
             </DialogHeader>
           </div>
-          <div style={{ background: "#ffffff", padding: 0, margin: 0 }}>
+          <div className="flex-1 overflow-auto" style={{ background: "#ffffff" }}>
             <div
               className="calendly-inline-widget"
               data-url="https://calendly.com/consulting-og-info/kickoff-call-alex-adslift?primary_color=10b981&hide_gdpr_banner=1"
-              style={{ minWidth: 320, height: 720, background: "#ffffff" }}
+              style={{ minWidth: 320, height: 600, background: "#ffffff" }}
             />
           </div>
-          <div className="p-4 flex justify-end" style={{ background: "#0a0a0f", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-            <Button variant="ghost" onClick={() => setShowKickoffModal(false)} className="text-white/60 hover:text-white">
+          <div className="p-3 flex justify-end shrink-0" style={{ background: "#0a0a0f", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <Button variant="ghost" size="sm" onClick={() => setShowKickoffModal(false)} className="text-white/60 hover:text-white">
               Später buchen
             </Button>
           </div>
