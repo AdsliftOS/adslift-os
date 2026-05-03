@@ -4087,48 +4087,145 @@ function D4YDriveCard({ project }: { project: ReturnType<typeof usePipelineProje
 
 // ─── D4Y Meeting-Notes-Card ──────────────────────────────────────────
 function D4YMeetingNotesCard({ project }: { project: ReturnType<typeof usePipelineProjects>[number] }) {
-  const [draft, setDraft] = useState(project.meetingNotes || "");
-  const [saving, setSaving] = useState(false);
+  const [activities, setActivities] = useState<Array<{
+    id: string; type: string; title: string | null; body: string | null;
+    activity_at: string; duration_seconds: number | null;
+  }>>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<string | null>(null);
+  const [closeLeadId, setCloseLeadId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Sync wenn Project-Update von außen kommt
-  useEffect(() => {
-    setDraft(project.meetingNotes || "");
-  }, [project.meetingNotes]);
+  // Activities laden
+  const loadActivities = useCallback(async () => {
+    if (!project.clientId) return;
+    const [{ data: acts }, { data: client }] = await Promise.all([
+      supabase
+        .from("close_activities")
+        .select("id, type, title, body, activity_at, duration_seconds")
+        .eq("client_id", project.clientId)
+        .order("activity_at", { ascending: false }),
+      supabase.from("clients").select("close_lead_id, close_last_synced_at").eq("id", project.clientId).maybeSingle(),
+    ]);
+    setActivities(acts || []);
+    setCloseLeadId(client?.close_lead_id || null);
+    setLastSync(client?.close_last_synced_at || null);
+  }, [project.clientId]);
 
-  const save = async () => {
-    setSaving(true);
-    await updatePipelineProject(project.id, { meetingNotes: draft });
-    setSaving(false);
-    toast.success("Meeting-Notes gespeichert");
+  useEffect(() => { loadActivities(); }, [loadActivities]);
+
+  const handleSync = async () => {
+    if (!project.clientId) return;
+    setSyncing(true);
+    try {
+      const r = await fetch("/api/close-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: project.clientId }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        toast.error(data.error || "Sync fehlgeschlagen");
+      } else if (data.error) {
+        toast.warning(data.error);
+      } else {
+        toast.success(`${data.count} Activities gesynced`);
+      }
+      await loadActivities();
+    } catch (e: any) {
+      toast.error("Sync-Error: " + e.message);
+    }
+    setSyncing(false);
   };
 
-  const isDirty = draft !== (project.meetingNotes || "");
+  const visible = showAll ? activities : activities.slice(0, 5);
 
   return (
     <div className="rounded-2xl border bg-card overflow-hidden flex flex-col min-h-[280px]">
       <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-rose-500/20 to-pink-500/10 flex items-center justify-center">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-rose-500/20 to-pink-500/10 flex items-center justify-center shrink-0">
             <FileText className="h-4 w-4 text-rose-500" />
           </div>
-          <div>
-            <h3 className="text-sm font-bold">Meeting-Notes</h3>
-            <p className="text-[11px] text-muted-foreground">Zusammenfassungen aus Calls (später automatisch via Close)</p>
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              Meeting-Notes
+              {closeLeadId && <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Close</Badge>}
+            </h3>
+            <p className="text-[11px] text-muted-foreground truncate">
+              {lastSync ? `Sync: ${format(new Date(lastSync), "dd.MM.yy HH:mm", { locale: de })}` : "Noch nicht gesynced"}
+              {activities.length > 0 && ` · ${activities.length} Einträge`}
+            </p>
           </div>
         </div>
-        {isDirty && (
-          <Button size="sm" onClick={save} disabled={saving} className="h-8 text-xs">
-            {saving ? "Speichert..." : "Speichern"}
-          </Button>
-        )}
+        <Button size="sm" variant="outline" onClick={handleSync} disabled={syncing} className="h-8 text-xs shrink-0">
+          {syncing ? "Sync..." : (closeLeadId ? "Refresh" : "Sync Close")}
+        </Button>
       </div>
-      <div className="flex-1 p-4">
-        <Textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Hier kommen die Meeting-Zusammenfassungen rein. Später ziehen wir das automatisch aus Close."
-          className="h-full min-h-[200px] resize-none text-sm border-none shadow-none focus-visible:ring-0 p-0"
-        />
+      <div className="flex-1 overflow-y-auto p-3 space-y-1.5 max-h-[600px]">
+        {activities.length === 0 ? (
+          <div className="text-center py-10 text-muted-foreground">
+            <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+            <p className="text-sm font-medium">Noch keine Close-Activities</p>
+            <p className="text-xs mt-1 max-w-xs mx-auto">Klick "Sync Close" um Meetings + Calls + Notes vom passenden Lead zu pullen.</p>
+          </div>
+        ) : (
+          <>
+            {visible.map((a) => {
+              const Icon = a.type === "call" ? PlayCircle : a.type === "meeting" ? Calendar : FileText;
+              const colorBg = a.type === "call" ? "bg-blue-500/10" : a.type === "meeting" ? "bg-emerald-500/10" : "bg-rose-500/10";
+              const colorIcon = a.type === "call" ? "text-blue-500" : a.type === "meeting" ? "text-emerald-500" : "text-rose-500";
+              const isExpanded = expandedId === a.id;
+              return (
+                <button
+                  key={a.id}
+                  onClick={() => setExpandedId(isExpanded ? null : a.id)}
+                  className="w-full text-left rounded-lg border bg-background/50 hover:bg-muted/30 transition-colors px-3 py-2.5"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={cn("h-7 w-7 rounded-md flex items-center justify-center shrink-0 mt-0.5", colorBg)}>
+                      <Icon className={cn("h-3.5 w-3.5", colorIcon)} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={cn(
+                          "text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-sm shrink-0",
+                          a.type === "call" && "bg-blue-500/15 text-blue-600",
+                          a.type === "meeting" && "bg-emerald-500/15 text-emerald-600",
+                          a.type === "note" && "bg-rose-500/15 text-rose-600",
+                        )}>
+                          {a.type}
+                        </span>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {format(new Date(a.activity_at), "dd.MM.yyyy HH:mm", { locale: de })}
+                        </span>
+                        {a.duration_seconds && (
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            · {Math.round(a.duration_seconds / 60)} Min
+                          </span>
+                        )}
+                      </div>
+                      {a.title && (
+                        <p className={cn("text-sm font-medium", !isExpanded && "truncate")}>{a.title}</p>
+                      )}
+                      {a.body && (
+                        <p className={cn("text-xs text-muted-foreground mt-1", isExpanded ? "whitespace-pre-wrap" : "line-clamp-2")}>
+                          {a.body}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+            {activities.length > 5 && (
+              <button onClick={() => setShowAll((v) => !v)} className="w-full text-xs text-primary hover:underline pt-1">
+                {showAll ? "Weniger anzeigen" : `+ ${activities.length - 5} weitere anzeigen`}
+              </button>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
