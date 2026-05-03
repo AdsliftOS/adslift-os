@@ -246,10 +246,7 @@ export default function D4YPortal() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <img src="/adslift-icon.png" alt="Adslift" className="w-8 h-8 rounded-xl" />
-            <span className="font-bold text-base">Kundenportal</span>
-            <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-300 border-emerald-500/20">
-              Done 4 You
-            </Badge>
+            <span className="font-bold text-base">Kundenbereich</span>
           </div>
           <Button variant="ghost" size="sm" onClick={handleLogout} className="text-white/60 hover:text-white hover:bg-white/[0.05]">
             <LogOut className="h-4 w-4 mr-1.5" /> Abmelden
