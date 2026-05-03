@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { getProjectCampaigns, type Campaign } from "@/lib/meta-ads-project";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -79,6 +80,7 @@ export default function D4YPortal() {
   const [showKickoffModal, setShowKickoffModal] = useState(false);
   const [showBriefingModal, setShowBriefingModal] = useState(false);
   const [previewType, setPreviewType] = useState<"creatives" | "adcopy" | null>(null);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
 
   // Session check + frische DB-Verifikation (robust gegen stale localStorage)
   useEffect(() => {
@@ -186,6 +188,17 @@ export default function D4YPortal() {
       setSteps(ps ?? []);
     })();
   }, [selectedProjectId, allProjects.length]);
+
+  // Meta-Campaigns laden wenn ad_account_id verknüpft
+  useEffect(() => {
+    if (!project?.ad_account_id) {
+      setCampaigns([]);
+      return;
+    }
+    getProjectCampaigns(project.ad_account_id, "this_month").then(({ campaigns: cs }) => {
+      setCampaigns(cs);
+    }).catch(() => setCampaigns([]));
+  }, [project?.ad_account_id]);
 
   // Kickoff-Modal-Auto-Open + Calendly Script + Booking-Listener
   useEffect(() => {
@@ -515,22 +528,81 @@ export default function D4YPortal() {
           </button>
         )}
 
-        {/* Performance Preview (only if Live) */}
-        {phase === "live" && project?.ad_account_id && (
-          <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.04] to-transparent p-6">
-            <div className="flex items-center gap-2.5 mb-3">
+        {/* Live-Performance — wenn Ad-Account verknüpft + Kampagnen aktiv */}
+        {project?.ad_account_id && campaigns.length > 0 && (
+          <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.04] to-transparent overflow-hidden">
+            <div className="px-5 py-3 border-b border-white/[0.06] flex items-center gap-2.5">
               <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/10 flex items-center justify-center">
                 <TrendingUp className="h-4 w-4 text-emerald-400" />
               </div>
-              <div>
+              <div className="flex-1">
                 <h3 className="text-sm font-bold">Live-Performance</h3>
-                <p className="text-[11px] text-white/40">Dein Account-Manager teilt detaillierte Reports</p>
+                <p className="text-[11px] text-white/40">Aktueller Monat · {campaigns.length} Kampagne{campaigns.length !== 1 ? "n" : ""}</p>
               </div>
             </div>
-            <p className="text-sm text-white/60">
-              Kampagne läuft auf Account <span className="font-mono text-white/80">{project.ad_account_id}</span>.
-              Detaillierte Reports sendet dir Alex regelmäßig per WhatsApp / Email.
-            </p>
+            {/* Stats Total */}
+            {(() => {
+              const totalSpend = campaigns.reduce((s, c) => s + (c.spend || 0), 0);
+              const totalLeads = campaigns.reduce((s, c) => s + (c.leads || 0), 0);
+              const totalImpr = campaigns.reduce((s, c) => s + (c.impressions || 0), 0);
+              const totalClicks = campaigns.reduce((s, c) => s + (c.clicks || 0), 0);
+              const avgCPL = totalLeads > 0 ? totalSpend / totalLeads : 0;
+              const avgCTR = totalImpr > 0 ? (totalClicks / totalImpr) * 100 : 0;
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-white/[0.06] [&>*]:border-b sm:[&>*]:border-b-0 [&>*]:border-white/[0.06] sm:[&>*:nth-child(-n+4)]:border-b-0">
+                  <div className="p-4">
+                    <p className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">Spend</p>
+                    <p className="text-xl font-bold mt-1">{totalSpend.toFixed(0)}<span className="text-sm font-normal text-white/40 ml-1">€</span></p>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">Leads</p>
+                    <p className="text-xl font-bold mt-1">{totalLeads}</p>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">Ø CPL</p>
+                    <p className="text-xl font-bold mt-1">{avgCPL > 0 ? avgCPL.toFixed(2) : "—"}<span className="text-sm font-normal text-white/40 ml-1">€</span></p>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">Ø CTR</p>
+                    <p className="text-xl font-bold mt-1">{avgCTR > 0 ? avgCTR.toFixed(2) : "—"}<span className="text-sm font-normal text-white/40 ml-1">%</span></p>
+                  </div>
+                </div>
+              );
+            })()}
+            {/* Campaign-List */}
+            <div className="p-3 space-y-1.5">
+              {campaigns.slice(0, 5).map((c) => (
+                <div key={c.id} className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 flex items-center gap-3">
+                  <div className={cn(
+                    "h-2 w-2 rounded-full shrink-0",
+                    c.effectiveStatus === "ACTIVE" && "bg-emerald-400",
+                    c.effectiveStatus === "PAUSED" && "bg-amber-400",
+                    c.effectiveStatus !== "ACTIVE" && c.effectiveStatus !== "PAUSED" && "bg-white/30",
+                  )} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{c.name}</p>
+                    <p className="text-[10px] text-white/40">{c.objective.replace("OUTCOME_", "")} · {c.effectiveStatus}</p>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-4 text-[11px] tabular-nums shrink-0">
+                    <div className="text-right">
+                      <p className="text-white/40 text-[9px] uppercase">Spend</p>
+                      <p className="font-semibold">{c.spend.toFixed(0)}€</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-white/40 text-[9px] uppercase">Leads</p>
+                      <p className="font-semibold">{c.leads}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-white/40 text-[9px] uppercase">CPL</p>
+                      <p className="font-semibold">{c.cpl > 0 ? c.cpl.toFixed(2) + "€" : "—"}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {campaigns.length > 5 && (
+                <p className="text-[10px] text-white/40 text-center pt-1">+ {campaigns.length - 5} weitere Kampagnen</p>
+              )}
+            </div>
           </div>
         )}
 

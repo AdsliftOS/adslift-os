@@ -63,6 +63,7 @@ import {
   addPipelineProject,
   deletePipelineProject,
   updatePipelineProject,
+  loadPipelineProjects,
   addStepFromTemplate,
   addCustomStep,
   updateProjectStep,
@@ -769,11 +770,6 @@ function PipelineDetail({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {!isDWY && (
-              <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
-                <PanelRight className="h-3.5 w-3.5 mr-1" /> Kunden-Portal
-              </Button>
-            )}
             <Select
               value={project.status}
               onValueChange={(v) => updatePipelineProject(projectId, { status: v as any })}
@@ -1887,8 +1883,29 @@ function ProjectAdAccountPicker({
     <Select
       value={project.adAccountId || "__none"}
       onValueChange={async (v) => {
-        await updatePipelineProject(project.id, { adAccountId: v === "__none" ? null : v });
-        toast.success("Werbekonto aktualisiert");
+        const newAdAccount = v === "__none" ? null : v;
+        // 1. Update aktuelles Projekt
+        await updatePipelineProject(project.id, { adAccountId: newAdAccount });
+        // 2. Auto-Sync auf ALLE Sibling-Projekte des gleichen Kunden
+        if (project.clientId) {
+          const { data: siblings } = await supabase
+            .from("pipeline_projects")
+            .select("id")
+            .eq("client_id", project.clientId)
+            .neq("id", project.id);
+          if (siblings && siblings.length > 0) {
+            await supabase
+              .from("pipeline_projects")
+              .update({ ad_account_id: newAdAccount })
+              .eq("client_id", project.clientId);
+            await loadPipelineProjects();
+            toast.success(`Werbekonto auf alle ${siblings.length + 1} Projekte des Kunden synced`);
+          } else {
+            toast.success("Werbekonto aktualisiert");
+          }
+        } else {
+          toast.success("Werbekonto aktualisiert");
+        }
         setOpen(false);
       }}
       onOpenChange={(o) => o && setOpen(true)}
