@@ -22,7 +22,6 @@ import { generateCloseAutoTasks } from "@/lib/closeAutoTasks";
 import { generateNotifications } from "@/lib/notificationGenerator";
 import { loadNotifications } from "@/store/notifications";
 import Dashboard from "./pages/Dashboard";
-import ProjectManager from "./pages/ProjectManager";
 import Clients from "./pages/Clients";
 import ClientDetail from "./pages/ClientDetail";
 import Finances from "./pages/Finances";
@@ -68,7 +67,7 @@ function RoleAwareRoutes() {
       <Route path="/" element={<Dashboard />} />
       <Route path="/me" element={<Navigate to="/" replace />} />
       <Route path="/team" element={<TeamOverview />} />
-      <Route path="/projects" element={<ProjectManager />} />
+      <Route path="/projects" element={<Navigate to="/pipeline" replace />} />
       <Route path="/pipeline" element={<Pipeline />} />
       <Route path="/clients" element={<Clients />} />
       <Route path="/clients/:id" element={<ClientDetail />} />

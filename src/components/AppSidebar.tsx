@@ -1,6 +1,5 @@
 import {
   LayoutDashboard,
-  FolderKanban,
   Users,
   Wallet,
   TrendingUp,
@@ -46,8 +45,7 @@ const workspaceItems: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
   { title: "Mein Bereich", url: "/me", icon: UserCircle, badge: "new" },
   { title: "Team", url: "/team", icon: UsersRound },
-  { title: "Projekte", url: "/projects", icon: FolderKanban },
-  { title: "Pipeline", url: "/pipeline", icon: Sparkles, badge: "new" },
+  { title: "Pipeline", url: "/pipeline", icon: Sparkles },
   { title: "Kunden", url: "/clients", icon: Users },
   { title: "Kalender", url: "/calendar", icon: Calendar },
   { title: "Aufgaben", url: "/tasks", icon: CircleCheckBig },

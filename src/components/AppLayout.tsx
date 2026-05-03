@@ -11,7 +11,7 @@ import { NotificationCenter } from "@/components/NotificationCenter";
 
 const navPages = [
   { title: "Dashboard", path: "/" },
-  { title: "Projekte", path: "/projects" },
+  { title: "Pipeline / Projekte", path: "/pipeline" },
   { title: "Clients / Kunden", path: "/clients" },
   { title: "Finanzen / Cash-In / Cash-Out", path: "/finances" },
   { title: "Sales", path: "/sales" },
@@ -165,7 +165,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                               {searchResults.projects.map((p) => (
                                 <button
                                   key={p.id}
-                                  onClick={() => navigate("/projects")}
+                                  onClick={() => navigate("/pipeline")}
                                   className="w-full text-left px-2 py-2 rounded-md hover:bg-accent text-sm flex items-center gap-2"
                                 >
                                   <div className="h-6 w-6 rounded-full bg-violet-500/10 flex items-center justify-center shrink-0">

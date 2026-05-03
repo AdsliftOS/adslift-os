@@ -622,7 +622,7 @@ export default function Dashboard() {
         </Cell>
 
         {/* ── PROJEKTE (wide) ── */}
-        <Cell className="col-span-4 lg:col-span-8" onClick={() => navigate("/projects")}>
+        <Cell className="col-span-4 lg:col-span-8" onClick={() => navigate("/pipeline")}>
           <div className="flex items-center justify-between mb-4">
             <Eyebrow>Projekte</Eyebrow>
             <span className="font-mono text-[10px] uppercase tracking-ui text-primary/70 flex items-center gap-1">
