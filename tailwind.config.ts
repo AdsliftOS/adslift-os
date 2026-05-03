@@ -112,7 +112,7 @@ export default {
         "brand-gradient": "linear-gradient(180deg, #1A85FF 0%, #0650C7 100%)",
         "brand-gradient-hover": "linear-gradient(180deg, #2E95FF 0%, #0D72FF 100%)",
         "brand-gradient-pressed": "linear-gradient(180deg, #0650C7 0%, #03358A 100%)",
-        "glass-card": "linear-gradient(160deg, rgba(45,50,80,0.55), rgba(18,22,40,0.75))",
+        "glass-card": "linear-gradient(160deg, rgba(40,40,42,0.55), rgba(22,22,24,0.75))",
         "glass-card-blue": "linear-gradient(160deg, rgba(13,114,255,0.22), rgba(13,114,255,0.04) 60%, rgba(18,22,40,0.8))",
         "glass-card-amber": "linear-gradient(160deg, rgba(245,166,35,0.15), rgba(18,22,40,0.8))",
         "number-gradient": "linear-gradient(180deg, #FFFFFF 0%, #4D96FF 100%)",
