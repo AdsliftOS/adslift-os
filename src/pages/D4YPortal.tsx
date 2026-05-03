@@ -12,6 +12,9 @@ import {
   Circle,
   ClipboardList,
   Clock,
+  Eye,
+  FileText,
+  Image as ImageIcon,
   LogOut,
   MessageCircle,
   Play,
@@ -38,6 +41,8 @@ type PipelineProject = {
   variant: "dwy" | "d4y";
   ad_account_id: string | null;
   start_date: string | null;
+  creatives_html: string | null;
+  ad_copy_html: string | null;
 };
 
 type PipelineStep = {
@@ -67,6 +72,7 @@ export default function D4YPortal() {
   const [loading, setLoading] = useState(true);
   const [showKickoffModal, setShowKickoffModal] = useState(false);
   const [showBriefingModal, setShowBriefingModal] = useState(false);
+  const [previewType, setPreviewType] = useState<"creatives" | "adcopy" | null>(null);
 
   // Session check + frische DB-Verifikation (robust gegen stale localStorage)
   useEffect(() => {
@@ -434,6 +440,42 @@ export default function D4YPortal() {
           </div>
         </div>
 
+        {/* Asset-Cards: Creative-Board + Ad-Copy (nur wenn vom Team hochgeladen) */}
+        {(project?.creatives_html || project?.ad_copy_html) && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {project.creatives_html && (
+              <button
+                onClick={() => setPreviewType("creatives")}
+                className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-violet-500/30 transition-all text-left p-5 flex items-center gap-4"
+              >
+                <div className="shrink-0 h-12 w-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                  <ImageIcon className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-white">Creative-Board</h3>
+                  <p className="text-[11px] text-white/50 mt-0.5">Deine Ad-Vorschauen anschauen</p>
+                </div>
+                <Eye className="h-4 w-4 text-white/30 group-hover:text-white/80 transition-colors shrink-0" />
+              </button>
+            )}
+            {project.ad_copy_html && (
+              <button
+                onClick={() => setPreviewType("adcopy")}
+                className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-blue-500/30 transition-all text-left p-5 flex items-center gap-4"
+              >
+                <div className="shrink-0 h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                  <FileText className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-white">Ad-Copy</h3>
+                  <p className="text-[11px] text-white/50 mt-0.5">Deine Werbe-Texte ansehen</p>
+                </div>
+                <Eye className="h-4 w-4 text-white/30 group-hover:text-white/80 transition-colors shrink-0" />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Performance Preview (only if Live) */}
         {phase === "live" && project?.ad_account_id && (
           <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.04] to-transparent p-6">
@@ -654,6 +696,30 @@ export default function D4YPortal() {
               Schließen
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Creative-Board / Ad-Copy Preview Modal */}
+      <Dialog open={previewType !== null} onOpenChange={(o) => !o && setPreviewType(null)}>
+        <DialogContent
+          className="sm:max-w-5xl h-[85vh] rounded-2xl border-0 p-0 overflow-hidden flex flex-col"
+          style={{ background: "#0a0a0f" }}
+        >
+          <div className="p-4 border-b border-white/[0.06] shrink-0 flex items-center gap-2.5">
+            {previewType === "creatives" ? (
+              <ImageIcon className="h-4 w-4 text-violet-400" />
+            ) : (
+              <FileText className="h-4 w-4 text-blue-400" />
+            )}
+            <DialogTitle className="text-sm font-bold text-white">
+              {previewType === "creatives" ? "Creative-Board" : "Ad-Copy"}
+            </DialogTitle>
+          </div>
+          <iframe
+            srcDoc={(previewType === "creatives" ? project?.creatives_html : project?.ad_copy_html) || ""}
+            className="flex-1 w-full bg-white"
+            sandbox="allow-same-origin allow-scripts"
+          />
         </DialogContent>
       </Dialog>
     </div>
