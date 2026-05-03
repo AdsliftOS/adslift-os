@@ -642,76 +642,253 @@ export default function D4YPortal() {
                   <p className="text-sm text-white/60">Keine aktiven Kampagnen im Zeitraum.</p>
                   <button onClick={() => setPerfActiveOnly(false)} className="text-xs text-emerald-400 hover:text-emerald-300 mt-2">Alle anzeigen →</button>
                 </div>
-              ) : (
-                <>
-                  {/* Hero KPI Cards (4 prominente) */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <KPICard label="Spend" value={`${totalSpend.toFixed(2)} €`} accent="from-emerald-500 to-teal-600" icon={<TrendingUp className="h-4 w-4" />} />
-                    <KPICard label="Leads" value={totalLeads.toString()} accent="from-blue-500 to-cyan-600" icon={<CheckCircle2 className="h-4 w-4" />} />
-                    <KPICard label="Ø CPL" value={avgCPL > 0 ? `${avgCPL.toFixed(2)} €` : "—"} accent="from-violet-500 to-fuchsia-600" icon={<TrendingUp className="h-4 w-4" />} />
-                    <KPICard label="Ø CTR" value={avgCTR > 0 ? `${avgCTR.toFixed(2)} %` : "—"} accent="from-amber-500 to-orange-600" icon={<Activity className="h-4 w-4" />} />
-                  </div>
+              ) : (() => {
+                // Trend-Berechnung: erste Hälfte vs zweite Hälfte
+                const half = Math.floor(dailyData.length / 2);
+                const firstHalf = dailyData.slice(0, half);
+                const secondHalf = dailyData.slice(half);
+                const sumIn = (arr: typeof dailyData, k: keyof DailyDataPoint) => arr.reduce((s, d) => s + (Number(d[k]) || 0), 0);
+                const trend = (curr: number, prev: number) => prev === 0 ? null : Math.round(((curr - prev) / prev) * 100);
+                const leadsTrend = trend(sumIn(secondHalf, "leads"), sumIn(firstHalf, "leads"));
+                const spendTrend = trend(sumIn(secondHalf, "spend"), sumIn(firstHalf, "spend"));
+                const cplCurrent = sumIn(secondHalf, "leads") > 0 ? sumIn(secondHalf, "spend") / sumIn(secondHalf, "leads") : 0;
+                const cplPrev = sumIn(firstHalf, "leads") > 0 ? sumIn(firstHalf, "spend") / sumIn(firstHalf, "leads") : 0;
+                const cplTrend = cplPrev > 0 ? Math.round(((cplCurrent - cplPrev) / cplPrev) * 100) : null;
 
-                  {/* Sekundäre KPIs */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <SmallKPI label="Impressionen" value={totalImpr.toLocaleString("de-DE")} />
-                    <SmallKPI label="Klicks" value={totalClicks.toLocaleString("de-DE")} />
-                    <SmallKPI label="Ø CPC" value={avgCPC > 0 ? `${avgCPC.toFixed(2)} €` : "—"} />
-                    <SmallKPI label="Ø CPM" value={avgCPM > 0 ? `${avgCPM.toFixed(2)} €` : "—"} />
-                  </div>
+                // Tagesdaten formatieren für Chart
+                const chartData = dailyData.map((d) => ({
+                  date: d.date,
+                  dateLabel: new Date(d.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }),
+                  Leads: d.leads,
+                  Spend: Math.round(d.spend * 100) / 100,
+                  Klicks: d.clicks,
+                  CPL: d.leads > 0 ? Math.round((d.spend / d.leads) * 100) / 100 : 0,
+                }));
 
-                  {/* Best Performer Highlight */}
-                  {bestCampaign && (
-                    <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/[0.06] to-transparent p-5 flex items-center gap-4">
-                      <div className="shrink-0 h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                        <CheckCircle2 className="h-6 w-6 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold">Best Performer · niedrigster CPL</p>
-                        <h4 className="text-sm font-bold mt-0.5 truncate">{bestCampaign.name}</h4>
-                        <p className="text-xs text-white/50 mt-0.5">{bestCampaign.leads} Leads · {bestCampaign.cpl.toFixed(2)} € CPL</p>
-                      </div>
+                // Spend-Verteilung pro Kampagne
+                const spendDistribution = visibleCampaigns
+                  .filter((c) => c.spend > 0)
+                  .sort((a, b) => b.spend - a.spend)
+                  .map((c) => ({
+                    name: c.name.length > 28 ? c.name.slice(0, 25) + "..." : c.name,
+                    value: Math.round(c.spend * 100) / 100,
+                  }));
+
+                const PIE_COLORS = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ec4899", "#06b6d4", "#14b8a6", "#f97316"];
+
+                return (
+                  <div className="space-y-4">
+                    {/* Hero KPI-Cards mit Trends */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                      <KPICardTrend label="Spend" value={`${totalSpend.toFixed(0)} €`} accent="from-emerald-500 to-teal-600" trend={spendTrend} icon={<TrendingUp className="h-4 w-4" />} />
+                      <KPICardTrend label="Leads" value={totalLeads.toString()} accent="from-blue-500 to-cyan-600" trend={leadsTrend} positiveIsGood icon={<CheckCircle2 className="h-4 w-4" />} />
+                      <KPICardTrend label="Ø CPL" value={avgCPL > 0 ? `${avgCPL.toFixed(2)} €` : "—"} accent="from-violet-500 to-fuchsia-600" trend={cplTrend} positiveIsGood={false} icon={<TrendingUp className="h-4 w-4" />} />
+                      <KPICardTrend label="Ø CTR" value={avgCTR > 0 ? `${avgCTR.toFixed(2)} %` : "—"} accent="from-amber-500 to-orange-600" trend={null} icon={<Activity className="h-4 w-4" />} />
                     </div>
-                  )}
 
-                  {/* Campaign Detail-Liste */}
-                  <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
-                    <div className="px-5 py-3 border-b border-white/[0.06] flex items-center gap-2.5">
-                      <Activity className="h-3.5 w-3.5 text-white/40" />
-                      <h3 className="text-sm font-bold">Kampagnen-Details</h3>
-                      <span className="text-[11px] text-white/40">{visibleCampaigns.length} {visibleCampaigns.length === 1 ? "Kampagne" : "Kampagnen"}</span>
+                    {/* HAUPT-CHART: Leads + Spend über Zeit */}
+                    {chartData.length > 1 && (
+                      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+                        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                          <div>
+                            <h3 className="text-sm font-bold">Performance über Zeit</h3>
+                            <p className="text-[11px] text-white/40 mt-0.5">{presetLabel} · täglich</p>
+                          </div>
+                          <div className="flex gap-1">
+                            {(["leads", "spend", "clicks"] as const).map((m) => (
+                              <button
+                                key={m}
+                                onClick={() => setChartMetric(m === "clicks" ? "clicks" : m === "spend" ? "spend" : "leads")}
+                                className={cn(
+                                  "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all capitalize",
+                                  chartMetric === m
+                                    ? "bg-white/[0.08] text-white"
+                                    : "text-white/40 hover:text-white/70",
+                                )}
+                              >
+                                {m === "leads" ? "Leads" : m === "spend" ? "Spend" : "Klicks"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="h-[280px] -mx-2">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={chartData} margin={{ top: 10, right: 8, left: -10, bottom: 0 }}>
+                              <defs>
+                                <linearGradient id="grad-main" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor={chartMetric === "leads" ? "#3b82f6" : chartMetric === "spend" ? "#10b981" : "#8b5cf6"} stopOpacity={0.6} />
+                                  <stop offset="100%" stopColor={chartMetric === "leads" ? "#3b82f6" : chartMetric === "spend" ? "#10b981" : "#8b5cf6"} stopOpacity={0} />
+                                </linearGradient>
+                              </defs>
+                              <XAxis dataKey="dateLabel" stroke="rgba(255,255,255,0.3)" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                              <YAxis stroke="rgba(255,255,255,0.3)" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 10 }} axisLine={false} tickLine={false} width={40} />
+                              <Tooltip
+                                contentStyle={{ background: "#0f0f14", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
+                                labelStyle={{ color: "rgba(255,255,255,0.6)" }}
+                                cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey={chartMetric === "leads" ? "Leads" : chartMetric === "spend" ? "Spend" : "Klicks"}
+                                stroke={chartMetric === "leads" ? "#3b82f6" : chartMetric === "spend" ? "#10b981" : "#8b5cf6"}
+                                strokeWidth={2.5}
+                                fill="url(#grad-main)"
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sekundäre KPIs */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <SmallKPI label="Impressionen" value={totalImpr.toLocaleString("de-DE")} />
+                      <SmallKPI label="Klicks" value={totalClicks.toLocaleString("de-DE")} />
+                      <SmallKPI label="Ø CPC" value={avgCPC > 0 ? `${avgCPC.toFixed(2)} €` : "—"} />
+                      <SmallKPI label="Ø CPM" value={avgCPM > 0 ? `${avgCPM.toFixed(2)} €` : "—"} />
                     </div>
-                    <div className="divide-y divide-white/[0.04]">
-                      {visibleCampaigns
-                        .sort((a, b) => b.spend - a.spend)
-                        .map((c) => (
-                          <div key={c.id} className="px-5 py-3 hover:bg-white/[0.02] transition-colors">
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className={cn(
-                                "h-2 w-2 rounded-full shrink-0",
-                                c.effectiveStatus === "ACTIVE" && "bg-emerald-400 animate-pulse",
-                                c.effectiveStatus === "PAUSED" && "bg-amber-400",
-                                c.effectiveStatus !== "ACTIVE" && c.effectiveStatus !== "PAUSED" && "bg-white/30",
-                              )} />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold truncate">{c.name}</p>
-                                <p className="text-[10px] text-white/40 mt-0.5">{c.objective.replace("OUTCOME_", "")} · {c.effectiveStatus}</p>
-                              </div>
+
+                    {/* 2-Spalten: Daily-Leads-Bars + Spend-Verteilung */}
+                    <div className="grid lg:grid-cols-2 gap-3">
+                      {/* Daily Leads Bars */}
+                      {chartData.length > 1 && (
+                        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="h-7 w-7 rounded-md bg-blue-500/20 flex items-center justify-center">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-blue-400" />
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-[11px] tabular-nums">
-                              <CampaignKPI label="Spend" value={`${c.spend.toFixed(0)} €`} />
-                              <CampaignKPI label="Leads" value={c.leads.toString()} />
-                              <CampaignKPI label="CPL" value={c.cpl > 0 ? `${c.cpl.toFixed(2)} €` : "—"} />
-                              <CampaignKPI label="CTR" value={c.ctr > 0 ? `${c.ctr.toFixed(2)} %` : "—"} />
-                              <CampaignKPI label="Impr." value={c.impressions.toLocaleString("de-DE")} />
-                              <CampaignKPI label="Klicks" value={c.clicks.toLocaleString("de-DE")} />
+                            <div>
+                              <h3 className="text-sm font-bold">Tägliche Leads</h3>
+                              <p className="text-[10px] text-white/40">Anzahl Leads pro Tag</p>
                             </div>
                           </div>
-                        ))}
+                          <div className="h-[200px] -mx-2">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={chartData} margin={{ top: 10, right: 8, left: -10, bottom: 0 }}>
+                                <XAxis dataKey="dateLabel" stroke="rgba(255,255,255,0.3)" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 9 }} axisLine={false} tickLine={false} />
+                                <YAxis stroke="rgba(255,255,255,0.3)" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 9 }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
+                                <Tooltip
+                                  contentStyle={{ background: "#0f0f14", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
+                                  cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                                />
+                                <Bar dataKey="Leads" radius={[4, 4, 0, 0]}>
+                                  {chartData.map((d, i) => (
+                                    <Cell key={i} fill={d.Leads > 0 ? "#3b82f6" : "rgba(255,255,255,0.1)"} />
+                                  ))}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Spend-Verteilung Donut */}
+                      {spendDistribution.length > 0 && (
+                        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="h-7 w-7 rounded-md bg-emerald-500/20 flex items-center justify-center">
+                              <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-bold">Spend-Verteilung</h3>
+                              <p className="text-[10px] text-white/40">pro Kampagne</p>
+                            </div>
+                          </div>
+                          <div className="h-[200px] flex items-center">
+                            <ResponsiveContainer width="55%" height="100%">
+                              <PieChart>
+                                <Pie data={spendDistribution} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2} stroke="rgba(0,0,0,0.2)" strokeWidth={1}>
+                                  {spendDistribution.map((_, i) => (
+                                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                  ))}
+                                </Pie>
+                                <Tooltip
+                                  contentStyle={{ background: "#0f0f14", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 11 }}
+                                  formatter={(v: number) => `${v.toFixed(2)} €`}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                            <div className="flex-1 space-y-1.5 max-h-[180px] overflow-y-auto pr-1">
+                              {spendDistribution.slice(0, 6).map((s, i) => (
+                                <div key={s.name} className="flex items-center gap-2 text-[10px]">
+                                  <div className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                                  <span className="flex-1 truncate text-white/70">{s.name}</span>
+                                  <span className="font-semibold text-white tabular-nums">{s.value.toFixed(0)} €</span>
+                                </div>
+                              ))}
+                              {spendDistribution.length > 6 && (
+                                <p className="text-[10px] text-white/30 pt-1">+ {spendDistribution.length - 6} weitere</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Best Performer Highlight */}
+                    {bestCampaign && (
+                      <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/[0.06] via-emerald-500/[0.02] to-transparent p-5 flex items-center gap-4">
+                        <div className="shrink-0 h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                          <CheckCircle2 className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold">Top Performer · niedrigster CPL</p>
+                          <h4 className="text-sm font-bold mt-0.5 truncate">{bestCampaign.name}</h4>
+                          <p className="text-xs text-white/50 mt-0.5">{bestCampaign.leads} Leads · {bestCampaign.cpl.toFixed(2)} € CPL · {bestCampaign.spend.toFixed(0)} € Spend</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Campaign Detail-Liste */}
+                    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+                      <div className="px-5 py-3 border-b border-white/[0.06] flex items-center gap-2.5">
+                        <Activity className="h-3.5 w-3.5 text-white/40" />
+                        <h3 className="text-sm font-bold">Kampagnen-Details</h3>
+                        <span className="text-[11px] text-white/40">{visibleCampaigns.length} {visibleCampaigns.length === 1 ? "Kampagne" : "Kampagnen"}</span>
+                      </div>
+                      <div className="divide-y divide-white/[0.04]">
+                        {visibleCampaigns
+                          .sort((a, b) => b.spend - a.spend)
+                          .map((c) => {
+                            const sharePct = totalSpend > 0 ? (c.spend / totalSpend) * 100 : 0;
+                            return (
+                              <div key={c.id} className="px-5 py-3 hover:bg-white/[0.02] transition-colors">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <div className={cn(
+                                    "h-2 w-2 rounded-full shrink-0",
+                                    c.effectiveStatus === "ACTIVE" && "bg-emerald-400 animate-pulse",
+                                    c.effectiveStatus === "PAUSED" && "bg-amber-400",
+                                    c.effectiveStatus !== "ACTIVE" && c.effectiveStatus !== "PAUSED" && "bg-white/30",
+                                  )} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold truncate">{c.name}</p>
+                                    <p className="text-[10px] text-white/40 mt-0.5">{c.objective.replace("OUTCOME_", "")} · {c.effectiveStatus}</p>
+                                  </div>
+                                  <div className="shrink-0 text-right hidden sm:block">
+                                    <p className="text-[10px] text-white/40">Anteil Spend</p>
+                                    <p className="text-xs font-bold">{sharePct.toFixed(1)}%</p>
+                                  </div>
+                                </div>
+                                {/* Spend-Bar */}
+                                <div className="mb-2 h-1 rounded-full bg-white/[0.04] overflow-hidden">
+                                  <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full" style={{ width: `${sharePct}%` }} />
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-[11px] tabular-nums">
+                                  <CampaignKPI label="Spend" value={`${c.spend.toFixed(0)} €`} />
+                                  <CampaignKPI label="Leads" value={c.leads.toString()} />
+                                  <CampaignKPI label="CPL" value={c.cpl > 0 ? `${c.cpl.toFixed(2)} €` : "—"} />
+                                  <CampaignKPI label="CTR" value={c.ctr > 0 ? `${c.ctr.toFixed(2)} %` : "—"} />
+                                  <CampaignKPI label="Impr." value={c.impressions.toLocaleString("de-DE")} />
+                                  <CampaignKPI label="Klicks" value={c.clicks.toLocaleString("de-DE")} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
                     </div>
                   </div>
-                </>
-              )}
+                );
+              })()}
             </div>
           );
         })()}
@@ -1034,6 +1211,42 @@ function D4YPortalDriveCard({ driveLink }: { driveLink: string | null }) {
       </div>
       <ExternalLink className="h-4 w-4 text-white/30 group-hover:text-white/80 transition-colors shrink-0" />
     </button>
+  );
+}
+
+// ─── KPI-Card mit Trend-Indikator ─────────────────────────────────────
+function KPICardTrend({ label, value, accent, icon, trend, positiveIsGood = true }: {
+  label: string;
+  value: string;
+  accent: string;
+  icon: React.ReactNode;
+  trend: number | null;
+  positiveIsGood?: boolean;
+}) {
+  const trendIsGood = trend === null ? null : positiveIsGood ? trend >= 0 : trend <= 0;
+  const trendColor = trendIsGood === null ? "text-white/40"
+    : trendIsGood ? "text-emerald-400"
+    : "text-rose-400";
+  return (
+    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 relative overflow-hidden group hover:border-white/[0.12] transition-colors">
+      <div className={cn("absolute -top-8 -right-8 h-24 w-24 rounded-full opacity-20 blur-xl bg-gradient-to-br pointer-events-none", accent)} />
+      <div className="relative">
+        <div className="flex items-center gap-2 mb-3">
+          <div className={cn("h-7 w-7 rounded-md bg-gradient-to-br flex items-center justify-center text-white shadow-md", accent)}>
+            {icon}
+          </div>
+          <span className="text-[10px] uppercase tracking-wider text-white/50 font-bold flex-1">{label}</span>
+        </div>
+        <p className="text-3xl font-black tracking-tight">{value}</p>
+        {trend !== null && (
+          <div className={cn("flex items-center gap-1 mt-1.5 text-[11px] font-semibold", trendColor)}>
+            <span>{trend >= 0 ? "↑" : "↓"}</span>
+            <span>{Math.abs(trend)}%</span>
+            <span className="text-white/30 font-normal">vs vorheriger Zeitraum</span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
