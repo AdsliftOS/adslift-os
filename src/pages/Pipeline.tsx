@@ -644,11 +644,11 @@ function PipelineDetail({
   // Mode tab — Setup / Live-Operations / Onboarding / Academy
   // Default depends on project status.
   const projectForMode = projects.find((p) => p.id === projectId);
-  const defaultMode: "setup" | "ops" | "onboarding" | "academy" =
+  const defaultMode: "setup" | "ops" | "onboarding" | "briefing" | "academy" =
     projectForMode?.status === "active" || projectForMode?.status === "done"
       ? "ops"
       : "setup";
-  const [mode, setMode] = useState<"setup" | "ops" | "onboarding" | "academy">(defaultMode);
+  const [mode, setMode] = useState<"setup" | "ops" | "onboarding" | "briefing" | "academy">(defaultMode);
   const isDWY = projectForMode?.variant === "dwy";
 
   // Onboarding-Daten + Academy-Progress für die neuen Tabs
@@ -1007,6 +1007,14 @@ function PipelineDetail({
           subtitle="Wizard-Daten · USP · Zielgruppe"
           accent="from-amber-500/30 to-amber-500/10"
         />
+        <ModeTab
+          active={mode === "briefing"}
+          onClick={() => setMode("briefing")}
+          icon={FileText}
+          title="Briefing & Infos"
+          subtitle="Briefing · Offer · Deadline · Verantwortliche"
+          accent="from-rose-500/30 to-rose-500/10"
+        />
         {isDWY && (
           <ModeTab
             active={mode === "academy"}
@@ -1213,6 +1221,14 @@ function PipelineDetail({
             </CardContent></Card>
           )}
         </div>
+      )}
+
+      {/* Briefing & Infos content */}
+      {mode === "briefing" && (
+        <BriefingTab
+          legacyProject={onboardingProjects.find((p) => p.id === projectId) || onboardingProjects[0] || null}
+          projectId={projectId}
+        />
       )}
 
       {/* Gantt-Timeline — nur bei Live-Ops und nur für Campaigns (Ads-Timeline) */}
@@ -2840,6 +2856,133 @@ function CampaignRow({ campaign }: { campaign: Campaign }) {
         </div>
       </div>
     </li>
+  );
+}
+
+// ─── Briefing & Infos tab — Legacy project data (briefing, offer, etc.) ──
+
+function BriefingTab({ legacyProject, projectId }: { legacyProject: any | null; projectId: string }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState({
+    briefing: legacyProject?.briefing || "",
+    target_audience: legacyProject?.target_audience || "",
+    offer: legacyProject?.offer || "",
+    deadline: legacyProject?.deadline || "",
+    product: legacyProject?.product || "",
+    creative_format: legacyProject?.creative_format || "",
+    assignees: Array.isArray(legacyProject?.assignees) ? (legacyProject.assignees as string[]).join(", ") : "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  if (!legacyProject) {
+    return (
+      <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
+        Keine Briefing-Daten hinterlegt. Klick "Bearbeiten" um manuell etwas einzutragen.
+      </CardContent></Card>
+    );
+  }
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const assigneesArr = draft.assignees.split(",").map((s) => s.trim()).filter(Boolean);
+      const { error } = await supabase
+        .from("projects")
+        .update({
+          briefing: draft.briefing || null,
+          target_audience: draft.target_audience || null,
+          offer: draft.offer || null,
+          deadline: draft.deadline || null,
+          product: draft.product || null,
+          creative_format: draft.creative_format || null,
+          assignees: assigneesArr.length ? assigneesArr : null,
+        })
+        .eq("id", projectId);
+      if (error) throw error;
+      Object.assign(legacyProject, {
+        briefing: draft.briefing || null,
+        target_audience: draft.target_audience || null,
+        offer: draft.offer || null,
+        deadline: draft.deadline || null,
+        product: draft.product || null,
+        creative_format: draft.creative_format || null,
+        assignees: assigneesArr.length ? assigneesArr : null,
+      });
+      toast.success("Briefing gespeichert");
+      setEditing(false);
+    } catch (e: any) {
+      toast.error("Fehler: " + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fields: { key: keyof typeof draft; label: string; placeholder: string; multiline?: boolean }[] = [
+    { key: "briefing", label: "Briefing", placeholder: "Notizen zum Projekt …", multiline: true },
+    { key: "target_audience", label: "Zielgruppe", placeholder: "Wen sprechen wir an?", multiline: true },
+    { key: "offer", label: "Offer", placeholder: "Was wird verkauft? Pricing, Garantie, Bonus …", multiline: true },
+    { key: "product", label: "Produkt / Service", placeholder: "z.B. Done For You · Meta Ads" },
+    { key: "creative_format", label: "Creative-Format", placeholder: "bild · video · carousel …" },
+    { key: "deadline", label: "Deadline", placeholder: "z.B. 30.06.2026" },
+    { key: "assignees", label: "Verantwortliche (komma-getrennt)", placeholder: "Daniel, Alex" },
+  ];
+
+  return (
+    <Card>
+      <CardContent className="p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold">Briefing & Infos</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Übernommen aus dem Legacy-Projekt · Kannst du jederzeit anpassen
+            </p>
+          </div>
+          {editing ? (
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={saving}>Abbrechen</Button>
+              <Button size="sm" onClick={save} disabled={saving}>{saving ? "Speichere …" : "Speichern"}</Button>
+            </div>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => setEditing(true)}>Bearbeiten</Button>
+          )}
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          {fields.map((f) => {
+            const value = editing ? draft[f.key] : (legacyProject[f.key] ?? (f.key === "assignees" ? "" : ""));
+            const display = f.key === "assignees" && Array.isArray(legacyProject.assignees)
+              ? legacyProject.assignees.join(", ")
+              : (legacyProject[f.key] || "");
+            const fullWidth = f.multiline;
+            return (
+              <div key={f.key} className={cn("space-y-1.5", fullWidth && "md:col-span-2")}>
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">{f.label}</Label>
+                {editing ? (
+                  f.multiline ? (
+                    <Textarea
+                      value={draft[f.key]}
+                      onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
+                      placeholder={f.placeholder}
+                      rows={3}
+                    />
+                  ) : (
+                    <Input
+                      value={draft[f.key]}
+                      onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
+                      placeholder={f.placeholder}
+                    />
+                  )
+                ) : (
+                  <div className="text-sm whitespace-pre-wrap rounded-lg border bg-muted/20 px-3 py-2 min-h-[2.5rem]">
+                    {display || <span className="text-muted-foreground italic">—</span>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
