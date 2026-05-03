@@ -56,14 +56,17 @@ export function getSalesPersonFromTitle(title: string): string | null {
 
 // Get person name from event (for client meetings, sales calls etc.)
 export function getEventPerson(event: CalendarEvent): "alex" | "daniel" | null {
-  // Check account email first (most reliable)
+  // Account email first (most reliable — set nach Google-Sync)
   if (event.accountEmail === "info@consulting-og.de") return "alex";
   if (event.accountEmail === "office@consulting-og.de") return "daniel";
-  // Check title
+  // Assignee aus DB (wird beim Speichern gesetzt — auch ohne Google-Sync zuverlässig)
+  if (event.assignee === "alex") return "alex";
+  if (event.assignee === "daniel") return "daniel";
+  // Title
   const title = event.title.toLowerCase();
   if (title.includes("alex")) return "alex";
   if (title.includes("daniel")) return "daniel";
-  // Check description
+  // Description
   const desc = (event.description || "").toLowerCase();
   if (desc.includes("alex")) return "alex";
   if (desc.includes("daniel")) return "daniel";

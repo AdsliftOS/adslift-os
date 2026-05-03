@@ -369,10 +369,25 @@ export default function Calendar() {
         description: `Projekt-Deadline für ${p.name}`,
         projectId: p.id,
       }));
+
+    // Map assignee → account email so local events (DB) inherit ownership
+    // selbst wenn google_account_email noch nicht gesetzt wurde.
+    const ASSIGNEE_TO_EMAIL: Record<string, string> = {
+      alex: "info@consulting-og.de",
+      daniel: "office@consulting-og.de",
+    };
+    const ownerEmail = (e: CalendarEvent) =>
+      e.accountEmail || (e.assignee ? ASSIGNEE_TO_EMAIL[e.assignee] : undefined);
+
+    const localVisible = events.filter((e) => {
+      const owner = ownerEmail(e);
+      return !owner || !hiddenAccounts.has(owner);
+    });
+
     const linkedGoogleIds = new Set(events.map((e) => e.googleEventId).filter(Boolean) as string[]);
     const gcalDeduped = googleEvents.filter((e) => !e.googleEventId || !linkedGoogleIds.has(e.googleEventId));
     const gcalVisible = gcalDeduped.filter((e) => !e.accountEmail || !hiddenAccounts.has(e.accountEmail));
-    return [...events, ...deadlineEvents, ...gcalVisible];
+    return [...localVisible, ...deadlineEvents, ...gcalVisible];
   }, [events, projects, googleEvents, hiddenAccounts]);
 
   // Month grid
