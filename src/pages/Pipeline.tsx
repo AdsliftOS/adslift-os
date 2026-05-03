@@ -323,15 +323,26 @@ export default function Pipeline() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-2 grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8">
-          {filtered.map((p) => (
-            <ProjectCard
-              key={p.id}
-              project={p}
-              client={clients.find((c) => c.id === p.clientId) || null}
-              onClick={() => setSelectedProjectId(p.id)}
-            />
-          ))}
+        <div className="rounded-2xl border bg-card overflow-hidden">
+          <div className="hidden sm:grid grid-cols-[40px_70px_1fr_180px_140px_120px_50px] gap-3 px-4 py-2 border-b bg-muted/30 text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
+            <div>Status</div>
+            <div>Modell</div>
+            <div>Projekt</div>
+            <div>Kunde</div>
+            <div>Steps</div>
+            <div>Fortschritt</div>
+            <div></div>
+          </div>
+          <div className="divide-y">
+            {filtered.map((p) => (
+              <ProjectRow
+                key={p.id}
+                project={p}
+                client={clients.find((c) => c.id === p.clientId) || null}
+                onClick={() => setSelectedProjectId(p.id)}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -472,7 +483,7 @@ export default function Pipeline() {
 
 // ─── Project Card ───────────────────────────────────────────────────
 
-function ProjectCard({
+function ProjectRow({
   project,
   client,
   onClick,
@@ -483,7 +494,6 @@ function ProjectCard({
 }) {
   const steps = useProjectSteps(project.id);
   const completed = steps.filter((s) => s.status === "done").length;
-  const active = steps.filter((s) => s.status === "active").length;
   const progress = steps.length > 0 ? Math.round((completed / steps.length) * 100) : 0;
   const statusMeta = PROJECT_STATUS_META[project.status] || PROJECT_STATUS_META.draft;
   const isDWY = project.variant === "dwy";
@@ -491,69 +501,77 @@ function ProjectCard({
   return (
     <button
       onClick={onClick}
-      className={cn(
-        "group text-left aspect-square rounded-lg border bg-card hover:shadow-md hover:scale-[1.02] transition-all duration-200 overflow-hidden relative flex flex-col",
-        project.status === "active" && "hover:border-blue-500/60",
-        project.status === "done" && "hover:border-emerald-500/60",
-        project.status === "paused" && "hover:border-amber-500/60",
-        project.status === "draft" && "hover:border-primary/60",
-      )}
+      className="group w-full text-left hover:bg-muted/30 transition-colors px-4 py-3 sm:py-2.5 grid grid-cols-1 sm:grid-cols-[40px_70px_1fr_180px_140px_120px_50px] gap-3 items-center"
     >
-      {/* Variant gradient strip */}
-      <div className={cn(
-        "h-0.5 w-full bg-gradient-to-r",
-        isDWY ? "from-violet-500 to-indigo-500" : "from-emerald-500 to-teal-500",
-      )} />
-
-      <div className="p-2 flex-1 flex flex-col gap-1.5">
-        {/* Top: Variant + Status */}
-        <div className="flex items-center justify-between gap-1">
-          <span className={cn(
-            "px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-gradient-to-r",
-            isDWY ? "from-violet-500 to-indigo-600" : "from-emerald-500 to-teal-600",
-          )}>
-            {isDWY ? "DWY" : "D4Y"}
-          </span>
-          <span className={cn("text-[9px] font-medium", statusMeta.className.split(" ").filter(c => c.startsWith("text-")).join(" "))}>
-            {statusMeta.label}
-          </span>
+      {/* Status-Dot */}
+      <div className="flex items-center gap-2 sm:contents">
+        <div className="flex items-center gap-1.5">
+          <div className={cn(
+            "h-2 w-2 rounded-full shrink-0",
+            project.status === "active" && "bg-blue-500 animate-pulse",
+            project.status === "done" && "bg-emerald-500",
+            project.status === "paused" && "bg-amber-500",
+            project.status === "draft" && "bg-slate-400",
+          )} />
+          <span className="text-[10px] text-muted-foreground sm:hidden uppercase font-semibold">{statusMeta.label}</span>
         </div>
 
-        {/* Title */}
-        <h3 className="font-semibold text-xs leading-tight line-clamp-2">{project.name}</h3>
+        {/* Variant Badge */}
+        <span className={cn(
+          "px-2 py-0.5 rounded text-[10px] font-bold text-white bg-gradient-to-r shrink-0",
+          isDWY ? "from-violet-500 to-indigo-600" : "from-emerald-500 to-teal-600",
+        )}>
+          {isDWY ? "DWY" : "D4Y"}
+        </span>
+      </div>
+
+      {/* Project Name */}
+      <div className="min-w-0 sm:contents">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">{project.name}</p>
+        </div>
 
         {/* Client */}
-        {client && (
-          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <Building2 className="h-2.5 w-2.5 shrink-0" />
-            <span className="truncate">{client.name}</span>
-          </div>
-        )}
-
-        {/* Progress — pinned bottom */}
-        <div className="mt-auto space-y-1">
-          {steps.length > 0 ? (
+        <div className="text-xs text-muted-foreground truncate flex items-center gap-1.5 mt-0.5 sm:mt-0">
+          {client ? (
             <>
-              <div className="h-1 rounded-full bg-muted overflow-hidden">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all duration-500",
-                    project.status === "done" && "bg-emerald-500",
-                    project.status === "active" && "bg-blue-500",
-                    project.status === "paused" && "bg-amber-500",
-                    project.status === "draft" && "bg-slate-400",
-                  )}
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between text-[9px] tabular-nums">
-                <span className="text-muted-foreground">{completed}/{steps.length}</span>
-                <span className="font-semibold">{progress}%</span>
-              </div>
+              <Building2 className="h-3 w-3 shrink-0" />
+              <span className="truncate">{client.name}</span>
             </>
           ) : (
-            <div className="text-[9px] text-muted-foreground">Noch keine Steps</div>
+            <span className="text-muted-foreground/50">—</span>
           )}
+        </div>
+
+        {/* Steps */}
+        <div className="text-xs tabular-nums">
+          {steps.length > 0 ? (
+            <span className="text-muted-foreground"><span className="font-semibold text-foreground">{completed}</span>/{steps.length}</span>
+          ) : (
+            <span className="text-muted-foreground/50">leer</span>
+          )}
+        </div>
+
+        {/* Progress */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all",
+                project.status === "done" && "bg-emerald-500",
+                project.status === "active" && "bg-blue-500",
+                project.status === "paused" && "bg-amber-500",
+                project.status === "draft" && "bg-slate-400",
+              )}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <span className="text-[11px] font-bold tabular-nums w-10 text-right">{progress}%</span>
+        </div>
+
+        {/* Arrow */}
+        <div className="flex justify-end">
+          <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
         </div>
       </div>
     </button>
