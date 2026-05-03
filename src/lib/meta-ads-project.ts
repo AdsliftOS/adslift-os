@@ -16,15 +16,68 @@ export type ProjectKPIs = {
   error: string | null;
 };
 
-export type Preset = "today" | "yesterday" | "last_7d" | "this_month" | "last_30d";
+export type Preset = "today" | "yesterday" | "last_7d" | "last_14d" | "last_30d" | "this_month" | "last_month" | "this_quarter" | "last_quarter" | "lifetime";
 
 const PRESET_MAP: Record<Preset, string> = {
   today: "today",
   yesterday: "yesterday",
   last_7d: "last_7d",
-  this_month: "this_month",
+  last_14d: "last_14d",
   last_30d: "last_30d",
+  this_month: "this_month",
+  last_month: "last_month",
+  this_quarter: "this_quarter",
+  last_quarter: "last_quarter",
+  lifetime: "maximum",
 };
+
+// ─── Daily Breakdown für Charts ──────────────────────────────────────
+export type DailyDataPoint = {
+  date: string;       // YYYY-MM-DD
+  spend: number;
+  leads: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+};
+
+export async function getDailyBreakdown(
+  adAccountId: string,
+  preset: Preset = "last_30d",
+): Promise<{ daily: DailyDataPoint[]; error: string | null }> {
+  if (!adAccountId) return { daily: [], error: "Keine Ad-Account-ID" };
+  try {
+    const params = new URLSearchParams({
+      account: adAccountId.startsWith("act_") ? adAccountId : `act_${adAccountId}`,
+      preset: PRESET_MAP[preset],
+      breakdown: "daily",
+    });
+    const res = await fetch(`/api/meta-ads?${params.toString()}`);
+    if (!res.ok) return { daily: [], error: `HTTP ${res.status}` };
+    const data = await res.json();
+    const points: DailyDataPoint[] = (data.daily || []).map((d: any) => {
+      const actions: { action_type: string; value: string }[] = d.actions || [];
+      const leadAction = actions.find((a) =>
+        ["lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead"].includes(a.action_type),
+      );
+      return {
+        date: d.date_start,
+        spend: Number(d.spend) || 0,
+        leads: leadAction ? Number(leadAction.value) || 0 : 0,
+        impressions: Number(d.impressions) || 0,
+        clicks: Number(d.clicks) || 0,
+        ctr: Number(d.ctr) || 0,
+        cpc: Number(d.cpc) || 0,
+        cpm: Number(d.cpm) || 0,
+      };
+    });
+    return { daily: points, error: null };
+  } catch (e: any) {
+    return { daily: [], error: e?.message || String(e) };
+  }
+}
 
 export async function getProjectKPIs(
   adAccountId: string,

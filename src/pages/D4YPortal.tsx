@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
-import { getProjectCampaigns, type Campaign, type Preset } from "@/lib/meta-ads-project";
+import { getProjectCampaigns, getDailyBreakdown, type Campaign, type DailyDataPoint, type Preset } from "@/lib/meta-ads-project";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -82,8 +83,10 @@ export default function D4YPortal() {
   const [showBriefingModal, setShowBriefingModal] = useState(false);
   const [previewType, setPreviewType] = useState<"creatives" | "adcopy" | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [perfPreset, setPerfPreset] = useState<Preset>("this_month");
+  const [dailyData, setDailyData] = useState<DailyDataPoint[]>([]);
+  const [perfPreset, setPerfPreset] = useState<Preset>("last_30d");
   const [perfActiveOnly, setPerfActiveOnly] = useState(true);
+  const [chartMetric, setChartMetric] = useState<"spend" | "leads" | "impressions" | "clicks">("leads");
   const [tab, setTab] = useState<"projects" | "ads">("projects");
 
   // Session check + frische DB-Verifikation (robust gegen stale localStorage)
@@ -193,15 +196,19 @@ export default function D4YPortal() {
     })();
   }, [selectedProjectId, allProjects.length]);
 
-  // Meta-Campaigns laden wenn ad_account_id verknüpft
+  // Meta-Campaigns + Daily-Data laden wenn ad_account_id verknüpft
   useEffect(() => {
     if (!project?.ad_account_id) {
       setCampaigns([]);
+      setDailyData([]);
       return;
     }
     getProjectCampaigns(project.ad_account_id, perfPreset).then(({ campaigns: cs }) => {
       setCampaigns(cs);
     }).catch(() => setCampaigns([]));
+    getDailyBreakdown(project.ad_account_id, perfPreset).then(({ daily }) => {
+      setDailyData(daily);
+    }).catch(() => setDailyData([]));
   }, [project?.ad_account_id, perfPreset]);
 
   // Filter Status
