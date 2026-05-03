@@ -69,10 +69,13 @@ function getGreeting() {
 export default function D4YPortal() {
   const navigate = useNavigate();
   const [session, setSession] = useState<Session | null>(null);
-  const [project, setProject] = useState<PipelineProject | null>(null);
+  const [allProjects, setAllProjects] = useState<PipelineProject[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [steps, setSteps] = useState<PipelineStep[]>([]);
   const [briefing, setBriefing] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const project = allProjects.find((p) => p.id === selectedProjectId) || allProjects[0] || null;
   const [showKickoffModal, setShowKickoffModal] = useState(false);
   const [showBriefingModal, setShowBriefingModal] = useState(false);
   const [previewType, setPreviewType] = useState<"creatives" | "adcopy" | null>(null);
@@ -136,20 +139,22 @@ export default function D4YPortal() {
       .maybeSingle();
     if (!ac?.client_id) { setLoading(false); return; }
 
-    const { data: pp } = await supabase
+    const { data: pps } = await supabase
       .from("pipeline_projects")
       .select("*")
       .eq("client_id", ac.client_id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!pp) { setLoading(false); return; }
-    setProject(pp);
+      .order("created_at", { ascending: true });
+    if (!pps || pps.length === 0) { setLoading(false); return; }
+    setAllProjects(pps);
+    const currentId = selectedProjectId && pps.some((p) => p.id === selectedProjectId)
+      ? selectedProjectId
+      : pps[0].id;
+    setSelectedProjectId(currentId);
 
     const { data: ps } = await supabase
       .from("pipeline_steps")
       .select("*")
-      .eq("project_id", pp.id)
+      .eq("project_id", currentId)
       .order("position", { ascending: true });
     setSteps(ps ?? []);
 
@@ -167,6 +172,20 @@ export default function D4YPortal() {
   }, [session]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Steps neu laden wenn User zwischen Projekten wechselt
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    if (allProjects.length === 0) return;
+    (async () => {
+      const { data: ps } = await supabase
+        .from("pipeline_steps")
+        .select("*")
+        .eq("project_id", selectedProjectId)
+        .order("position", { ascending: true });
+      setSteps(ps ?? []);
+    })();
+  }, [selectedProjectId, allProjects.length]);
 
   // Kickoff-Modal-Auto-Open + Calendly Script + Booking-Listener
   useEffect(() => {
@@ -276,6 +295,39 @@ export default function D4YPortal() {
             Hier siehst du jederzeit, woran wir gerade für dich arbeiten.
           </p>
         </div>
+
+        {/* Multi-Project-Switcher (wenn mehrere Projekte) */}
+        {allProjects.length > 1 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-white/40">Deine Projekte:</span>
+            {allProjects.map((p) => {
+              const isActive = p.id === selectedProjectId;
+              const status = p.status;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedProjectId(p.id)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-2",
+                    isActive
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-transparent shadow-md"
+                      : "border-white/[0.08] text-white/60 hover:text-white hover:bg-white/[0.04]",
+                  )}
+                >
+                  <span className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    status === "active" && "bg-blue-400",
+                    status === "done" && "bg-emerald-400",
+                    status === "paused" && "bg-amber-400",
+                    status === "draft" && (isActive ? "bg-white/60" : "bg-white/30"),
+                  )} />
+                  {p.name}
+                  {isActive && <CheckCircle2 className="h-3 w-3" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Quick Actions */}
         <div className="flex flex-wrap gap-2">
