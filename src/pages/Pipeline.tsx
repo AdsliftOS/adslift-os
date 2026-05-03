@@ -792,15 +792,6 @@ function PipelineDetail({
         )}
       </div>
 
-      {/* Setup-Stats (nur für D4Y mit Steps) */}
-      {mode === "setup" && !isDWY && steps.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-4">
-          <Stat label="Fortschritt" value={`${progress}%`} sub={`${completedCount}/${steps.length} Steps`} tone="primary" />
-          <Stat label="Aktiv" value={activeCount} sub="Steps in Bearbeitung" tone={activeCount > 0 ? "blue" : "muted"} />
-          <Stat label="Erledigt" value={completedCount} sub="abgeschlossen" tone="success" />
-          <Stat label="Offen" value={steps.filter((s) => s.status === "todo").length} sub="warten" tone="muted" />
-        </div>
-      )}
 
       {/* Live-Operations-Header — nur in ops-mode */}
       {mode === "ops" && (
@@ -820,6 +811,31 @@ function PipelineDetail({
           onJumpToAcademy={() => setMode("academy")}
           onJumpToOnboarding={() => setMode("onboarding")}
         />
+      )}
+
+      {/* Setup für D4Y: Status-Hero zeigt was Kunde im /portal sieht */}
+      {mode === "setup" && !isDWY && (
+        <D4YStatusHero project={project} steps={steps} progress={progress} onSetupTemplate={async () => {
+          if (steps.length > 0) return;
+          const D4Y_DEFAULT_STEPS = [
+            { name: "Account-Setup", description: "Meta Business Manager + Pixel + Domain-Verifizierung", icon: "settings" },
+            { name: "Briefing-Review", description: "Kunden-Briefing durchgehen + offene Fragen klären", icon: "users" },
+            { name: "Strategie & Targeting", description: "Audiences, Kampagnen-Struktur, Budget-Plan", icon: "target" },
+            { name: "Creatives produzieren", description: "Static + Video + Copy schreiben", icon: "megaphone" },
+            { name: "Tracking-Setup", description: "Pixel-Events, CAPI, Conversions konfigurieren", icon: "linkedin" },
+            { name: "Pre-Launch-Check", description: "Alles bereit, Tracking validieren, Budget freigeben", icon: "box" },
+            { name: "Launch", description: "Kampagnen aktivieren, erste 72h beobachten", icon: "gift" },
+            { name: "Optimierung", description: "Iterieren auf Best-Performer, Skalierung", icon: "activity" },
+          ];
+          for (let i = 0; i < D4Y_DEFAULT_STEPS.length; i++) {
+            await addCustomStep(projectId, {
+              name: D4Y_DEFAULT_STEPS[i].name,
+              description: D4Y_DEFAULT_STEPS[i].description,
+              icon: D4Y_DEFAULT_STEPS[i].icon,
+            }, i);
+          }
+          toast.success("8 Default-Steps angelegt");
+        }} />
       )}
 
       {/* Tasks-Section auf Setup-Page (für DWY und D4Y) */}
@@ -3552,6 +3568,120 @@ function ClientTaskRow({
       >
         <X className="h-3.5 w-3.5" />
       </Button>
+    </div>
+  );
+}
+
+// ─── D4Y-Setup-Status-Hero ───────────────────────────────────────────
+function D4YStatusHero({
+  project,
+  steps,
+  progress,
+  onSetupTemplate,
+}: {
+  project: ReturnType<typeof usePipelineProjects>[number];
+  steps: ProjectStep[];
+  progress: number;
+  onSetupTemplate: () => void;
+}) {
+  const doneCount = steps.filter((s) => s.status === "done").length;
+  const activeCount = steps.filter((s) => s.status === "active").length;
+
+  // Phase = was Kunde im /portal sieht
+  const phase = project.status === "active" ? "live"
+    : project.status === "done" ? "done"
+    : doneCount > 0 ? "setup"
+    : "starting";
+  const phaseLabel = {
+    starting: "Wir legen gerade los",
+    setup: "Setup läuft",
+    live: "Kampagne ist live",
+    done: "Projekt abgeschlossen",
+  }[phase];
+  const phaseGradient = {
+    starting: "from-blue-500 to-indigo-600",
+    setup: "from-violet-500 to-fuchsia-600",
+    live: "from-emerald-500 to-teal-600",
+    done: "from-slate-500 to-slate-700",
+  }[phase];
+
+  // Letzte Aktivität (jüngstes completedAt)
+  const lastCompleted = [...steps]
+    .filter((s) => s.completedAt)
+    .sort((a, b) => (b.completedAt! > a.completedAt! ? 1 : -1))[0];
+
+  // Nächster Step (erster active oder erster todo)
+  const nextStep = steps.find((s) => s.status === "active") || steps.find((s) => s.status === "todo");
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border bg-card overflow-hidden relative">
+        <div className={cn("absolute inset-0 opacity-[0.06] pointer-events-none bg-gradient-to-br", phaseGradient)} />
+        <div className="relative p-5 sm:p-6 flex flex-col sm:flex-row gap-5 sm:items-center">
+          <div className={cn(
+            "shrink-0 w-12 h-12 rounded-xl flex items-center justify-center shadow-lg bg-gradient-to-br",
+            phaseGradient,
+          )}>
+            {phase === "live" ? <Activity className="h-6 w-6 text-white" /> :
+             phase === "done" ? <Check className="h-6 w-6 text-white" /> :
+             <Sparkles className="h-6 w-6 text-white" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Was der Kunde sieht</p>
+              <Badge variant="outline" className="text-[9px]">D4Y</Badge>
+            </div>
+            <h2 className="text-lg sm:text-xl font-bold">{phaseLabel}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {steps.length === 0 ? "Noch keine Steps angelegt" : `${doneCount}/${steps.length} Steps erledigt · ${activeCount} aktiv`}
+            </p>
+          </div>
+          {steps.length > 0 && (
+            <div className="text-right">
+              <p className="text-2xl font-black">{progress}%</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fortschritt</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {steps.length === 0 ? (
+        <div className="rounded-2xl border-2 border-dashed border-muted-foreground/20 bg-muted/10 p-6 flex items-center gap-5">
+          <div className="shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 flex items-center justify-center">
+            <Sparkles className="h-6 w-6 text-emerald-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-sm">D4Y-Default-Pipeline anlegen</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Setup → Briefing-Review → Strategie → Creatives → Tracking → Pre-Launch → Launch → Optimierung
+            </p>
+          </div>
+          <Button size="sm" onClick={onSetupTemplate} className="shrink-0 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white">
+            <Sparkles className="h-3.5 w-3.5 mr-1" /> 8 Default-Steps anlegen
+          </Button>
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-3 gap-3">
+          <Stat label="Erledigt" value={doneCount} sub={`von ${steps.length} Steps`} tone="success" />
+          <Stat label="Aktiv" value={activeCount} sub="in Bearbeitung" tone={activeCount > 0 ? "blue" : "muted"} />
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{nextStep ? "Nächster Step" : "Letzte Aktivität"}</p>
+            {nextStep ? (
+              <>
+                <p className="text-sm font-semibold mt-1 truncate">{nextStep.name}</p>
+                <p className="text-[10px] text-muted-foreground">{nextStep.status === "active" ? "In Arbeit" : "Geplant"}</p>
+              </>
+            ) : lastCompleted ? (
+              <>
+                <p className="text-sm font-semibold mt-1 truncate">{lastCompleted.name}</p>
+                <p className="text-[10px] text-muted-foreground">{format(new Date(lastCompleted.completedAt!), "dd.MM.yyyy", { locale: de })}</p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-1">—</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
