@@ -50,6 +50,7 @@ import {
   CheckCircle2,
   Circle,
   Phone,
+  Loader2,
 } from "lucide-react";
 import { format, differenceInDays, addDays, isToday, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
@@ -628,6 +629,7 @@ function PipelineDetail({
   const [nameDraft, setNameDraft] = useState("");
   const [siblingCreateOpen, setSiblingCreateOpen] = useState(false);
   const [siblingName, setSiblingName] = useState("");
+  const [sendingAccess, setSendingAccess] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string>("");
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -809,27 +811,105 @@ function PipelineDetail({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {project.clientId && (
+            {project.clientId && academyData.customer && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={async () => {
-                  const { data: ac } = await supabase
-                    .from("academy_customers")
-                    .select("id")
-                    .eq("client_id", project.clientId)
-                    .maybeSingle();
-                  if (!ac?.id) {
-                    toast.error("Kein Academy-Account für diesen Kunden");
-                    return;
-                  }
+                onClick={() => {
                   const url = isDWY
-                    ? `/academy?as=${ac.id}`
-                    : `/portal?as=${ac.id}`;
+                    ? `/academy?as=${academyData.customer.id}`
+                    : `/portal?as=${academyData.customer.id}`;
                   window.open(url, "_blank");
                 }}
               >
                 <Eye className="h-3.5 w-3.5 mr-1.5" /> Kundenansicht
+              </Button>
+            )}
+            {project.clientId && !academyData.customer && client?.email && (
+              <Button
+                variant="default"
+                size="sm"
+                disabled={sendingAccess}
+                onClick={async () => {
+                  if (!client?.email) {
+                    toast.error("Kunde hat keine Email-Adresse");
+                    return;
+                  }
+                  if (!confirm(`Welcome-Email an ${client.email} senden?\n\n${client.name} bekommt Zugang zum ${isDWY ? "Academy-Bereich" : "Kundenbereich"} ohne nochmal das Onboarding-Form ausfüllen zu müssen.`)) return;
+                  setSendingAccess(true);
+                  try {
+                    const email = client.email.toLowerCase().trim();
+                    const password = Math.random().toString(36).slice(2, 10);
+                    const fullName = client.name || email.split("@")[0];
+                    const company = (client as any).company || fullName;
+
+                    const { data: existingAc } = await supabase
+                      .from("academy_customers")
+                      .select("id")
+                      .or(`client_id.eq.${project.clientId},email.eq.${email}`)
+                      .maybeSingle();
+
+                    if (existingAc) {
+                      const { error } = await supabase
+                        .from("academy_customers")
+                        .update({
+                          password_hash: password,
+                          status: "active",
+                          client_id: project.clientId,
+                          name: fullName,
+                          email,
+                          company,
+                          variant: isDWY ? "dwy" : "d4y",
+                          onboarding_completed: true,
+                        })
+                        .eq("id", existingAc.id);
+                      if (error) throw error;
+                    } else {
+                      const { error } = await supabase.from("academy_customers").insert({
+                        name: fullName,
+                        email,
+                        password_hash: password,
+                        company,
+                        status: "active",
+                        client_id: project.clientId,
+                        variant: isDWY ? "dwy" : "d4y",
+                        onboarding_completed: true,
+                      });
+                      if (error) throw error;
+                    }
+
+                    const r = await fetch("https://adsliftauto.app.n8n.cloud/webhook/onboarding-trigger", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        email,
+                        first_name: fullName.split(" ")[0],
+                        last_name: fullName.split(" ").slice(1).join(" "),
+                        full_name: fullName,
+                        company,
+                        password,
+                        client_id: project.clientId,
+                        variant: isDWY ? "donewithyou" : "done4you",
+                        skip_onboarding: true,
+                      }),
+                    });
+                    if (!r.ok) console.warn("n8n webhook:", r.status);
+
+                    const { data: customer } = await supabase
+                      .from("academy_customers").select("*").eq("client_id", project.clientId).maybeSingle();
+                    setAcademyData((prev) => ({ ...prev, customer: customer || null }));
+
+                    toast.success(`Welcome-Email an ${email} ist raus`);
+                  } catch (e: any) {
+                    toast.error("Fehler: " + (e.message ?? "unbekannt"));
+                  } finally {
+                    setSendingAccess(false);
+                  }
+                }}
+                className="gap-1.5"
+              >
+                {sendingAccess ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                Zugang senden
               </Button>
             )}
             <Select
