@@ -118,7 +118,7 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<OnboardingData>(initialData);
   const [submitted, setSubmitted] = useState(false);
-  const [academySession, setAcademySession] = useState<{ customer_id: string; email: string; name: string } | null>(null);
+  const [academySession, setAcademySession] = useState<{ customer_id: string; email: string; name: string; variant?: "dwy" | "d4y" } | null>(null);
   const [introWatched, setIntroWatched] = useState(false);
 
   const WISTIA_MEDIA_ID = "ej5mt00bg2";
@@ -239,12 +239,13 @@ export default function Onboarding() {
       // 4. Notify all team members (in-app)
       await notifyTeamOnboardingComplete(data.companyName, data.contactName, normalizedEmail);
 
-      // 5. Update local session + redirect to academy
+      // 5. Update local session + redirect — D4Y → /portal, DWY → /academy
       const updated = { ...academySession, onboarding_completed: true };
       localStorage.setItem("academy_session", JSON.stringify(updated));
 
+      const target = academySession.variant === "d4y" ? "/portal" : "/academy";
       setSubmitted(true);
-      setTimeout(() => navigate("/academy", { replace: true }), 2500);
+      setTimeout(() => navigate(target, { replace: true }), 2500);
       return;
     }
 

@@ -80,9 +80,9 @@ export default function D4YPortal() {
         navigate("/academy", { replace: true });
         return;
       }
-      // Falls Onboarding noch nicht ausgefüllt → zum D4Y-Briefing
+      // Falls Onboarding noch nicht ausgefüllt → gleicher Wizard wie DWY
       if (!parsed.onboarding_completed) {
-        navigate("/portal/onboarding", { replace: true });
+        navigate("/onboarding?from=academy", { replace: true });
         return;
       }
       setSession(parsed);

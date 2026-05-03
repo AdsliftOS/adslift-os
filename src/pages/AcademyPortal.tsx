@@ -594,15 +594,15 @@ export default function AcademyPortal() {
       localStorage.setItem("academy_session", JSON.stringify(customerSession));
       setSession(customerSession);
 
-      // D4Y-Kunde → eigener Portal-Bereich
-      if (customerSession.variant === "d4y") {
-        navigate(customerSession.onboarding_completed ? "/portal" : "/portal/onboarding", { replace: true });
+      // Onboarding-Wizard (gleiches Form für DWY + D4Y)
+      if (!customerSession.onboarding_completed) {
+        navigate("/onboarding?from=academy", { replace: true });
         return;
       }
 
-      // DWY: bisheriger Flow
-      if (!customerSession.onboarding_completed) {
-        navigate("/onboarding?from=academy", { replace: true });
+      // D4Y → eigener Portal-Bereich (Status-Dashboard)
+      if (customerSession.variant === "d4y") {
+        navigate("/portal", { replace: true });
         return;
       }
       setView("dashboard");

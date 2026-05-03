@@ -36,7 +36,6 @@ import CloserHandoff from "./pages/CloserHandoff";
 import Academy from "./pages/Academy";
 import AcademyPortal from "./pages/AcademyPortal";
 import D4YPortal from "./pages/D4YPortal";
-import OnboardingD4Y from "./pages/OnboardingD4Y";
 import AuthCallback from "./pages/AuthCallback";
 import Login from "./pages/Login";
 import MyArea from "./pages/MyArea";
@@ -139,7 +138,6 @@ const App = () => {
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/academy" element={<AcademyPortal />} />
               <Route path="/portal" element={<D4YPortal />} />
-              <Route path="/portal/onboarding" element={<OnboardingD4Y />} />
               <Route path="/p/:token" element={<PipelinePortal />} />
 
               {/* Everything else requires login */}
