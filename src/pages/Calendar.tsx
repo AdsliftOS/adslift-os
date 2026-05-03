@@ -809,7 +809,7 @@ export default function Calendar() {
                     {weekDays.map((day) => {
                       const isToday = isSameDay(day, today);
                       return (
-                        <div key={day.toISOString()} className={`p-2 text-center border-l ${isToday ? "bg-primary/5" : ""}`}>
+                        <div key={day.toISOString()} className={`p-2 text-center border-l ${isToday ? "bg-muted/40" : ""}`}>
                           <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{format(day, "EEE", { locale: de })}</div>
                           <div className={`text-base font-semibold mt-0.5 ${isToday ? "inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm" : ""}`}>
                             {format(day, "d")}
@@ -867,11 +867,11 @@ export default function Calendar() {
                       const dayEvents = allEvents.filter((e) => e.date === dateStr && !e.id.startsWith("proj-deadline-"));
 
                       return (
-                        <div key={dateStr} className={`border-l relative ${isToday ? "bg-primary/[0.02]" : ""}`} style={{ height: hours.length * SLOT_HEIGHT }}>
+                        <div key={dateStr} className={`border-l relative ${isToday ? "bg-muted/20" : ""}`} style={{ height: hours.length * SLOT_HEIGHT }}>
                           {hours.map((hour, hIdx) => (
                             <div
                               key={hIdx}
-                              className="absolute w-full border-t cursor-pointer hover:bg-primary/5 transition-colors"
+                              className="absolute w-full border-t cursor-pointer hover:bg-muted/40 transition-colors"
                               style={{ top: hIdx * SLOT_HEIGHT, height: SLOT_HEIGHT }}
                               onClick={(e) => {
                                 const rect = e.currentTarget.getBoundingClientRect();
