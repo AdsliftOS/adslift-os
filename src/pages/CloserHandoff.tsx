@@ -74,7 +74,7 @@ export default function CloserHandoff() {
       if (existingAc) {
         const { error: upErr } = await supabase
           .from("academy_customers")
-          .update({ password_hash: password, status: "active", client_id: clientId, name: fullName, email, company })
+          .update({ password_hash: password, status: "active", client_id: clientId, name: fullName, email, company, variant: form.variant === "done4you" ? "d4y" : "dwy" })
           .eq("id", existingAc.id);
         if (upErr) throw upErr;
       } else {
@@ -85,6 +85,7 @@ export default function CloserHandoff() {
           company,
           status: "active",
           client_id: clientId,
+          variant: form.variant === "done4you" ? "d4y" : "dwy",
         });
         if (acErr) throw acErr;
       }

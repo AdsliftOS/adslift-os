@@ -1,0 +1,35 @@
+{
+  "index": 19,
+  "ad_id": "120240747326070525",
+  "url": "https://adsmanager.facebook.com/adsmanager/manage/ads/edit/standalone?act=2394298901030120&business_id=1285014529172853&global_scope_id=1285014529172853&date=2026-01-13_2026-04-28%2Cmaximum&insights_date=2026-01-13_2026-04-28%2Cmaximum&selected_ad_ids=120240747326070525&current_step=0",
+  "screenshot": "ad_19_120240747326070525.png",
+  "fields": [
+    {
+      "tag": "INPUT",
+      "value": "",
+      "placeholder": "Suchen"
+    },
+    {
+      "tag": "INPUT",
+      "value": "Adslift | Offene Branche | ABO | gso-o V1 | Creative 03",
+      "placeholder": "Namen der Anzeigen hier eingeben ..."
+    },
+    {
+      "tag": "INPUT",
+      "value": "",
+      "placeholder": "Suchen"
+    },
+    {
+      "tag": "INPUT",
+      "value": "über 15 Jahren für mehr als 500+ Unternehmen aus unterschiedlichsten Branchen",
+      "placeholder": "Verfasse eine kurze Überschrift"
+    },
+    {
+      "tag": "INPUT",
+      "value": "",
+      "placeholder": "key1=value1&key2=value2"
+    }
+  ],
+  "cta": "Mehr dazu​",
+  "adName": "Adslift | Offene Branche | ABO | gso-o V1 | Creative 03"
+}

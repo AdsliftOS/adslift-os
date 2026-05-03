@@ -1,0 +1,40 @@
+{
+  "index": 11,
+  "ad_id": "120241680430040525",
+  "url": "https://adsmanager.facebook.com/adsmanager/manage/ads/edit/standalone?act=2394298901030120&business_id=1285014529172853&global_scope_id=1285014529172853&date=2026-01-13_2026-04-28%2Cmaximum&insights_date=2026-01-13_2026-04-28%2Cmaximum&selected_ad_ids=120241680430040525&current_step=0",
+  "screenshot": "ad_11_120241680430040525.png",
+  "fields": [
+    {
+      "tag": "INPUT",
+      "value": "",
+      "placeholder": "Suchen"
+    },
+    {
+      "tag": "INPUT",
+      "value": "Adslift | Dienstleister | ABO | gso-o V1 | Creative 03",
+      "placeholder": "Namen der Anzeigen hier eingeben ..."
+    },
+    {
+      "tag": "INPUT",
+      "value": "",
+      "placeholder": "Suchen"
+    },
+    {
+      "tag": "INPUT",
+      "value": "15 Neukundenanfragen in 30 Tagen garantiert oder du zahlst 0€",
+      "placeholder": "Verfasse eine kurze Überschrift"
+    },
+    {
+      "tag": "TEXTAREA",
+      "value": "",
+      "placeholder": null
+    },
+    {
+      "tag": "INPUT",
+      "value": "",
+      "placeholder": "key1=value1&key2=value2"
+    }
+  ],
+  "cta": "Mehr dazu​",
+  "adName": "Adslift | Dienstleister | ABO | gso-o V1 | Creative 03"
+}

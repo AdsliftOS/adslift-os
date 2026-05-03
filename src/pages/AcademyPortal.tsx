@@ -141,6 +141,7 @@ type CustomerSession = {
   email: string;
   name: string;
   onboarding_completed?: boolean;
+  variant?: "dwy" | "d4y";
 };
 
 // ─── Views ───────────────────────────────────────────────────────────────────
@@ -588,9 +589,18 @@ export default function AcademyPortal() {
         email: data.email,
         name: data.name,
         onboarding_completed: !!data.onboarding_completed,
+        variant: (data.variant === "d4y" ? "d4y" : "dwy"),
       };
       localStorage.setItem("academy_session", JSON.stringify(customerSession));
       setSession(customerSession);
+
+      // D4Y-Kunde → eigener Portal-Bereich
+      if (customerSession.variant === "d4y") {
+        navigate(customerSession.onboarding_completed ? "/portal" : "/portal/onboarding", { replace: true });
+        return;
+      }
+
+      // DWY: bisheriger Flow
       if (!customerSession.onboarding_completed) {
         navigate("/onboarding?from=academy", { replace: true });
         return;

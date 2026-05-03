@@ -1,0 +1,46 @@
+{
+  "index": 1,
+  "ad_id": "120242521958750525",
+  "url": "https://adsmanager.facebook.com/adsmanager/manage/ads/edit/standalone?act=2394298901030120&business_id=1285014529172853&global_scope_id=1285014529172853&date=2026-01-13_2026-04-28%2Cmaximum&insights_date=2026-01-13_2026-04-28%2Cmaximum&selected_ad_ids=120242521958750525&current_step=0",
+  "screenshot": "ad_01_120242521958750525.png",
+  "fields": [
+    {
+      "tag": "INPUT",
+      "value": "",
+      "placeholder": "Suchen"
+    },
+    {
+      "tag": "INPUT",
+      "value": "Adslift | Coaches/Consultants | ABO | Creative 02",
+      "placeholder": "Namen der Anzeigen hier eingeben ..."
+    },
+    {
+      "tag": "INPUT",
+      "value": "",
+      "placeholder": "Suchen"
+    },
+    {
+      "tag": "TEXTAREA",
+      "value": "Ist deine Website ein Zeitfresser oder dein bester Vertriebler?\nViele Coaches und Consultants verlieren wertvolle Lebenszeit in Erstgesprächen mit unqualifizierten Interessenten oder noch schlimmer: Die Website sieht zwar „nett“ aus, aber der Kalender bleibt leer.\nGenau hier setzen wir an. Wir verwandeln deine Online-Präsenz in einen Kunden-Magneten, der rund um die Uhr für dich arbeitet.\n\nAus der Erfahrung mit hunderten Experten-Marken haben wir ein System entwickelt, das wir in nur 30 Tagen direkt für dich umsetzen. Unser Ziel: Deine Website soll Interessenten nicht nur informieren, sondern psychologisch so führen, dass am Ende nur noch kaufbereite Termine in deinem Kalender landen.\n\nDas Ergebnis nach 30 Tagen:\n\n✅ Automatisierte Vorqualifizierung: Keine Zeitverschwendung mehr mit „Unpassenden“. \n✅ Direkt-Buchungs-System: Qualifizierte Termine landen ohne Hin-und-Her in deinem Kalender. \n✅ Experten-Status: Eine Seite, die sofort Vertrauen aufbaut und deinen Preis rechtfertigt. \n✅ KI-gestützte Lead-Assistenz: Anfragen werden sofort bearbeitet, während du coachst.\n\n❌ Kein monatelanges Warten: In 4 Wochen steht dein System. \n❌ Keine technische Überforderung: Wir übernehmen das komplette Setup. \n❌ Kein „Hoffnungs-Marketing“: Messbare Ergebnisse statt vager Klicks.\n\nWir nennen es das High-Conversion-Framework speziell entwickelt für die Bedürfnisse der Beratungsbranche. Du lieferst die Expertise, wir bauen das digitale Fundament, das deine Akquise auf Autopilot stellt.\n\nIch begleite dich persönlich von der Strategie-Session bis zum Go-Live.\n⬇️ Klick auf den Button und sicher dir dein kostenloses Strategiegespräch lass uns prüfen, wie wir deinen Kalender füllen.",
+      "placeholder": null
+    },
+    {
+      "tag": "TEXTAREA",
+      "value": "Wir bauen für Coaches und Consultants in 30 Tagen eine Kunden-Magnet Website",
+      "placeholder": null
+    },
+    {
+      "tag": "TEXTAREA",
+      "value": "Die Interessenten vorqualifiziert und kaufbereite Termine direkt in deinen Kalender bucht. ",
+      "placeholder": null
+    },
+    {
+      "tag": "INPUT",
+      "value": "",
+      "placeholder": "key1=value1&key2=value2"
+    }
+  ],
+  "cta": "Mehr dazu​",
+  "adName": "Adslift | Coaches/Consultants | ABO | Creative 02",
+  "websiteUrl": null
+}

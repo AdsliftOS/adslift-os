@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEO / SEA Agenturen — Editorial Creatives</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500;1,600;1,700&family=Caveat:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0a0a; color:#fff; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; padding:30px 20px; }
+
+.header { text-align:center; margin-bottom:30px; }
+.header h1 { font-size:28px; font-weight:700; color:#fff; margin-bottom:8px; letter-spacing:-0.5px; }
+.header h1 em { font-family:'Playfair Display',serif; font-style:italic; font-weight:500; color:#C19B6C; }
+.header p { color:rgba(255,255,255,0.5); font-size:13px; letter-spacing:0.3px; }
+
+.filters { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-bottom:30px; }
+.filter-btn { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.7);
+    font-size:11px; font-weight:500; padding:8px 16px; border-radius:2px; cursor:pointer;
+    transition:all 0.2s; letter-spacing:0.5px; text-transform:uppercase; }
+.filter-btn:hover { background:rgba(193,155,108,0.15); border-color:rgba(193,155,108,0.4); color:#C19B6C; }
+.filter-btn.active { background:rgba(193,155,108,0.2); border-color:#C19B6C; color:#C19B6C; }
+
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:24px; max-width:1400px; margin:0 auto; }
+.card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; overflow:hidden; }
+.card-label { display:flex; gap:6px; padding:12px 14px; flex-wrap:wrap; align-items:center; }
+.badge-cat { background:rgba(193,155,108,0.18); color:#C19B6C; font-size:10px; font-weight:600; padding:4px 10px; border-radius:2px; text-transform:uppercase; letter-spacing:0.8px; }
+.badge-layout { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.6); font-size:10px; font-weight:500; padding:4px 10px; border-radius:2px; letter-spacing:0.3px; }
+.badge-opt { color:rgba(255,255,255,0.4); font-size:10px; font-weight:400; margin-left:auto; letter-spacing:0.3px; }
+
+.cw { position:relative; width:100%; overflow:hidden; }
+.db { width:100%; padding:12px; background:rgba(193,155,108,0.12); border:none; border-top:1px solid rgba(255,255,255,0.06);
+    color:#C19B6C; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;
+    letter-spacing:0.8px; text-transform:uppercase; }
+.db:hover { background:rgba(193,155,108,0.22); }
+
+/* ================================================================ */
+.cr { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; background:#EFEAE0; color:#1A1612; }
+.italic { font-family:'Playfair Display',serif; font-style:italic; font-weight:500; color:#6B2737; }
+.hand { font-family:'Caveat',cursive; color:#6B2737; }
+.mono { font-family:'JetBrains Mono',monospace; }
+
+.paper-tex { position:absolute; inset:0; pointer-events:none; opacity:0.06; z-index:1;
+    background-image:
+        radial-gradient(circle at 20% 30%, rgba(107,39,55,0.4) 0.8px, transparent 1px),
+        radial-gradient(circle at 70% 60%, rgba(26,22,18,0.3) 0.6px, transparent 1px),
+        radial-gradient(circle at 45% 85%, rgba(107,39,55,0.35) 0.7px, transparent 1px),
+        radial-gradient(circle at 85% 15%, rgba(26,22,18,0.3) 0.5px, transparent 1px),
+        radial-gradient(circle at 10% 75%, rgba(107,39,55,0.35) 0.6px, transparent 1px);
+    background-size: 60px 60px, 45px 45px, 80px 80px, 35px 35px, 55px 55px; }
+
+/* ================================================================ */
+/* ===== SEO/SEA SPECIFIC VISUAL ELEMENTS ===== */
+/* ================================================================ */
+
+/* SERP Listing mockup */
+.serp-box { background:rgba(255,255,255,0.5); border:1px solid rgba(26,22,18,0.2); border-radius:4px; padding:10px 12px; font-family:'Helvetica Neue',sans-serif; position:relative; }
+.serp-ad-tag { display:inline-block; font-size:8px; font-weight:700; color:#1A1612; background:#C19B6C; padding:1px 4px; border-radius:2px; margin-right:5px; letter-spacing:0.3px; vertical-align:middle; }
+.serp-url { font-size:8px; color:#6B7280; letter-spacing:0.1px; margin-bottom:1px; font-family:'JetBrains Mono',monospace; }
+.serp-url-domain { color:#1A1612; font-weight:500; }
+.serp-title { font-family:'Helvetica Neue',sans-serif; font-size:12px; font-weight:500; color:#1F4E8A; line-height:1.2; margin-bottom:3px; }
+.serp-title u { text-decoration:underline; }
+.serp-desc { font-size:8.5px; color:#1A1612; line-height:1.4; opacity:0.8; }
+.serp-rank { position:absolute; top:-7px; right:-7px; width:22px; height:22px; border-radius:50%;
+    background:#6B2737; color:#EFEAE0; display:flex; align-items:center; justify-content:center;
+    font-family:'Playfair Display',serif; font-style:italic; font-size:11px; font-weight:600;
+    box-shadow:0 2px 4px rgba(0,0,0,0.15); }
+
+/* Keyword chip */
+.kw-chip { display:inline-block; font-family:'JetBrains Mono',monospace; font-size:8px; font-weight:500;
+    padding:3px 7px; border:1px solid rgba(26,22,18,0.35); border-radius:2px; color:#1A1612;
+    letter-spacing:0.2px; margin:2px 2px 2px 0; background:rgba(255,255,255,0.35); }
+.kw-chip .vol { color:#6B2737; font-weight:700; margin-left:3px; }
+
+/* Growth chart mini (SVG-like via divs/gradients) */
+.chart-mini { position:relative; width:100%; height:44px; margin-top:6px; }
+.chart-grid { position:absolute; inset:0; background-image:repeating-linear-gradient(to bottom, rgba(26,22,18,0.08) 0, rgba(26,22,18,0.08) 1px, transparent 1px, transparent 12px); }
+.chart-line { position:absolute; left:0; right:0; bottom:0; height:100%; }
+
+/* Ranking ladder */
+.ladder { display:flex; flex-direction:column; gap:2px; }
+.ladder-row { display:flex; align-items:center; gap:6px; padding:3px 6px; border-radius:2px; font-size:9px; font-family:'JetBrains Mono',monospace; }
+.ladder-row.active { background:rgba(107,39,55,0.12); color:#6B2737; font-weight:700; }
+.ladder-pos { width:18px; text-align:right; font-weight:600; }
+
+/* Ad tag / Sponsored */
+.ads-pill { display:inline-block; font-size:8px; font-weight:700; color:#6B2737; border:1px solid #6B2737; padding:1px 5px; border-radius:10px; letter-spacing:0.5px; }
+
+/* ================================================================ */
+/* ===== L1: CONTRACT / VERTRAG ===== */
+/* ================================================================ */
+.c1-corner-tl { position:absolute; top:28px; left:28px; width:30px; height:30px; border-top:1.5px solid #1A1612; border-left:1.5px solid #1A1612; z-index:3; }
+.c1-corner-tr { position:absolute; top:28px; right:28px; width:30px; height:30px; border-top:1.5px solid #1A1612; border-right:1.5px solid #1A1612; z-index:3; }
+.c1-corner-bl { position:absolute; bottom:28px; left:28px; width:30px; height:30px; border-bottom:1.5px solid #1A1612; border-left:1.5px solid #1A1612; z-index:3; }
+.c1-corner-br { position:absolute; bottom:28px; right:28px; width:30px; height:30px; border-bottom:1.5px solid #1A1612; border-right:1.5px solid #1A1612; z-index:3; }
+
+.c1-head { position:absolute; top:55px; left:48px; right:48px; display:flex; justify-content:space-between; font-size:9px;
+    letter-spacing:3px; text-transform:uppercase; color:#1A1612; z-index:5; }
+.c1-head-l { font-weight:700; }
+.c1-head-r { font-family:'Playfair Display',serif; font-style:italic; text-transform:none; letter-spacing:0.5px; color:#6B2737; font-size:11px; }
+.c1-title-block { position:absolute; top:85px; left:48px; right:48px; text-align:center; z-index:5; }
+.c1-title { font-family:'Playfair Display',serif; font-style:italic; font-weight:400; font-size:26px; color:#1A1612; letter-spacing:0.5px; line-height:1; }
+.c1-title-sub { font-size:8px; letter-spacing:5px; text-transform:uppercase; color:#6B2737; margin-top:6px; font-weight:600; }
+.c1-ornament { position:absolute; top:148px; left:50%; transform:translateX(-50%); z-index:5;
+    width:120px; height:12px; display:flex; align-items:center; justify-content:center; gap:8px; }
+.c1-orn-line { flex:1; height:1px; background:#1A1612; }
+.c1-orn-dot { width:6px; height:6px; background:#6B2737; transform:rotate(45deg); }
+
+.c1-stamp { position:absolute; top:62px; right:22px; z-index:20;
+    width:112px; height:62px; border:2px solid #6B2737;
+    transform:rotate(-6deg); padding:10px 8px; text-align:center;
+    background:rgba(239,234,224,0.6); }
+.c1-stamp-top { font-size:7px; letter-spacing:2px; text-transform:uppercase; font-weight:700; color:#6B2737; }
+.c1-stamp-big { font-family:'Playfair Display',serif; font-style:italic; font-size:16px; color:#6B2737; line-height:1; margin:3px 0; font-weight:500; }
+.c1-stamp-bot { font-size:7px; letter-spacing:1.5px; color:#6B2737; text-transform:uppercase; }
+
+.c1-hook { position:absolute; top:175px; left:48px; z-index:6; font-size:9px;
+    letter-spacing:3px; text-transform:uppercase; font-weight:700; color:#6B2737;
+    border-left:2px solid #6B2737; padding-left:8px; }
+.c1-body { position:absolute; top:202px; left:48px; right:48px; z-index:6; font-size:11.5px; line-height:1.55; color:#1A1612; }
+.c1-clause { margin-bottom:11px; display:flex; gap:10px; align-items:flex-start; }
+.c1-clause-num { font-family:'Playfair Display',serif; font-style:italic; font-size:14px; color:#6B2737; line-height:1.1; width:28px; flex-shrink:0; font-weight:500; }
+.c1-clause-text { flex:1; font-size:11px; line-height:1.5; }
+.c1-clause-text u { text-decoration:underline; text-decoration-color:#6B2737; text-decoration-thickness:1.5px; text-underline-offset:3px; }
+
+.c1-serp-evidence { position:absolute; top:345px; left:48px; right:48px; z-index:7; }
+.c1-serp-lbl { font-size:7px; letter-spacing:2.5px; text-transform:uppercase; color:#6B2737; font-weight:700; margin-bottom:5px; }
+
+.c1-signline { position:absolute; bottom:115px; left:48px; right:48px; display:flex; justify-content:space-between; gap:20px; z-index:6; }
+.c1-sig { flex:1; }
+.c1-sig-script { font-family:'Caveat',cursive; font-size:22px; color:#1A1612; line-height:1; margin-bottom:2px; transform:rotate(-1deg); transform-origin:left; }
+.c1-sig-rule { border-top:1px solid #1A1612; margin-top:6px; padding-top:4px; font-size:8px; letter-spacing:2px; text-transform:uppercase; color:#1A1612; }
+.c1-seal { position:absolute; bottom:60px; right:48px; z-index:8;
+    width:50px; height:50px; border-radius:50%; border:1.5px solid #6B2737;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-size:7px; letter-spacing:1px; color:#6B2737; text-transform:uppercase;
+    font-weight:700; opacity:0.85; }
+.c1-seal-inner { font-family:'Playfair Display',serif; font-style:italic; font-size:11px; font-weight:500; margin:2px 0; }
+.c1-foot { position:absolute; bottom:55px; left:48px; font-size:8px; letter-spacing:2px; text-transform:uppercase; color:#1A1612; opacity:0.6; z-index:6; }
+
+/* ================================================================ */
+/* ===== L2: NEWSPAPER / ZEITUNG ===== */
+/* ================================================================ */
+.c2-masthead { position:absolute; top:42px; left:24px; right:24px; text-align:center; z-index:5; }
+.c2-mast-top { font-size:8px; letter-spacing:4px; text-transform:uppercase; color:#6B2737; font-weight:600; margin-bottom:4px; }
+.c2-mast-name { font-family:'Playfair Display',serif; font-style:italic; font-weight:700; font-size:30px; color:#1A1612; line-height:0.95; letter-spacing:-0.5px; }
+.c2-mast-sub { font-size:8px; letter-spacing:3px; text-transform:uppercase; color:#1A1612; margin-top:5px; opacity:0.7; }
+.c2-mast-rule { border-top:3px double #1A1612; margin:10px 0 0; }
+.c2-mast-meta { display:flex; justify-content:space-between; font-size:8px; letter-spacing:1.5px; text-transform:uppercase; color:#1A1612; padding:6px 0 0; }
+.c2-mast-meta-it { font-family:'Playfair Display',serif; font-style:italic; text-transform:none; letter-spacing:0.3px; color:#6B2737; font-size:10px; }
+
+.c2-kicker { position:absolute; top:168px; left:24px; right:24px; text-align:center; z-index:5;
+    font-size:9px; letter-spacing:5px; text-transform:uppercase; color:#6B2737; font-weight:700; }
+.c2-headline { position:absolute; top:186px; left:20px; right:20px; z-index:5; text-align:center;
+    font-weight:900; font-size:38px; line-height:0.9; color:#1A1612; letter-spacing:-1.8px; text-transform:uppercase; }
+.c2-headline .italic { font-size:42px; text-transform:none; }
+.c2-subhead { position:absolute; top:270px; left:30px; right:30px; z-index:5; text-align:center;
+    font-family:'Playfair Display',serif; font-style:italic; font-size:13px; color:#6B2737; line-height:1.3; font-weight:500; }
+
+.c2-serp-panel { position:absolute; top:325px; left:24px; right:24px; z-index:5; }
+.c2-serp-hdr { font-size:7px; letter-spacing:2.5px; text-transform:uppercase; color:#6B2737; font-weight:700; margin-bottom:5px; display:flex; justify-content:space-between; }
+.c2-serp-hdr em { font-family:'Playfair Display',serif; font-style:italic; text-transform:none; letter-spacing:0.3px; color:#1A1612; font-size:9px; }
+
+.c2-cols { position:absolute; top:438px; left:24px; right:24px; z-index:5; display:flex; gap:14px; font-size:10.5px; line-height:1.5; color:#1A1612; }
+.c2-col { flex:1; }
+.c2-col-divider { width:1px; background:rgba(26,22,18,0.25); }
+.c2-dropcap { font-family:'Playfair Display',serif; font-style:italic; font-weight:500; font-size:34px;
+    float:left; line-height:0.85; padding:3px 6px 0 0; color:#6B2737; }
+.c2-col p { margin-bottom:5px; }
+.c2-col p .italic { font-size:11.5px; }
+
+.c2-footer { position:absolute; bottom:55px; left:24px; right:24px; border-top:2px solid #1A1612; padding-top:8px; z-index:5;
+    display:flex; justify-content:space-between; align-items:baseline; }
+.c2-cta-wrap { font-weight:700; font-size:10px; letter-spacing:2.5px; text-transform:uppercase; color:#1A1612;
+    border-bottom:1.5px solid #1A1612; padding-bottom:3px; }
+.c2-cta-wrap .italic { font-size:12px; }
+.c2-issue { font-family:'Playfair Display',serif; font-style:italic; font-size:11px; color:#6B2737; }
+
+/* ================================================================ */
+/* ===== L3: INVOICE / RECHNUNG ===== */
+/* ================================================================ */
+.c3-head { position:absolute; top:45px; left:30px; right:30px; display:flex; justify-content:space-between; align-items:flex-start; z-index:5; }
+.c3-invtitle { font-family:'Playfair Display',serif; font-style:italic; font-weight:500; font-size:34px; color:#1A1612; letter-spacing:-1px; line-height:1; }
+.c3-invsub { font-size:8px; letter-spacing:4px; text-transform:uppercase; color:#6B2737; margin-top:4px; font-weight:600; }
+.c3-head-right { text-align:right; font-size:9px; line-height:1.6; color:#1A1612; }
+.c3-head-right .lbl { font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:#6B2737; font-size:8px; }
+.c3-head-right .val { font-family:'Playfair Display',serif; font-style:italic; font-size:11px; color:#1A1612; }
+
+.c3-stamp-paid { position:absolute; top:76px; left:15px; z-index:22;
+    padding:8px 14px; border:2px solid #6B2737; transform:rotate(-12deg);
+    font-size:9px; letter-spacing:2.5px; text-transform:uppercase; font-weight:700; color:#6B2737;
+    background:rgba(239,234,224,0.5); }
+.c3-stamp-paid .italic { font-size:14px; letter-spacing:0.5px; text-transform:none; }
+
+.c3-rule-top { position:absolute; top:128px; left:30px; right:30px; border-top:2px solid #1A1612; z-index:4; }
+
+.c3-parties { position:absolute; top:138px; left:30px; right:30px; display:flex; gap:20px; z-index:5; }
+.c3-party { flex:1; }
+.c3-party-lbl { font-size:7px; letter-spacing:2.5px; text-transform:uppercase; color:#6B2737; font-weight:700; margin-bottom:5px; }
+.c3-party-name { font-weight:700; font-size:11px; color:#1A1612; margin-bottom:2px; }
+.c3-party-body { font-size:9.5px; color:#1A1612; line-height:1.45; opacity:0.85; }
+
+.c3-hook { position:absolute; top:228px; left:30px; right:30px; text-align:center; z-index:6;
+    font-size:9px; letter-spacing:4px; text-transform:uppercase; font-weight:700; color:#6B2737; }
+
+.c3-table { position:absolute; top:252px; left:30px; right:30px; z-index:5; }
+.c3-trow { display:flex; padding:8px 0; border-bottom:1px solid rgba(26,22,18,0.2); align-items:baseline; }
+.c3-trow.head { border-bottom:1.5px solid #1A1612; padding-bottom:5px; }
+.c3-trow.head span { font-size:8px; letter-spacing:2px; text-transform:uppercase; color:#1A1612; font-weight:700; }
+.c3-tpos { width:24px; flex-shrink:0; font-family:'Playfair Display',serif; font-style:italic; color:#6B2737; font-size:12px; }
+.c3-titem { flex:1; font-size:10px; color:#1A1612; line-height:1.4; }
+.c3-titem .italic { font-size:11px; }
+.c3-titem-sub { font-size:8.5px; opacity:0.65; margin-top:1px; }
+.c3-tprice { font-family:'Playfair Display',serif; font-style:italic; font-size:12px; color:#1A1612; text-align:right; min-width:55px; }
+
+.c3-totals { position:absolute; bottom:150px; left:30px; right:30px; z-index:5; }
+.c3-totrow { display:flex; justify-content:space-between; padding:3px 0; font-size:10px; color:#1A1612; }
+.c3-totrow.grand { border-top:2px solid #1A1612; margin-top:4px; padding-top:7px;
+    font-family:'Playfair Display',serif; font-style:italic; font-weight:500; font-size:20px; color:#6B2737; letter-spacing:-0.3px; }
+.c3-totrow.grand .amount { font-size:30px; }
+
+.c3-footer { position:absolute; bottom:58px; left:30px; right:30px; border-top:1px dashed rgba(26,22,18,0.3); padding-top:8px; z-index:5;
+    display:flex; justify-content:space-between; align-items:baseline; }
+.c3-cta { font-size:10px; letter-spacing:2px; text-transform:uppercase; font-weight:700; color:#1A1612; border-bottom:1.5px solid #1A1612; padding-bottom:2px; }
+.c3-note { font-family:'Playfair Display',serif; font-style:italic; font-size:10px; color:#6B2737; }
+
+/* ================================================================ */
+/* ===== L4: TIMELINE / 30-DAY ROADMAP + GROWTH CHART ===== */
+/* ================================================================ */
+.c4-head { position:absolute; top:48px; left:30px; right:30px; z-index:5; }
+.c4-eyebrow { font-size:9px; letter-spacing:5px; text-transform:uppercase; color:#6B2737; font-weight:700; border-bottom:1px solid #6B2737; padding-bottom:5px; display:inline-block; }
+.c4-title { margin-top:14px; font-weight:800; font-size:26px; color:#1A1612; line-height:1.05; letter-spacing:-0.8px; }
+.c4-title .italic { font-size:29px; }
+.c4-intro { margin-top:6px; font-size:10px; color:#1A1612; opacity:0.8; line-height:1.45; max-width:90%; }
+
+.c4-line { position:absolute; top:255px; bottom:165px; left:58px; width:1.5px; background:#1A1612; z-index:4; }
+
+.c4-mile { position:absolute; left:45px; right:30px; z-index:6; display:flex; gap:14px; align-items:flex-start; }
+.c4-mile-dot { width:27px; height:27px; border-radius:50%; background:#EFEAE0; border:1.5px solid #1A1612;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    font-family:'Playfair Display',serif; font-style:italic; font-size:11px; color:#6B2737; font-weight:600; margin-top:-2px; }
+.c4-mile-dot.primary { background:#6B2737; color:#EFEAE0; border-color:#6B2737; }
+.c4-mile-day { font-family:'Playfair Display',serif; font-style:italic; font-size:15px; color:#6B2737; line-height:1; margin-bottom:2px; }
+.c4-mile-t { font-size:10.5px; color:#1A1612; line-height:1.35; font-weight:600; }
+.c4-mile-s { font-size:9px; color:#1A1612; line-height:1.4; opacity:0.7; margin-top:2px; }
+.c4-mile-s .italic { font-size:10px; }
+.c4-mile-1 { top:265px; }
+.c4-mile-2 { top:318px; }
+.c4-mile-3 { top:371px; }
+.c4-mile-4 { top:424px; }
+
+.c4-badge { position:absolute; top:190px; right:24px; z-index:10;
+    background:#6B2737; color:#EFEAE0; padding:8px 12px;
+    font-size:10px; letter-spacing:2px; text-transform:uppercase; font-weight:700;
+    transform:rotate(3deg); }
+.c4-badge .italic { color:#EFEAE0; font-size:11px; letter-spacing:0.3px; text-transform:none; }
+
+.c4-chart-wrap { position:absolute; bottom:100px; left:30px; right:30px; z-index:5;
+    border:1px solid rgba(26,22,18,0.2); border-radius:4px; padding:8px 10px; background:rgba(255,255,255,0.35); }
+.c4-chart-hdr { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px; }
+.c4-chart-lbl { font-size:7px; letter-spacing:2px; text-transform:uppercase; color:#6B2737; font-weight:700; }
+.c4-chart-val { font-family:'Playfair Display',serif; font-style:italic; font-size:12px; color:#6B2737; }
+.c4-chart-svg { width:100%; height:32px; }
+
+.c4-footer { position:absolute; bottom:55px; left:30px; right:30px; z-index:5;
+    display:flex; justify-content:space-between; align-items:center;
+    border-top:1.5px solid #1A1612; padding-top:9px; }
+.c4-cta { font-size:10.5px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:#1A1612;
+    border-bottom:1.5px solid #1A1612; padding-bottom:3px; }
+.c4-foot-note { font-family:'Playfair Display',serif; font-style:italic; font-size:11px; color:#6B2737; }
+
+/* ================================================================ */
+/* ===== L5: BOUTIQUE TAG / SPEC-SHEET ===== */
+/* ================================================================ */
+.c5-tag { position:absolute; top:50px; bottom:70px; left:40px; right:40px; z-index:5;
+    border:1.5px solid #1A1612; padding:22px 20px; background:transparent;
+    display:flex; flex-direction:column; }
+.c5-tag::before { content:''; position:absolute; top:-12px; left:50%; transform:translateX(-50%);
+    width:24px; height:24px; border-radius:50%; border:1.5px solid #1A1612; background:#EFEAE0; }
+.c5-tag::after { content:''; position:absolute; top:-2px; left:50%; transform:translateX(-50%);
+    width:8px; height:8px; border-radius:50%; background:#1A1612; }
+.c5-string { position:absolute; top:14px; left:50%; width:1px; height:40px; background:#1A1612; transform:translateX(-50%); z-index:4; opacity:0.4; }
+
+.c5-tophead { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+.c5-serie { font-size:8px; letter-spacing:3px; text-transform:uppercase; color:#6B2737; font-weight:700; }
+.c5-serie-num { font-family:'Playfair Display',serif; font-style:italic; font-size:11px; color:#1A1612; letter-spacing:0; }
+.c5-origin { text-align:right; font-size:8px; letter-spacing:2px; text-transform:uppercase; color:#1A1612; opacity:0.7; line-height:1.5; }
+
+.c5-sticker { position:absolute; top:108px; right:-14px; z-index:15;
+    background:#6B2737; color:#EFEAE0; padding:8px 14px 8px 10px;
+    font-size:9px; letter-spacing:2px; text-transform:uppercase; font-weight:700;
+    transform:rotate(6deg); }
+.c5-sticker .italic { color:#EFEAE0; font-size:11px; text-transform:none; }
+
+.c5-maintitle { font-family:'Playfair Display',serif; font-style:italic; font-weight:500; font-size:20px; color:#1A1612; line-height:1.1; margin-bottom:10px; letter-spacing:-0.2px; }
+.c5-ruler { border-top:1px dashed rgba(26,22,18,0.35); margin:2px 0 10px; }
+
+.c5-kw-section { margin-bottom:10px; }
+.c5-kw-lbl { font-size:7px; letter-spacing:2.5px; text-transform:uppercase; color:#6B2737; font-weight:700; margin-bottom:4px; }
+.c5-kw-list { display:flex; flex-wrap:wrap; }
+
+.c5-specs { font-size:10px; color:#1A1612; line-height:1.3; margin-top:6px; }
+.c5-spec { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dotted rgba(26,22,18,0.2); }
+.c5-spec-l { font-size:8px; letter-spacing:2px; text-transform:uppercase; color:#1A1612; opacity:0.75; font-weight:600; }
+.c5-spec-r { font-family:'Playfair Display',serif; font-style:italic; font-size:11px; color:#6B2737; font-weight:500; }
+
+.c5-price-block { margin-top:10px; text-align:center; padding:10px 0 8px; border-top:1.5px solid #1A1612; border-bottom:1.5px solid #1A1612; }
+.c5-price-lbl { font-size:8px; letter-spacing:3px; text-transform:uppercase; color:#1A1612; opacity:0.7; }
+.c5-price-big { font-family:'Playfair Display',serif; font-style:italic; font-weight:500; font-size:40px; color:#6B2737; line-height:1; letter-spacing:-1.5px; }
+.c5-price-cond { font-size:8px; letter-spacing:2px; text-transform:uppercase; color:#1A1612; opacity:0.7; margin-top:2px; }
+
+.c5-cta { position:absolute; bottom:40px; left:40px; right:40px; z-index:8; text-align:center;
+    font-size:9px; letter-spacing:3px; text-transform:uppercase; font-weight:700; color:#1A1612; }
+.c5-cta-arrow { font-family:'Playfair Display',serif; font-style:italic; margin-left:4px; text-transform:none; letter-spacing:0; color:#6B2737; font-size:13px; }
+
+/* ================================================================ */
+/* ===== L6: MAGAZINE FEATURE + SERP MOCKUP ===== */
+/* ================================================================ */
+.c6-folio { position:absolute; top:48px; left:26px; right:26px; z-index:5;
+    display:flex; justify-content:space-between; font-size:9px; letter-spacing:3px; text-transform:uppercase; color:#1A1612; }
+.c6-folio-r { font-family:'Playfair Display',serif; font-style:italic; text-transform:none; letter-spacing:0.3px; color:#6B2737; font-size:11px; }
+.c6-folio-rule { position:absolute; top:72px; left:26px; right:26px; border-top:1px solid #1A1612; z-index:5; opacity:0.8; }
+
+.c6-hook { position:absolute; top:85px; left:26px; z-index:6;
+    font-size:9px; letter-spacing:4px; text-transform:uppercase; color:#6B2737; font-weight:700; }
+.c6-title { position:absolute; top:108px; left:26px; right:26px; z-index:5;
+    font-weight:800; font-size:36px; line-height:0.98; letter-spacing:-1.5px; color:#1A1612; }
+.c6-title .italic { font-size:40px; line-height:0.95; }
+
+.c6-side-note { position:absolute; top:120px; right:28px; z-index:8;
+    font-family:'Caveat',cursive; font-size:16px; color:#6B2737; line-height:1.15; max-width:66px; transform:rotate(6deg); text-align:center; }
+.c6-side-note::before { content:'↓'; display:block; font-size:12px; margin-bottom:2px; }
+
+.c6-serp-wrap { position:absolute; top:300px; left:26px; right:26px; z-index:5; }
+.c6-serp-hdr { font-size:7px; letter-spacing:2.5px; text-transform:uppercase; color:#6B2737; font-weight:700; margin-bottom:5px; display:flex; justify-content:space-between; }
+.c6-serp-hdr em { font-family:'Playfair Display',serif; font-style:italic; text-transform:none; letter-spacing:0.3px; color:#1A1612; font-size:9px; }
+
+.c6-body { position:absolute; top:470px; left:26px; right:26px; z-index:5;
+    font-size:10px; line-height:1.5; color:#1A1612; }
+.c6-body p { margin-bottom:4px; }
+.c6-body p:first-child::first-letter { font-family:'Playfair Display',serif; font-style:italic; font-weight:500; font-size:30px;
+    float:left; line-height:0.8; padding:3px 5px 0 0; color:#6B2737; }
+.c6-body .italic { font-size:11px; }
+
+.c6-footer { position:absolute; bottom:55px; left:26px; right:26px; z-index:5;
+    border-top:1.5px solid #1A1612; padding-top:9px; display:flex; justify-content:space-between; align-items:baseline; }
+.c6-cta { font-size:10px; font-weight:700; letter-spacing:2.2px; text-transform:uppercase; color:#1A1612; border-bottom:1.5px solid #1A1612; padding-bottom:2px; }
+.c6-cta .italic { font-size:12px; letter-spacing:0; padding:0; }
+.c6-footnote { font-family:'Playfair Display',serif; font-style:italic; font-size:10px; color:#6B2737; }
+.c6-asterisk { position:absolute; bottom:95px; right:30px; z-index:6;
+    font-family:'Playfair Display',serif; font-size:30px; color:#6B2737; line-height:0.6; opacity:0.5; }
+
+/* ================================================================ */
+/* ===== FEEDBACK ===== */
+/* ================================================================ */
+.fb-row { display:flex; align-items:center; gap:6px; padding:8px 14px; border-top:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02); }
+.fb-btn { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.5);
+    font-size:14px; width:34px; height:34px; border-radius:6px; cursor:pointer; transition:all 0.2s;
+    display:flex; align-items:center; justify-content:center; }
+.fb-btn:hover { background:rgba(255,255,255,0.1); color:#fff; }
+.fb-btn.fb-yes { border-color:rgba(76,175,80,0.5); background:rgba(76,175,80,0.15); color:#4CAF50; }
+.fb-btn.fb-no { border-color:rgba(244,67,54,0.5); background:rgba(244,67,54,0.15); color:#F44336; }
+.fb-btn.fb-maybe { border-color:rgba(255,193,7,0.5); background:rgba(255,193,7,0.15); color:#FFC107; }
+.fb-input { flex:1; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:6px;
+    color:#fff; font-size:11px; padding:8px 12px; outline:none; }
+.fb-input::placeholder { color:rgba(255,255,255,0.25); }
+
+.fb-export-bar { display:flex; justify-content:center; gap:12px; margin:30px auto 10px; max-width:1400px; }
+.fb-export-btn { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:#fff;
+    font-size:11px; font-weight:600; padding:12px 28px; border-radius:4px;
+    cursor:pointer; letter-spacing:2px; text-transform:uppercase; transition:all 0.2s; }
+.fb-export-btn:hover { background:rgba(255,255,255,0.15); }
+.fb-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999;
+    justify-content:center; align-items:center; backdrop-filter:blur(4px); }
+.fb-modal-overlay.active { display:flex; }
+.fb-modal { background:#1a1a1a; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:28px;
+    max-width:600px; width:90%; max-height:80vh; overflow-y:auto; color:#fff; }
+.fb-modal h3 { font-size:18px; font-weight:700; margin-bottom:16px; }
+.fb-modal-item { padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.06); font-size:12px; line-height:1.6; }
+.fb-modal-close { background:rgba(255,255,255,0.1); border:none; color:#fff; font-size:11px; font-weight:600;
+    padding:10px 24px; border-radius:4px; cursor:pointer; margin-top:16px; letter-spacing:1.5px; text-transform:uppercase; }
+.fb-modal-copy { background:#C19B6C; border:none; color:#1A1612; font-size:11px; font-weight:700;
+    padding:10px 24px; border-radius:4px; cursor:pointer; margin-top:16px; margin-left:8px; letter-spacing:1.5px; text-transform:uppercase; }
+.fb-summary-line { display:flex; gap:12px; margin-bottom:12px; padding:6px 0; }
+.fb-summary-count { font-weight:700; font-size:22px; }
+.fb-summary-count.green { color:#4CAF50; } .fb-summary-count.red { color:#F44336; }
+.fb-summary-count.yellow { color:#FFC107; } .fb-summary-count.gray { color:rgba(255,255,255,0.3); }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>SEO / SEA Agenturen — <em>Editorial</em> Creatives</h1>
+    <p>6 Layouts · Originaltext · Helvetica + Playfair Italic · mit SERP, Keywords &amp; Growth-Chart</p>
+</div>
+
+<div class="filters">
+    <button class="filter-btn active" data-filter="all">Alle (6)</button>
+    <button class="filter-btn" data-filter="contract">Vertrag</button>
+    <button class="filter-btn" data-filter="newspaper">Zeitung</button>
+    <button class="filter-btn" data-filter="invoice">Rechnung</button>
+    <button class="filter-btn" data-filter="timeline">Timeline</button>
+    <button class="filter-btn" data-filter="tag">Boutique-Tag</button>
+    <button class="filter-btn" data-filter="magazine">Magazine</button>
+</div>
+
+<div class="grid" id="grid">
+
+<!-- ================================================================ -->
+<!-- L1 · CONTRACT ·                                                   -->
+<!-- ================================================================ -->
+<div class="card" data-layout="contract">
+    <div class="card-label">
+        <span class="badge-cat">SEO / SEA</span>
+        <span class="badge-layout">Vertrag</span>
+        <span class="badge-opt">Retainer-Garantie</span>
+    </div>
+    <div class="cw">
+    <div class="cr" id="cr-contract" style="width:390px;height:693px;position:relative;overflow:hidden;">
+        <div class="paper-tex"></div>
+        <div class="c1-corner-tl"></div><div class="c1-corner-tr"></div><div class="c1-corner-bl"></div><div class="c1-corner-br"></div>
+        <div class="c1-head">
+            <span class="c1-head-l">№ 047 · MMXXVI</span>
+            <span class="c1-head-r">certificatum rankingi</span>
+        </div>
+        <div class="c1-title-block">
+            <div class="c1-title">Retainer&middot;Garantie</div>
+            <div class="c1-title-sub">Für SEO &amp; SEA Agenturen</div>
+        </div>
+        <div class="c1-ornament"><span class="c1-orn-line"></span><span class="c1-orn-dot"></span><span class="c1-orn-line"></span></div>
+        <div class="c1-stamp">
+            <div class="c1-stamp-top">Retainer</div>
+            <div class="c1-stamp-big">5 / 30 / 0€</div>
+            <div class="c1-stamp-bot">monthly recurring</div>
+        </div>
+        <div class="c1-hook">SEO / SEA Agenturen aufgepasst!</div>
+        <div class="c1-body">
+            <div class="c1-clause">
+                <span class="c1-clause-num">§&nbsp;I</span>
+                <span class="c1-clause-text">Ich bringe dir <u><span class="italic">5 Neukunden</span></u> für deine SEO/SEA Agentur in den nächsten <span class="italic">30 Tagen</span>.</span>
+            </div>
+            <div class="c1-clause">
+                <span class="c1-clause-num">§&nbsp;II</span>
+                <span class="c1-clause-text"><span class="italic">Garantiert</span> — oder du zahlst <u>0 €</u>. Schriftlich, bindend.</span>
+            </div>
+            <div class="c1-clause">
+                <span class="c1-clause-num">§&nbsp;III</span>
+                <span class="c1-clause-text">Jeder Kunde bereit, <span class="italic">3 000 € – 7 000 €</span> <strong>monatlich</strong> als Retainer bei dir zu zahlen.</span>
+            </div>
+        </div>
+        <div class="c1-serp-evidence">
+            <div class="c1-serp-lbl">Beweis &middot; Anlage A zum Vertrag</div>
+            <div class="serp-box">
+                <div class="serp-rank">1</div>
+                <div><span class="serp-ad-tag">Ad</span><span class="mono serp-url"><span class="serp-url-domain">deine-agentur.de</span> › seo-retainer</span></div>
+                <div class="serp-title"><u>SEO Agentur</u> — Neukunden-Pipeline | 3–7k€/Monat</div>
+                <div class="serp-desc">Planbares Retainer-Wachstum für SEO/SEA Agenturen. Garantiert 5 neue Kunden in 30 Tagen …</div>
+            </div>
+        </div>
+        <div class="c1-signline">
+            <div class="c1-sig">
+                <div class="c1-sig-script">— Die Agentur</div>
+                <div class="c1-sig-rule">Unterschrift · Ort · Datum</div>
+            </div>
+            <div class="c1-sig">
+                <div class="c1-sig-script">— Du&nbsp;?</div>
+                <div class="c1-sig-rule">Unterschrift Geschäftsführer</div>
+            </div>
+        </div>
+        <div class="c1-seal">sealed<span class="c1-seal-inner">R</span>promise</div>
+        <div class="c1-foot">Erstgespräch anfragen →</div>
+    </div>
+    </div>
+    <button class="db" onclick="dl('cr-contract','cr-contract',event)">Download PNG</button>
+    <div class="fb-row" data-fb="cr-contract">
+        <button class="fb-btn" data-rating="yes" onclick="setRating(this)">👍</button>
+        <button class="fb-btn" data-rating="no" onclick="setRating(this)">👎</button>
+        <button class="fb-btn" data-rating="maybe" onclick="setRating(this)">✏️</button>
+        <input class="fb-input" placeholder="Anmerkung..." oninput="saveFeedback(this)">
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- L2 · NEWSPAPER                                                    -->
+<!-- ================================================================ -->
+<div class="card" data-layout="newspaper">
+    <div class="card-label">
+        <span class="badge-cat">SEO / SEA</span>
+        <span class="badge-layout">Zeitung</span>
+        <span class="badge-opt">Front Page · № 047</span>
+    </div>
+    <div class="cw">
+    <div class="cr" id="cr-newspaper" style="width:390px;height:693px;position:relative;overflow:hidden;">
+        <div class="paper-tex"></div>
+        <div class="c2-masthead">
+            <div class="c2-mast-top">Independent Press · SERP Edition</div>
+            <div class="c2-mast-name">Das Ranking-Blatt</div>
+            <div class="c2-mast-sub">Für Agenturen, die Platz 1 nicht dem Zufall überlassen</div>
+            <div class="c2-mast-rule"></div>
+            <div class="c2-mast-meta">
+                <span>N° 047</span>
+                <span class="c2-mast-meta-it">Frühjahr · MMXXVI</span>
+                <span>€ 0,00</span>
+            </div>
+        </div>
+        <div class="c2-kicker">— Exklusiv · Nur für Agentur-Inhaber —</div>
+        <div class="c2-headline">SEO / SEA<br><span class="italic">aufgepasst!</span></div>
+        <div class="c2-subhead">Fünf neue Retainer-Kunden in dreißig Tagen — oder null Honorar.</div>
+        <div class="c2-serp-panel">
+            <div class="c2-serp-hdr"><span>Beweis-Listing</span><em>google.de &middot; live</em></div>
+            <div class="serp-box">
+                <div class="serp-rank">1</div>
+                <div><span class="serp-ad-tag">Ad</span><span class="mono serp-url"><span class="serp-url-domain">deine-agentur.de</span> › retainer</span></div>
+                <div class="serp-title"><u>SEO &amp; SEA Retainer</u> — 5 Neukunden in 30 Tagen | Garantiert</div>
+                <div class="serp-desc">Für Agenturen, die skalieren wollen: Retainer-Pipeline von 3-7k€ pro Kunde. <span style="color:#6B2737;font-weight:600;">5/5 Sterne</span> · 150+ Agenturen</div>
+            </div>
+        </div>
+        <div class="c2-cols">
+            <div class="c2-col">
+                <p><span class="c2-dropcap">I</span>ch bringe dir <span class="italic">5 Neukunden</span> für deine SEO/SEA Agentur in den nächsten 30 Tagen.</p>
+                <p>Garantiert — oder du zahlst <span class="italic">0 €</span>.</p>
+            </div>
+            <div class="c2-col-divider"></div>
+            <div class="c2-col">
+                <p>Jeder Kunde bereit, <span class="italic">3 000 € – 7 000 €</span> monatlich als Retainer bei dir zu zahlen.</p>
+                <p>Kein Outreach. Keine Kaltakquise.</p>
+            </div>
+        </div>
+        <div class="c2-footer">
+            <div class="c2-cta-wrap">Erstgespräch anfragen <span class="italic">→</span></div>
+            <div class="c2-issue">Sonnabend · S. 01</div>
+        </div>
+    </div>
+    </div>
+    <button class="db" onclick="dl('cr-newspaper','cr-newspaper',event)">Download PNG</button>
+    <div class="fb-row" data-fb="cr-newspaper">
+        <button class="fb-btn" data-rating="yes" onclick="setRating(this)">👍</button>
+        <button class="fb-btn" data-rating="no" onclick="setRating(this)">👎</button>
+        <button class="fb-btn" data-rating="maybe" onclick="setRating(this)">✏️</button>
+        <input class="fb-input" placeholder="Anmerkung..." oninput="saveFeedback(this)">
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- L3 · INVOICE                                                      -->
+<!-- ================================================================ -->
+<div class="card" data-layout="invoice">
+    <div class="card-label">
+        <span class="badge-cat">SEO / SEA</span>
+        <span class="badge-layout">Rechnung</span>
+        <span class="badge-opt">Invoice · Total 0 €</span>
+    </div>
+    <div class="cw">
+    <div class="cr" id="cr-invoice" style="width:390px;height:693px;position:relative;overflow:hidden;">
+        <div class="paper-tex"></div>
+        <div class="c3-head">
+            <div>
+                <div class="c3-invtitle">Rechnung.</div>
+                <div class="c3-invsub">Invoice · MMXXVI · № 047</div>
+            </div>
+            <div class="c3-head-right">
+                <div class="lbl">Datum</div><div class="val">18. April 2026</div>
+                <div class="lbl" style="margin-top:4px;">Fällig</div><div class="val">nie</div>
+            </div>
+        </div>
+        <div class="c3-stamp-paid">✕ Storniert · <span class="italic">0 €</span> · Kein Risiko</div>
+        <div class="c3-rule-top"></div>
+        <div class="c3-parties">
+            <div class="c3-party">
+                <div class="c3-party-lbl">Leistungsempfänger</div>
+                <div class="c3-party-name">SEO/SEA Agenturen, aufgepasst!</div>
+                <div class="c3-party-body">Inhaber ohne<br>planbare Retainer-Pipeline<br>— bis heute.</div>
+            </div>
+            <div class="c3-party">
+                <div class="c3-party-lbl">Rechnungssteller</div>
+                <div class="c3-party-name">Die Agentur</div>
+                <div class="c3-party-body">Bringt Retainer-Kunden.<br>Oder stellt nichts<br>in Rechnung.</div>
+            </div>
+        </div>
+        <div class="c3-hook">— Bei Nichterfüllung der Leistung —</div>
+        <div class="c3-table">
+            <div class="c3-trow head"><span class="c3-tpos">Pos.</span><span class="c3-titem">Leistung</span><span class="c3-tprice">Betrag</span></div>
+            <div class="c3-trow">
+                <span class="c3-tpos">01</span>
+                <span class="c3-titem"><span class="italic">5 SEO/SEA Neukunden</span><div class="c3-titem-sub">in den nächsten 30 Tagen</div></span>
+                <span class="c3-tprice">0 €</span>
+            </div>
+            <div class="c3-trow">
+                <span class="c3-tpos">02</span>
+                <span class="c3-titem">Monatlicher Retainer / Kunde<div class="c3-titem-sub">bereit zu zahlen</div></span>
+                <span class="c3-tprice"><span class="italic">3–7k</span></span>
+            </div>
+            <div class="c3-trow">
+                <span class="c3-tpos">03</span>
+                <span class="c3-titem">Garantie<div class="c3-titem-sub">schriftlich vereinbart</div></span>
+                <span class="c3-tprice">inkl.</span>
+            </div>
+            <div class="c3-trow">
+                <span class="c3-tpos">04</span>
+                <span class="c3-titem">MRR-Potential / Monat<div class="c3-titem-sub">5 × 3–7k</div></span>
+                <span class="c3-tprice"><span class="italic">15–35k</span></span>
+            </div>
+        </div>
+        <div class="c3-totals">
+            <div class="c3-totrow"><span>Zwischensumme</span><span>0 €</span></div>
+            <div class="c3-totrow"><span>USt.</span><span>0 €</span></div>
+            <div class="c3-totrow grand"><span>Zu zahlen</span><span class="amount">0 €</span></div>
+        </div>
+        <div class="c3-footer">
+            <div class="c3-cta">Erstgespräch anfragen →</div>
+            <div class="c3-note">fair &amp; verbindlich</div>
+        </div>
+    </div>
+    </div>
+    <button class="db" onclick="dl('cr-invoice','cr-invoice',event)">Download PNG</button>
+    <div class="fb-row" data-fb="cr-invoice">
+        <button class="fb-btn" data-rating="yes" onclick="setRating(this)">👍</button>
+        <button class="fb-btn" data-rating="no" onclick="setRating(this)">👎</button>
+        <button class="fb-btn" data-rating="maybe" onclick="setRating(this)">✏️</button>
+        <input class="fb-input" placeholder="Anmerkung..." oninput="saveFeedback(this)">
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- L4 · TIMELINE + GROWTH CHART                                      -->
+<!-- ================================================================ -->
+<div class="card" data-layout="timeline">
+    <div class="card-label">
+        <span class="badge-cat">SEO / SEA</span>
+        <span class="badge-layout">Timeline</span>
+        <span class="badge-opt">30-Tage-Roadmap · MRR-Chart</span>
+    </div>
+    <div class="cw">
+    <div class="cr" id="cr-timeline" style="width:390px;height:693px;position:relative;overflow:hidden;">
+        <div class="paper-tex"></div>
+        <div class="c4-head">
+            <span class="c4-eyebrow">SEO / SEA aufgepasst!</span>
+            <div class="c4-title">5 Retainer in <span class="italic">dreißig</span> Tagen.</div>
+            <div class="c4-intro">Ich bringe dir 5 Neukunden für deine SEO/SEA Agentur in den nächsten 30 Tagen — garantiert oder du zahlst <span class="italic">0 €</span>. Budget: <span class="italic">3–7k € / Monat</span> pro Kunde.</div>
+        </div>
+        <div class="c4-badge">MRR +<span class="italic">15–35k</span></div>
+        <div class="c4-line"></div>
+
+        <div class="c4-mile c4-mile-1">
+            <div class="c4-mile-dot primary">01</div>
+            <div>
+                <div class="c4-mile-day">Tag 01</div>
+                <div class="c4-mile-t">ICP &amp; Angebot scharfstellen</div>
+                <div class="c4-mile-s">Retainer-Hook · <span class="italic">Keywords</span> · Case-Proof.</div>
+            </div>
+        </div>
+        <div class="c4-mile c4-mile-2">
+            <div class="c4-mile-dot">10</div>
+            <div>
+                <div class="c4-mile-day">Tag 10</div>
+                <div class="c4-mile-t">Erste Discovery-Calls</div>
+                <div class="c4-mile-s">Budget <span class="italic">≥ 3 000 €/Mo</span>. Qualifiziert.</div>
+            </div>
+        </div>
+        <div class="c4-mile c4-mile-3">
+            <div class="c4-mile-dot">20</div>
+            <div>
+                <div class="c4-mile-day">Tag 20</div>
+                <div class="c4-mile-t">Retainer № 01 &amp; 02 signed</div>
+                <div class="c4-mile-s">Erste <span class="italic">7 000 €/Mo</span>-Anfrage.</div>
+            </div>
+        </div>
+        <div class="c4-mile c4-mile-4">
+            <div class="c4-mile-dot primary">30</div>
+            <div>
+                <div class="c4-mile-day">Tag 30</div>
+                <div class="c4-mile-t">5. Retainer-Kunde · Ziel erreicht</div>
+                <div class="c4-mile-s">Sonst: <span class="italic">0 € Rechnung.</span></div>
+            </div>
+        </div>
+
+        <div class="c4-chart-wrap">
+            <div class="c4-chart-hdr">
+                <span class="c4-chart-lbl">MRR-Wachstum · Tag 0 → 30</span>
+                <span class="c4-chart-val">+ €25.000 ↗</span>
+            </div>
+            <svg class="c4-chart-svg" viewBox="0 0 320 32" preserveAspectRatio="none">
+                <defs>
+                    <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stop-color="#6B2737" stop-opacity="0.25"/>
+                        <stop offset="100%" stop-color="#6B2737" stop-opacity="0"/>
+                    </linearGradient>
+                </defs>
+                <path d="M 0 30 L 30 28 L 60 26 L 90 22 L 120 23 L 150 18 L 180 14 L 210 12 L 240 8 L 270 5 L 300 3 L 320 2 L 320 32 L 0 32 Z" fill="url(#g1)"/>
+                <path d="M 0 30 L 30 28 L 60 26 L 90 22 L 120 23 L 150 18 L 180 14 L 210 12 L 240 8 L 270 5 L 300 3 L 320 2" fill="none" stroke="#6B2737" stroke-width="1.5"/>
+                <circle cx="320" cy="2" r="3" fill="#6B2737"/>
+            </svg>
+        </div>
+
+        <div class="c4-footer">
+            <div class="c4-cta">Erstgespräch anfragen →</div>
+            <div class="c4-foot-note">oder null Euro</div>
+        </div>
+    </div>
+    </div>
+    <button class="db" onclick="dl('cr-timeline','cr-timeline',event)">Download PNG</button>
+    <div class="fb-row" data-fb="cr-timeline">
+        <button class="fb-btn" data-rating="yes" onclick="setRating(this)">👍</button>
+        <button class="fb-btn" data-rating="no" onclick="setRating(this)">👎</button>
+        <button class="fb-btn" data-rating="maybe" onclick="setRating(this)">✏️</button>
+        <input class="fb-input" placeholder="Anmerkung..." oninput="saveFeedback(this)">
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- L5 · BOUTIQUE TAG                                                 -->
+<!-- ================================================================ -->
+<div class="card" data-layout="tag">
+    <div class="card-label">
+        <span class="badge-cat">SEO / SEA</span>
+        <span class="badge-layout">Boutique-Tag</span>
+        <span class="badge-opt">Spec-Sheet mit Keywords</span>
+    </div>
+    <div class="cw">
+    <div class="cr" id="cr-tag" style="width:390px;height:693px;position:relative;overflow:hidden;">
+        <div class="paper-tex"></div>
+        <div class="c5-string"></div>
+        <div class="c5-tag">
+            <div class="c5-tophead">
+                <div>
+                    <div class="c5-serie">Série</div>
+                    <div class="c5-serie-num">№ 005 / 030</div>
+                </div>
+                <div class="c5-origin">Handgeführte<br>Retainer-Akquise<br>seit 2024</div>
+            </div>
+            <div class="c5-maintitle">SEO / SEA,<br>aufgepasst!</div>
+            <div class="c5-ruler"></div>
+            <div class="c5-kw-section">
+                <div class="c5-kw-lbl">Ziel-Keywords</div>
+                <div class="c5-kw-list">
+                    <span class="kw-chip">seo agentur<span class="vol">12k</span></span>
+                    <span class="kw-chip">sea freelancer<span class="vol">3k</span></span>
+                    <span class="kw-chip">google ads manager<span class="vol">5k</span></span>
+                    <span class="kw-chip">retainer b2b<span class="vol">2k</span></span>
+                </div>
+            </div>
+            <div class="c5-specs">
+                <div class="c5-spec"><span class="c5-spec-l">Neukunden</span><span class="c5-spec-r">5</span></div>
+                <div class="c5-spec"><span class="c5-spec-l">Laufzeit</span><span class="c5-spec-r">30 Tage</span></div>
+                <div class="c5-spec"><span class="c5-spec-l">Retainer / Kunde</span><span class="c5-spec-r">3 – 7k €/Mo</span></div>
+                <div class="c5-spec"><span class="c5-spec-l">Garantie</span><span class="c5-spec-r">schriftlich</span></div>
+                <div class="c5-spec"><span class="c5-spec-l">Bei Misserfolg</span><span class="c5-spec-r">0 €</span></div>
+            </div>
+            <div class="c5-price-block">
+                <div class="c5-price-lbl">Dein Risiko</div>
+                <div class="c5-price-big">0 €</div>
+                <div class="c5-price-cond">— MRR-Potential <span style="font-family:'Playfair Display',serif;font-style:italic;text-transform:none;">+15–35k</span> —</div>
+            </div>
+        </div>
+        <div class="c5-sticker">Limitiert <span class="italic">· 5 Plätze</span></div>
+        <div class="c5-cta">Erstgespräch anfragen<span class="c5-cta-arrow">→</span></div>
+    </div>
+    </div>
+    <button class="db" onclick="dl('cr-tag','cr-tag',event)">Download PNG</button>
+    <div class="fb-row" data-fb="cr-tag">
+        <button class="fb-btn" data-rating="yes" onclick="setRating(this)">👍</button>
+        <button class="fb-btn" data-rating="no" onclick="setRating(this)">👎</button>
+        <button class="fb-btn" data-rating="maybe" onclick="setRating(this)">✏️</button>
+        <input class="fb-input" placeholder="Anmerkung..." oninput="saveFeedback(this)">
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- L6 · MAGAZINE FEATURE + SERP                                      -->
+<!-- ================================================================ -->
+<div class="card" data-layout="magazine">
+    <div class="card-label">
+        <span class="badge-cat">SEO / SEA</span>
+        <span class="badge-layout">Magazine</span>
+        <span class="badge-opt">Feature mit SERP</span>
+    </div>
+    <div class="cw">
+    <div class="cr" id="cr-magazine" style="width:390px;height:693px;position:relative;overflow:hidden;">
+        <div class="paper-tex"></div>
+        <div class="c6-folio">
+            <span>Portfolio &middot; S. 01</span>
+            <span class="c6-folio-r">Frühjahr ’26</span>
+        </div>
+        <div class="c6-folio-rule"></div>
+        <div class="c6-hook">SEO / SEA Agenturen aufgepasst!</div>
+        <div class="c6-title">5 Retainer.<br><span class="italic">Dreißig</span> Tage.<br>Platz 01.</div>
+        <div class="c6-side-note">lies<br>genau</div>
+
+        <div class="c6-serp-wrap">
+            <div class="c6-serp-hdr"><span>Live-Beispiel · Seite 1</span><em>google.de</em></div>
+            <div class="serp-box" style="margin-bottom:6px;">
+                <div class="serp-rank">1</div>
+                <div><span class="serp-ad-tag">Ad</span><span class="mono serp-url"><span class="serp-url-domain">deine-agentur.de</span> › retainer</span></div>
+                <div class="serp-title"><u>SEO &amp; SEA Retainer-Pipeline</u> — 5 Neukunden / 30 Tage</div>
+                <div class="serp-desc">Planbares Retainer-Wachstum · Budget 3-7k €/Monat · Garantiert oder <span style="color:#6B2737;font-weight:600;">0 € Honorar</span>.</div>
+            </div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                <span class="kw-chip">seo retainer<span class="vol">#1</span></span>
+                <span class="kw-chip">sea agentur<span class="vol">#2</span></span>
+                <span class="kw-chip">neukunden b2b<span class="vol">#3</span></span>
+            </div>
+        </div>
+
+        <div class="c6-body">
+            <p>Ich bringe dir 5 Neukunden für deine SEO/SEA Agentur in den nächsten 30 Tagen.</p>
+            <p>Garantiert — oder du zahlst <span class="italic">0 €</span>. Jeder Kunde bereit, <span class="italic">3 000 € – 7 000 € monatlich</span> bei dir zu zahlen.</p>
+        </div>
+
+        <div class="c6-asterisk">⁂</div>
+        <div class="c6-footer">
+            <div class="c6-cta">Erstgespräch anfragen <span class="italic">→</span></div>
+            <div class="c6-footnote">Feature № 047</div>
+        </div>
+    </div>
+    </div>
+    <button class="db" onclick="dl('cr-magazine','cr-magazine',event)">Download PNG</button>
+    <div class="fb-row" data-fb="cr-magazine">
+        <button class="fb-btn" data-rating="yes" onclick="setRating(this)">👍</button>
+        <button class="fb-btn" data-rating="no" onclick="setRating(this)">👎</button>
+        <button class="fb-btn" data-rating="maybe" onclick="setRating(this)">✏️</button>
+        <input class="fb-input" placeholder="Anmerkung..." oninput="saveFeedback(this)">
+    </div>
+</div>
+
+</div><!-- /grid -->
+
+<div class="fb-export-bar">
+    <button class="fb-export-btn" onclick="showFeedbackSummary()">Feedback-Zusammenfassung</button>
+</div>
+
+<div class="fb-modal-overlay" id="fbModal">
+    <div class="fb-modal">
+        <h3>Feedback-Zusammenfassung</h3>
+        <div id="fbSummary"></div>
+        <div id="fbDetails"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button class="fb-modal-close" onclick="closeFbModal()">Schließen</button>
+            <button class="fb-modal-copy" onclick="copyFeedback()">Kopieren</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const f = btn.dataset.filter;
+        document.querySelectorAll('.card').forEach(c => {
+            if (f === 'all') c.style.display = '';
+            else c.style.display = c.dataset.layout === f ? '' : 'none';
+        });
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    });
+});
+
+async function dl(id, filename, evt) {
+    const btn = evt.target; btn.disabled = true; btn.textContent = 'Wird erstellt...';
+    const el = document.getElementById(id); const orig = el.style.transform; el.style.transform = 'none';
+    try {
+        const canvas = await html2canvas(el, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: null, width: 390, height: 693 });
+        el.style.transform = orig;
+        const a = document.createElement('a'); a.download = filename + '.png'; a.href = canvas.toDataURL('image/png'); a.click();
+        btn.textContent = 'Gespeichert ✓';
+    } catch(e) { btn.textContent = 'Fehler'; console.error(e); }
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Download PNG'; }, 2500);
+}
+
+function scaleCards() {
+    document.querySelectorAll('.cw').forEach(cw => {
+        const avail = cw.offsetWidth; const scale = Math.min(1, avail / 390);
+        const cr = cw.querySelector('.cr');
+        if (cr) { cr.style.transform = 'scale(' + scale + ')'; cr.style.transformOrigin = 'top left'; }
+        cw.style.height = (693 * scale) + 'px';
+    });
+}
+
+const feedbackData = {};
+function setRating(btn) {
+    const row = btn.closest('.fb-row'); const id = row.dataset.fb; const rating = btn.dataset.rating;
+    if (feedbackData[id] && feedbackData[id].rating === rating) { delete feedbackData[id]; row.querySelectorAll('.fb-btn').forEach(b => b.className = 'fb-btn'); return; }
+    if (!feedbackData[id]) feedbackData[id] = {};
+    feedbackData[id].rating = rating;
+    const card = row.closest('.card');
+    feedbackData[id].label = (card.querySelector('.badge-cat')?.textContent||'') + ' · ' +
+        (card.querySelector('.badge-layout')?.textContent||'') + ' · ' + (card.querySelector('.badge-opt')?.textContent||'');
+    row.querySelectorAll('.fb-btn').forEach(b => b.className = 'fb-btn');
+    btn.classList.add('fb-' + rating);
+}
+function saveFeedback(input) {
+    const row = input.closest('.fb-row'); const id = row.dataset.fb;
+    if (!feedbackData[id]) {
+        feedbackData[id] = {}; const card = row.closest('.card');
+        feedbackData[id].label = (card.querySelector('.badge-cat')?.textContent||'') + ' · ' +
+            (card.querySelector('.badge-layout')?.textContent||'') + ' · ' + (card.querySelector('.badge-opt')?.textContent||'');
+    }
+    feedbackData[id].comment = input.value;
+}
+function showFeedbackSummary() {
+    const modal = document.getElementById('fbModal'); const summary = document.getElementById('fbSummary'); const details = document.getElementById('fbDetails');
+    let yes=0, no=0, maybe=0, total=0; const items = []; const totalCards = document.querySelectorAll('.card').length;
+    for (const [id, data] of Object.entries(feedbackData)) {
+        if (data.rating || data.comment) {
+            total++;
+            if (data.rating==='yes') yes++; if (data.rating==='no') no++; if (data.rating==='maybe') maybe++;
+            const emoji = data.rating==='yes'?'👍':data.rating==='no'?'👎':data.rating==='maybe'?'✏️':'💬';
+            const comment = data.comment?' — „'+data.comment+'"':'';
+            items.push('<div class="fb-modal-item">'+emoji+' <strong>'+(data.label||id)+'</strong>'+comment+'</div>');
+        }
+    }
+    if (total===0) { summary.innerHTML='<p style="color:rgba(255,255,255,0.4);padding:20px 0;">Noch kein Feedback.</p>'; details.innerHTML=''; }
+    else {
+        summary.innerHTML='<div class="fb-summary-line">'+
+            '<div><span class="fb-summary-count green">'+yes+'</span> Passt</div>'+
+            '<div><span class="fb-summary-count red">'+no+'</span> Nein</div>'+
+            '<div><span class="fb-summary-count yellow">'+maybe+'</span> Ändern</div>'+
+            '<div><span class="fb-summary-count gray">'+(totalCards-total)+'</span> Offen</div></div>';
+        details.innerHTML=items.join('');
+    }
+    modal.classList.add('active');
+}
+function closeFbModal() { document.getElementById('fbModal').classList.remove('active'); }
+function copyFeedback() {
+    let text='CREATIVE FEEDBACK — SEO/SEA Editorial\n'+'='.repeat(40)+'\n\n';
+    let yes=0, no=0, maybe=0; const lines=[];
+    for (const [id,data] of Object.entries(feedbackData)) {
+        if (data.rating||data.comment) {
+            if(data.rating==='yes') yes++; if(data.rating==='no') no++; if(data.rating==='maybe') maybe++;
+            const emoji=data.rating==='yes'?'👍 Passt':data.rating==='no'?'👎 Nein':data.rating==='maybe'?'✏️ Ändern':'💬';
+            lines.push(emoji+'  '+(data.label||id)+(data.comment?'\n   '+data.comment:''));
+        }
+    }
+    text+='👍 '+yes+' | 👎 '+no+' | ✏️ '+maybe+'\n\n'+lines.join('\n\n');
+    navigator.clipboard.writeText(text).then(()=>{
+        const btn=document.querySelector('.fb-modal-copy'); btn.textContent='Kopiert ✓';
+        setTimeout(()=>{btn.textContent='Kopieren';},2000);
+    });
+}
+document.getElementById('fbModal').addEventListener('click',function(e){if(e.target===this)closeFbModal();});
+window.addEventListener('load', scaleCards);
+window.addEventListener('resize', scaleCards);
+</script>
+</body>
+</html>

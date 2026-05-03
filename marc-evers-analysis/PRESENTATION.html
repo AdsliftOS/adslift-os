@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Marc Evers — Komplettanalyse · Adslift Intelligence</title>
+<style>
+  :root{
+    --bg:#0a0a0a;
+    --bg-2:#111;
+    --card:#161616;
+    --line:#222;
+    --text:#f5f5f5;
+    --muted:#888;
+    --accent:#d4ff00;
+    --red:#ff4d4d;
+    --green:#00d97e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font-family:'Inter','SF Pro Display',-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.5}
+  body{scroll-behavior:smooth}
+
+  .slide{min-height:100vh;padding:80px 8vw;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--line);position:relative}
+  .slide-num{position:absolute;top:30px;right:8vw;font-size:13px;color:var(--muted);letter-spacing:2px;font-weight:500}
+  .kicker{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:20px}
+  h1{font-size:clamp(40px,6vw,88px);line-height:1.05;letter-spacing:-0.03em;font-weight:800;margin-bottom:24px}
+  h2{font-size:clamp(32px,4.5vw,64px);line-height:1.1;letter-spacing:-0.025em;font-weight:800;margin-bottom:32px}
+  h3{font-size:clamp(20px,2vw,28px);line-height:1.2;font-weight:700;margin-bottom:16px;letter-spacing:-0.01em}
+  p{font-size:clamp(16px,1.2vw,19px);color:#d8d8d8;max-width:80ch}
+  .lead{font-size:clamp(20px,1.6vw,26px);color:#e8e8e8;line-height:1.45;max-width:75ch;margin-bottom:24px}
+
+  .grid{display:grid;gap:24px}
+  .grid-2{grid-template-columns:repeat(2,1fr)}
+  .grid-3{grid-template-columns:repeat(3,1fr)}
+  .grid-4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:900px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px}
+  .card.accent{border-color:var(--accent);background:linear-gradient(135deg,#1a1a00 0%,#161616 60%)}
+  .card.red{border-color:#3a1a1a}
+  .card.green{border-color:#0a3a25}
+
+  .stat{font-size:clamp(48px,5vw,72px);font-weight:800;line-height:1;letter-spacing:-0.04em;color:var(--accent)}
+  .stat-label{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:12px;font-weight:600}
+  .stat-sub{font-size:14px;color:#aaa;margin-top:8px}
+
+  ul.clean{list-style:none}
+  ul.clean li{padding:12px 0;border-bottom:1px solid var(--line);display:flex;gap:14px;align-items:flex-start;font-size:16px}
+  ul.clean li:last-child{border-bottom:0}
+  ul.clean .bullet{color:var(--accent);font-weight:700;flex-shrink:0;min-width:24px}
+
+  .quote{font-size:clamp(28px,3.5vw,48px);font-weight:700;letter-spacing:-0.02em;line-height:1.15;color:#fff;margin:32px 0;max-width:22ch;border-left:4px solid var(--accent);padding-left:32px}
+  .quote-meta{font-size:14px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:16px}
+
+  table{width:100%;border-collapse:collapse;margin-top:16px;font-size:15px}
+  table th{text-align:left;padding:14px 12px;border-bottom:2px solid var(--accent);text-transform:uppercase;font-size:12px;letter-spacing:1.5px;color:var(--muted);font-weight:600}
+  table td{padding:14px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  table td.num{font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+  table tr:hover td{background:#181818}
+
+  .negation{display:flex;align-items:center;gap:14px;font-size:18px;font-weight:600;padding:16px 20px;background:#1a0e0e;border:1px solid #3a1a1a;border-radius:12px;margin-bottom:12px}
+  .negation .x{color:var(--red);font-size:22px}
+
+  .funnel{display:flex;flex-direction:column;align-items:center;gap:0;margin:32px 0}
+  .funnel-step{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 32px;width:100%;max-width:600px;text-align:center;font-size:17px;font-weight:600}
+  .funnel-step.highlight{background:linear-gradient(135deg,#1a1a00,#161616);border-color:var(--accent)}
+  .funnel-arrow{color:var(--accent);font-size:32px;line-height:1;padding:8px 0;font-weight:300}
+  .funnel-meta{font-size:13px;color:var(--muted);margin-top:6px;font-weight:400;letter-spacing:1px}
+
+  .ad-card{background:#0e0e0e;border:1px solid var(--line);border-radius:14px;padding:24px;font-family:'JetBrains Mono','SF Mono',monospace;font-size:14px;line-height:1.6;color:#ccc;white-space:pre-wrap;max-height:600px;overflow:auto}
+  .ad-card .h{color:var(--accent);font-weight:700;font-size:16px;display:block;margin-bottom:14px}
+
+  .badge{display:inline-block;padding:4px 12px;border-radius:999px;background:var(--accent);color:#000;font-weight:700;font-size:12px;letter-spacing:1px;text-transform:uppercase}
+  .badge.red{background:var(--red);color:#fff}
+  .badge.dim{background:#2a2a2a;color:#aaa}
+
+  .nav{position:fixed;top:0;left:0;right:0;background:rgba(10,10,10,0.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--line);z-index:100;padding:14px 8vw;display:flex;justify-content:space-between;align-items:center;font-size:13px}
+  .nav .brand{font-weight:700;letter-spacing:2px}
+  .nav .brand span{color:var(--accent)}
+  .nav .meta{color:var(--muted);font-size:12px}
+
+  .swot{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:24px}
+  .swot .card{padding:24px}
+  .swot h3{font-size:18px;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+  .swot ul li{font-size:15px;padding:8px 0;border-bottom:1px solid #1f1f1f;line-height:1.45}
+
+  .cta-final{background:linear-gradient(135deg,var(--accent),#a3cc00);color:#000;padding:48px;border-radius:24px;margin-top:32px}
+  .cta-final h2{color:#000;margin-bottom:16px}
+  .cta-final p{color:#1a1a1a;font-size:18px;max-width:60ch;margin-bottom:24px}
+  .cta-final .opts{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:20px}
+  .cta-final .opt{background:rgba(0,0,0,0.85);color:var(--accent);padding:18px 22px;border-radius:12px;font-weight:600;font-size:15px;line-height:1.4}
+  @media(max-width:700px){.cta-final .opts{grid-template-columns:1fr}}
+
+  .pill-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+  .pill{padding:8px 16px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:13px;color:#ccc;font-weight:500}
+
+  .timeline{position:relative;padding-left:40px;margin-top:32px}
+  .timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:var(--line)}
+  .timeline-item{position:relative;padding-bottom:32px}
+  .timeline-item::before{content:'';position:absolute;left:-37px;top:8px;width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--bg)}
+  .timeline-item .date{font-size:13px;color:var(--accent);font-weight:600;letter-spacing:1px;text-transform:uppercase}
+  .timeline-item h4{font-size:18px;margin-top:6px;margin-bottom:8px}
+  .timeline-item p{font-size:15px;color:#bbb}
+
+  .hook-row{display:flex;align-items:baseline;gap:20px;padding:14px 0;border-bottom:1px solid var(--line)}
+  .hook-row .count{font-size:24px;font-weight:800;color:var(--accent);min-width:60px;font-variant-numeric:tabular-nums}
+  .hook-row .text{flex:1;font-size:15px;color:#ddd}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="brand">ADSLIFT <span>·</span> COMPETITIVE INTEL</div>
+  <div class="meta">Marc Evers Marketing & Consulting · 27.04.2026</div>
+</div>
+
+<!-- COVER -->
+<section class="slide">
+  <div class="slide-num">01 / 12</div>
+  <div class="kicker">Komplettanalyse Konkurrent</div>
+  <h1>Marc Evers<br>Marketing & Consulting</h1>
+  <p class="lead">Was er macht, wie er es macht, wie viel er ausgibt — und wo er angreifbar ist.</p>
+  <div class="pill-row">
+    <span class="pill">166 unique Ads analysiert</span>
+    <span class="pill">376 Anzeigen-Varianten</span>
+    <span class="pill">Zeitraum 2024 – 2026</span>
+    <span class="pill">Quelle: Meta Ad Library DE</span>
+  </div>
+</section>
+
+<!-- TLDR -->
+<section class="slide">
+  <div class="slide-num">02 / 12</div>
+  <div class="kicker">Die kurze Antwort</div>
+  <h2>Er ist dein direkter Konkurrent — gleiche ICP, gleiches Versprechen, andere Mechanik.</h2>
+  <div class="grid grid-3" style="margin-top:32px">
+    <div class="card">
+      <div class="stat">120+</div>
+      <div class="stat-label">Webdesigner & Agenturen</div>
+      <div class="stat-sub">behauptet er betreut zu haben (war früher 50+, dann 64+, dann 100+)</div>
+    </div>
+    <div class="card">
+      <div class="stat">5 Kunden</div>
+      <div class="stat-label">Garantie in 60 Tagen</div>
+      <div class="stat-sub">… oder 0 € — sein Risk-Reversal-Trigger</div>
+    </div>
+    <div class="card accent">
+      <div class="stat" style="color:#000;background:var(--accent);padding:8px 16px;display:inline-block;border-radius:8px">1on1</div>
+      <div class="stat-label" style="color:#000;opacity:0.8">High-Touch Coaching</div>
+      <div class="stat-sub" style="color:#1a1a1a">Premium-Pricing, kein Group-Format</div>
+    </div>
+  </div>
+  <p class="lead" style="margin-top:48px">Er bedient <b>exakt deine Zielgruppe</b> (Webdesigner & Agenturbetreiber im DACH), mit einem fast identischen Promise: planbare Neukunden über Ads. Der Unterschied: Sein Mechanismus ist „No-Funnel-Ads" + 1on1-Coaching. Du bist Done-For-You.</p>
+</section>
+
+<!-- DER MENSCH -->
+<section class="slide">
+  <div class="slide-num">03 / 12</div>
+  <div class="kicker">Der Mensch dahinter</div>
+  <h2>Wer ist Marc Evers?</h2>
+  <div class="grid grid-2" style="margin-top:24px">
+    <div class="card">
+      <h3>Stammdaten</h3>
+      <ul class="clean">
+        <li><span class="bullet">·</span><div><b>Firma:</b> Marc Evers Marketing und Consulting</div></li>
+        <li><span class="bullet">·</span><div><b>Sitz:</b> Verden (Aller), Niedersachsen — Tempelpforte 4, 27283</div></li>
+        <li><span class="bullet">·</span><div><b>Hauptdomain:</b> marcevers.de (aktuell „under construction")</div></li>
+        <li><span class="bullet">·</span><div><b>Funnel-Domain:</b> client-acquisition-accelerator.de</div></li>
+        <li><span class="bullet">·</span><div><b>Instagram:</b> @marc.mev</div></li>
+        <li><span class="bullet">·</span><div><b>YouTube:</b> @Marc-Evers (aktiver Kanal)</div></li>
+        <li><span class="bullet">·</span><div><b>Geschäftspartner:</b> Thomas Gutnik (Agentur „Kurzvideofunnel")</div></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Positionierung</h3>
+      <p style="margin-bottom:16px">Verkauft sich als <b>Mentor für Webdesigner & Agenturbetreiber</b>, der ihnen beibringt, sich selbst Kunden über Meta Ads zu holen — ohne Funnel, ohne Content, ohne Cold Calls.</p>
+      <p style="margin-bottom:16px">Sein Brand-Move: Eigenes Framework benennen („No-Funnel-Ads-Framework"), eigene 0 €-Garantie, eigene wiederkehrende Hook-Frage.</p>
+      <p>Klassisches <b>Hormozi-Schema</b>, sauber lokalisiert auf den DACH-Webdesigner-Markt.</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOOK -->
+<section class="slide">
+  <div class="slide-num">04 / 12</div>
+  <div class="kicker">Die EINE Frage, die alles trägt</div>
+  <h2>Sein Signature-Hook</h2>
+  <div class="quote">„Woher kommt mein nächster Kunde?"</div>
+  <p class="lead">Diese eine Frage steht in <b>117 von 166 Ads</b>. Er testet seinen Hook nicht — er testet alles drumherum: Creative, Garantie-Variante, Reihenfolge der Case Studies. Der Hook ist <b>fix</b>.</p>
+  <h3 style="margin-top:48px;margin-bottom:16px">Warum die Frage funktioniert</h3>
+  <div class="grid grid-3">
+    <div class="card">
+      <h3 style="color:var(--accent);font-size:18px">1. Schmerz-Trigger</h3>
+      <p style="font-size:15px">Trifft die unausgesprochene Angst jedes Selbständigen: „Pipeline ist leer."</p>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--accent);font-size:18px">2. Identifikation</h3>
+      <p style="font-size:15px">Die Frage stellt sich der Leser <b>selbst</b> — kein „du brauchst", kein Druck.</p>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--accent);font-size:18px">3. Pattern-Interrupt</h3>
+      <p style="font-size:15px">In einem Feed voller „SO machst du…"-Hooks sticht eine ehrliche Frage raus.</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOOK STATS -->
+<section class="slide">
+  <div class="slide-num">05 / 12</div>
+  <div class="kicker">Was er 2024–2026 wirklich getextet hat</div>
+  <h2>Seine Top-Phrases nach Häufigkeit</h2>
+  <p style="margin-bottom:24px;color:var(--muted)">Aggregiert über alle 166 Ads. Wiederholung = Conviction = funktioniert.</p>
+  <div>
+    <div class="hook-row"><div class="count">117×</div><div class="text"><b>"Woher kommt mein nächster Kunde?"</b> — Opening-Frage</div></div>
+    <div class="hook-row"><div class="count">102×</div><div class="text">"Ich helfe dir persönlich (1on1) dabei mein No-Funnel-Ads-Framework bei dir zu implementieren"</div></div>
+    <div class="hook-row"><div class="count">102×</div><div class="text">"Ich nenne es das No-Funnel-Ads-Framework. Und es ist ziemlich geil."</div></div>
+    <div class="hook-row"><div class="count">90×</div><div class="text">"Klick hierzu auf den Button und schau dir an wie du mit mir arbeiten kannst!" — CTA</div></div>
+    <div class="hook-row"><div class="count">82×</div><div class="text">"Diese Frage habe ich in den letzten 2 Jahren für über 120+ Webdesigner und Agenturbetreiber endgültig beantwortet."</div></div>
+    <div class="hook-row"><div class="count">15×</div><div class="text">"Ich nenne es das MVP-Framework" <span class="badge dim">alter Name</span></div></div>
+    <div class="hook-row"><div class="count">14×</div><div class="text">"Buche dir jetzt über den Button ein kostenloses Erstgespräch!" — alternativer CTA</div></div>
+    <div class="hook-row"><div class="count">10×</div><div class="text">"Ein neuer Kunde für dich in 7 Tagen!" — kürzere Variante</div></div>
+  </div>
+</section>
+
+<!-- OFFER -->
+<section class="slide">
+  <div class="slide-num">06 / 12</div>
+  <div class="kicker">Sein Offer im Detail</div>
+  <h2>Was er verkauft — und für wie viel</h2>
+  <div class="grid grid-2" style="margin-top:24px">
+    <div class="card accent">
+      <span class="badge">Produkt</span>
+      <h3 style="margin-top:14px">No-Funnel-Ads-Framework™</h3>
+      <p style="margin-bottom:16px">Vorher als „MVP-Framework" gebrandet. 1on1-Coaching/Consulting in dem er Webdesignern & Agenturen seinen Meta-Ads-Mechanismus implementiert.</p>
+      <p style="font-size:14px;color:#aaa"><b>Pricing-Hinweis:</b> Im Funnel sagt er wörtlich: <i>„obwohl meine Kunden mehrere Tausend Euro für mein Framework bezahlen…"</i> → geschätzt 3.000 – 8.000 € Setup, ggf. + Retainer.</p>
+    </div>
+    <div class="card">
+      <span class="badge red">Garantie</span>
+      <h3 style="margin-top:14px">5 Kunden in 60 Tagen — oder 0 €</h3>
+      <p style="margin-bottom:12px">Drei Varianten die er parallel testet:</p>
+      <ul class="clean">
+        <li><span class="bullet">→</span><div>5 <b>Webdesignkunden</b> in 60 Tagen</div></li>
+        <li><span class="bullet">→</span><div>5 <b>Agenturkunden</b> in 60 Tagen</div></li>
+        <li><span class="bullet">→</span><div>9 Webdesignkunden in 90 Tagen</div></li>
+      </ul>
+    </div>
+  </div>
+  <h3 style="margin-top:48px;margin-bottom:16px">Sein Pain-Stack — die 3 Negationen</h3>
+  <p style="margin-bottom:20px;color:var(--muted)">In <b>jeder</b> Ad. Identische Reihenfolge. Räumt Einwände vor dem Lesen aus.</p>
+  <div class="negation"><span class="x">✕</span> ohne dass du zig Case-Studies brauchst</div>
+  <div class="negation"><span class="x">✕</span> ohne Organic Content zu posten</div>
+  <div class="negation"><span class="x">✕</span> ohne Kaltakquise oder DM-Spam</div>
+</section>
+
+<!-- FUNNEL -->
+<section class="slide">
+  <div class="slide-num">07 / 12</div>
+  <div class="kicker">Wie sein Funnel aufgebaut ist</div>
+  <h2>2-stufiger VSL-Funnel</h2>
+  <p class="lead">Klassisches Hormozi-Setup: Free Wert ausliefern → bei den Hot Leads Gespräch buchen.</p>
+  <div class="funnel">
+    <div class="funnel-step">Meta Ad (Image / Video, 9 Varianten parallel)<div class="funnel-meta">Hook: „Woher kommt mein nächster Kunde?"</div></div>
+    <div class="funnel-arrow">↓</div>
+    <div class="funnel-step highlight">go.client-acquisition-accelerator.de/<b>no-funnel-ads</b>/<div class="funnel-meta">27-Min Free Breakdown („Ich schenke dir mein Framework")</div></div>
+    <div class="funnel-arrow">↓</div>
+    <div class="funnel-step">go.client-acquisition-accelerator.de/<b>garantie</b>/<div class="funnel-meta">Sales-Page mit 0 €-Garantie</div></div>
+    <div class="funnel-arrow">↓</div>
+    <div class="funnel-step">1on1 Erstgespräch (Calendly o.ä.)<div class="funnel-meta">Closing-Call → 3–8k Setup</div></div>
+  </div>
+  <p style="margin-top:32px;color:var(--muted);font-size:15px">Beobachtung: <b>marcevers.de</b> ist seit Wochen „under construction" — er führt 100% des Traffics direkt auf die Funnel-Domain. Markenaufbau und Conversion sind bei ihm getrennte Systeme.</p>
+</section>
+
+<!-- SOCIAL PROOF -->
+<section class="slide">
+  <div class="slide-num">08 / 12</div>
+  <div class="kicker">Seine Case Studies — nach Häufigkeit gerankt</div>
+  <h2>Wen er namentlich nennt</h2>
+  <p style="margin-bottom:16px;color:var(--muted)">Er nennt <b>echte Namen</b> in fast jeder Ad. Auf LinkedIn verifizierbar = stärkster Glaubwürdigkeits-Move im Set.</p>
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Typ</th><th>Claim</th><th>Erwähnungen</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><b>Robin & Arian</b></td><td>Agentur</td><td>500 € Spend → 4.500 € Erstkunde → 45k/m im Monat 3</td><td class="num">70×</td></tr>
+      <tr><td><b>Marcel Lellig</b></td><td>Marketing-Agentur</td><td>5k/m → 50k/m in 3 Monaten</td><td class="num">68×</td></tr>
+      <tr><td><b>Daniel & Alex</b></td><td>Agentur</td><td>200 € Spend → 7.500 € Erst-Deal</td><td class="num">39×</td></tr>
+      <tr><td><b>Daniel & Jannek</b></td><td>Webdesigner</td><td>700 €/m → 14k/m in 3 Monaten</td><td class="num">28×</td></tr>
+      <tr><td><b>Kurzvideofunnel</b> (eigene Agentur, mit T. Gutnik)</td><td>Eigene Agentur</td><td>0 → 50k/m in &lt;3 Monaten</td><td class="num">18×</td></tr>
+      <tr><td><b>Andreas Pütter</b></td><td>Webdesign-Agentur</td><td>3k → 30k/m in 2 Monaten</td><td class="num">18×</td></tr>
+      <tr><td><b>Christoph Kauf</b></td><td>Sales-Coach</td><td>5k/m → 25k in 2 Wochen</td><td class="num">14×</td></tr>
+      <tr><td><b>Luca Tenzer</b></td><td>SEO-Agentur</td><td>70 gebuchte Termine im 1. Monat</td><td class="num">4×</td></tr>
+    </tbody>
+  </table>
+  <h3 style="margin-top:48px;margin-bottom:14px">Sein „Big-Number-Stack" (statisch wiederholt)</h3>
+  <div class="grid grid-4">
+    <div class="card"><div class="stat" style="font-size:42px">30.000+</div><div class="stat-label">Kundenanfragen generiert</div></div>
+    <div class="card"><div class="stat" style="font-size:42px">120+</div><div class="stat-label">Webdesigner & Agenturen</div></div>
+    <div class="card"><div class="stat" style="font-size:42px">100k €</div><div class="stat-label">in eigene Coachings investiert</div></div>
+    <div class="card"><div class="stat" style="font-size:42px">2 Jahre</div><div class="stat-label">Erfahrung in dieser Nische</div></div>
+  </div>
+</section>
+
+<!-- BEISPIEL AD -->
+<section class="slide">
+  <div class="slide-num">09 / 12</div>
+  <div class="kicker">Original-Anzeige im Volltext</div>
+  <h2>So sieht eine seiner Top-Ads aus</h2>
+  <p style="margin-bottom:16px;color:var(--muted)">Library ID 1672021627111272 · 9 Varianten parallel · Laufzeit Dez 2025 – Jan 2026</p>
+  <div class="ad-card">
+<span class="h">Marc Evers Marketing & Consulting · Anzeige</span>
+Woher kommt mein nächster Kunde?
+
+Diese Frage habe ich in den letzten 2 Jahren für über 120+ Webdesigner und Agenturbetreiber endgültig beantwortet.
+
+Nach über 30.000 generierten Kundenanfragen, über 100.000€ in Coachings und 100-ten getesteten Angeboten, habe ich ein Framework gebaut, welches du 1zu1 für dich kopieren kannst, um selber 2 - 3 Neukunden für dich zu gewinnen.
+
+Und da ich so überzeugt bin, garantiere ich dir sogar mindestens 5 Webdesignkunden in nächsten 60 Tagen oder du zahlst 0€.
+
+❌ ohne dass du zig Case-Studies brauchst
+❌ ohne Organic Content zu posten
+❌ ohne Kaltakquise oder DM-Spam
+
+Ich nenne es das No-Funnel-Ads-Framework. Und es ist ziemlich geil.
+
+👉 Damit konnten wir bei der Agentur von Robin & Arian zum Beispiel nach nur 500€ Ad-Spend den ersten Neukunden für 4.500€ abschließen und im 3. Monat auf über 45.000€ Monatsumsatz kommen.
+
+👉 Daniel und Jannek, 2 Webdesigner, bei denen wir von 700€/m innerhalb von 3 Monaten auf über 14k/m kommen konnten und das mit simplen Webseiten.
+
+👉 Oder bei der Marketing-Agentur von Marcel Lellig, wo wir in 3 Monaten von 5k/m auf über 50.000€ Monatsumsatz kommen konnten.
+
+Und ich helfe dir persönlich (1on1) dabei mein No-Funnel-Ads-Framework bei dir zu implementieren.
+
+Klick hierzu auf den Button und schau dir an wie du mit mir arbeiten kannst!
+  </div>
+</section>
+
+<!-- SPEND PATTERN -->
+<section class="slide">
+  <div class="slide-num">10 / 12</div>
+  <div class="kicker">Wie er testet & skaliert</div>
+  <h2>Sein Ad-Operating-System</h2>
+  <div class="grid grid-2" style="margin-top:24px">
+    <div class="card">
+      <h3>Volumen</h3>
+      <ul class="clean">
+        <li><span class="bullet">→</span><div><b>166 unique Ad-Sets</b> (verschiedene Kreative/Bodies)</div></li>
+        <li><span class="bullet">→</span><div><b>376 Anzeigen-Varianten</b> insgesamt</div></li>
+        <li><span class="bullet">→</span><div>Hot-Period Jul–Okt 2025: <b>13 Ads gleichzeitig mit je 9 Varianten</b> = ~117 parallele Ads</div></li>
+        <li><span class="bullet">→</span><div>Verteilung: 100 Ads aus 2025, 66 aus 2026 — er fährt aktuell <b>weiter heiß</b></div></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Test-Disziplin</h3>
+      <ul class="clean">
+        <li><span class="bullet">→</span><div>Hook: <b>fix</b> (eine Frage, in 70 % aller Ads identisch)</div></li>
+        <li><span class="bullet">→</span><div>Pain-Stack: <b>fix</b> (immer die 3 gleichen Negationen)</div></li>
+        <li><span class="bullet">→</span><div>Variabel: <b>Case-Reihenfolge</b>, <b>Garantie-Variante</b>, <b>Creative</b> (Image vs Video, Avatare)</div></li>
+        <li><span class="bullet">→</span><div>9-Varianten-Setup = klassisches Meta-Advantage+ Setup</div></li>
+      </ul>
+    </div>
+  </div>
+  <h3 style="margin-top:40px;margin-bottom:14px">Timeline-Auszug</h3>
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="date">Frühjahr 2025</div>
+      <h4>„MVP-Framework"-Phase</h4>
+      <p>Erste Welle. Garantie noch weicher („7 Tage" bzw. „1 Kunde gratis"), Social-Proof-Stack noch klein („50+ Agenturen", „40k€ in Coachings").</p>
+    </div>
+    <div class="timeline-item">
+      <div class="date">Juli – Oktober 2025</div>
+      <h4>Skalierungs-Peak</h4>
+      <p>Massive Volumenphase. 9-Varianten-Sets im Wochentakt. Rebranding zu „No-Funnel-Ads-Framework". Garantie schärft sich auf 5 Kunden / 60 Tage.</p>
+    </div>
+    <div class="timeline-item">
+      <div class="date">November 2025 – April 2026</div>
+      <h4>Aktuelle Phase</h4>
+      <p>Stabiles, leicht reduziertes Volumen. Soziale Beweise wachsen mit (50+ → 64+ → 100+ → 120+). Funnel weiterhin auf client-acquisition-accelerator.de.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SWOT -->
+<section class="slide">
+  <div class="slide-num">11 / 12</div>
+  <div class="kicker">Das Urteil</div>
+  <h2>Wo er stark ist — und wo angreifbar</h2>
+  <div class="swot">
+    <div class="card green">
+      <h3 style="color:var(--green)">▲ Stärken</h3>
+      <ul class="clean">
+        <li><span class="bullet" style="color:var(--green)">+</span><div><b>Eine Message, eine Frage, ein Framework.</b> Keine Verwässerung.</div></li>
+        <li><span class="bullet" style="color:var(--green)">+</span><div><b>0 €-Garantie</b> direkt im Body — stärkster Risk-Reversal-Trigger.</div></li>
+        <li><span class="bullet" style="color:var(--green)">+</span><div><b>Echte Namen</b> als Social Proof — auf LinkedIn verifizierbar.</div></li>
+        <li><span class="bullet" style="color:var(--green)">+</span><div><b>Einwand-Stack</b> räumt 3 Bedenken vor dem Lesen aus.</div></li>
+        <li><span class="bullet" style="color:var(--green)">+</span><div><b>Test-Disziplin:</b> Variable klar, Konstanten klar.</div></li>
+        <li><span class="bullet" style="color:var(--green)">+</span><div><b>Free 27-Min-Breakdown</b> = qualifiziert die Leads vor dem Call.</div></li>
+      </ul>
+    </div>
+    <div class="card red">
+      <h3 style="color:var(--red)">▼ Schwächen / Angriffsflächen</h3>
+      <ul class="clean">
+        <li><span class="bullet" style="color:var(--red)">−</span><div><b>Hormozi-Standard-Funnel.</b> Differenzierbar über Format (Live-Audit, Quiz, Diagnose).</div></li>
+        <li><span class="bullet" style="color:var(--red)">−</span><div><b>0 €-Garantie ist Massenware.</b> Härteres Reversal sticht (z.B. „1.000 € an dich, wenn nicht").</div></li>
+        <li><span class="bullet" style="color:var(--red)">−</span><div><b>Coaching-Format</b> (1on1) — Webdesigner mit Team wollen Done-For-You, nicht „selber lernen".</div></li>
+        <li><span class="bullet" style="color:var(--red)">−</span><div><b>Marken-Schwäche:</b> marcevers.de ist offline. Komplette Conversion auf Funnel-Domain → null Brand-Halo.</div></li>
+        <li><span class="bullet" style="color:var(--red)">−</span><div><b>Big-Number-Inflation</b> (50+ → 64+ → 100+ → 120+ Kunden in 12 Monaten?) — kann Scrutiny einladen.</div></li>
+        <li><span class="bullet" style="color:var(--red)">−</span><div><b>Nische schmal:</b> Webdesigner. Wer Webagenturen mit ≥6 Mitarbeitern oder Premium-Studios will, sucht woanders.</div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- TAKEAWAYS -->
+<section class="slide">
+  <div class="slide-num">12 / 12</div>
+  <div class="kicker">Was Adslift jetzt tun sollte</div>
+  <h2>Konkrete Moves</h2>
+  <div class="grid grid-2" style="margin-top:24px">
+    <div class="card">
+      <span class="badge">Defensiv</span>
+      <h3 style="margin-top:14px">Was du übernimmst</h3>
+      <ul class="clean">
+        <li><span class="bullet">1.</span><div><b>Eine Signature-Frage.</b> Eine Hook, die 70 % deiner Ads trägt — nicht 10 verschiedene.</div></li>
+        <li><span class="bullet">2.</span><div><b>Negation-Stack.</b> 3 klare „ohne X"-Bullets in jeder Ad.</div></li>
+        <li><span class="bullet">3.</span><div><b>Echte Kundennamen</b> mit Zahlen — verifizierbar auf LinkedIn.</div></li>
+        <li><span class="bullet">4.</span><div><b>Big-Number-Stack:</b> 4 statische Zahlen die in jeder Ad wiederkehren.</div></li>
+        <li><span class="bullet">5.</span><div><b>9-Varianten-Disziplin:</b> Hook fix, alles drumrum testen.</div></li>
+      </ul>
+    </div>
+    <div class="card accent">
+      <span class="badge">Offensiv</span>
+      <h3 style="margin-top:14px">Wo du ihn schlägst</h3>
+      <ul class="clean">
+        <li><span class="bullet">1.</span><div><b>Done-For-You statt Coaching.</b> Wer bezahlt, will nicht lernen, sondern Resultate.</div></li>
+        <li><span class="bullet">2.</span><div><b>Härtere Garantie.</b> Nicht „0 €" sondern „X € Strafe an dich" — bricht das Hormozi-Pattern.</div></li>
+        <li><span class="bullet">3.</span><div><b>Schärferes Sub-Segment.</b> Nicht „Webdesigner" allgemein, sondern „Webagenturen mit 5–20 Mitarbeitern" oder „Premium-Studios mit Designanspruch".</div></li>
+        <li><span class="bullet">4.</span><div><b>Anderes Hook-Angle:</b> Retention / Margen / LTV statt Akquise — er hat „Akquise" besetzt.</div></li>
+        <li><span class="bullet">5.</span><div><b>Brand-Asset bauen.</b> Er hat keine Brand. Du baust Soulsurf-Style-Audits, Reports, eigene Methodik = langfristiger Moat.</div></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="cta-final">
+    <h2>Nächste Schritte</h2>
+    <p>Drei Optionen, die ich dir sofort liefern kann — sag was du brauchst:</p>
+    <div class="opts">
+      <div class="opt">→ <b>Counter-Offer-Strategie</b> via /offer-builder<br><span style="color:#888;font-weight:400">Hormozi-Style PDF gegen sein No-Funnel-Ads-Framework positioniert</span></div>
+      <div class="opt">→ <b>Adslift-Ad-Set</b> nach seinem Framework<br><span style="color:#888;font-weight:400">3 Ad-Varianten mit deiner Signature-Frage + Negation-Stack + Cases</span></div>
+      <div class="opt">→ <b>Funnel-Architektur</b><br><span style="color:#888;font-weight:400">Eigene 2-stufige VSL-Struktur, härter als seine</span></div>
+      <div class="opt">→ <b>Hook-Bibliothek</b><br><span style="color:#888;font-weight:400">15 alternative Signature-Fragen die er NICHT besetzt hat</span></div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

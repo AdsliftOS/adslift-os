@@ -1,0 +1,71 @@
+{
+  "url": "https://adsmanager.facebook.com/adsmanager/manage/ads/edit/standalone?act=2394298901030120&business_id=1285014529172853&global_scope_id=1285014529172853&date=2026-01-13_2026-04-28%2Cmaximum&insights_date=2026-01-13_2026-04-28%2Cmaximum&selected_ad_ids=120242520220710525&current_step=0",
+  "ad_id": "120242520220710525",
+  "data": {
+    "inputs": [
+      {
+        "name": null,
+        "ariaLabel": null,
+        "placeholder": "Suchen",
+        "value": "",
+        "type": "INPUT/text"
+      },
+      {
+        "name": null,
+        "ariaLabel": null,
+        "placeholder": "Namen der Anzeigen hier eingeben ...",
+        "value": "Adslift | Gartenlandschaftsbauer | ABO | Creative 01",
+        "type": "INPUT/text"
+      },
+      {
+        "name": null,
+        "ariaLabel": null,
+        "placeholder": "Suchen",
+        "value": "",
+        "type": "INPUT/text"
+      },
+      {
+        "name": null,
+        "ariaLabel": null,
+        "placeholder": null,
+        "value": "Baust du noch Zäune oder erschaffst du bereits Gartenträume?\nViele Galabau-Betriebe stecken im Teufelskreis: Die Auftragsbücher sind zwar voll, aber die Projekte sind kleinteilig, die Margen gering und am Ende entscheidet der Kunde nur über den Preis. Währenddessen ziehen die lukrativen 5-stelligen Premium-Aufträge an dir vorbei.\n\nGenau das ändern wir. Wir verwandeln deine Website in einen Hochwert-Filter, der Billig-Anfragen aussortiert und genau die Kunden anzieht, die Qualität schätzen und bereit sind, für echte Handwerkskunst zu zahlen.\n\nIn nur 30 Tagen bauen wir für deinen Betrieb ein System, das dich vom „Handwerker um die Ecke“ zum gefragten Experten für anspruchsvolle Gartenprojekte macht.\nDein Upgrade zum Premium-Betrieb:\n\n✅ Schluss mit dem Preiskampf: Deine Website kommuniziert deinen Wert so klar, dass der Preis zur Nebensache wird.\n✅ Qualifizierte Projekt-Anfragen: Erhalte Anfragen für Poolbau, Großprojekte und komplette Neugestaltungen statt Kleinkram.\n✅ Digitale Vorab-Beratung: Ein System, das Kundenwünsche abfragt, bevor du überhaupt zum ersten Vor-Ort-Termin fährst.\n✅ KI-Projekt-Assistent: Sofortige Qualifizierung von Anfragen – 24/7 erreichbar, auch wenn du auf der Baustelle stehst.\n\n❌ Keine Zeitverschwendung für unpassende Angebote, die nie beauftragt werden.\n❌ Keine veraltete Galerie mit Handyfotos, die deinen wahren Wert unterverkaufen.\n❌ Keine Abhängigkeit von Empfehlungen, die nur auf „billig“ aus sind.\n\nWir nennen es das Galabau-Expert-Framework. Es sorgt dafür, dass deine Website genauso hochwertig aussieht wie die Gärten, die du baust – und genau diese Klientel auch abschließt.\nIch begleite dich persönlich vom ersten Konzept bis zur fertigen Lead-Maschine.\n\n⬇️ Klick auf den Button und finde heraus, wie wir deinen Betrieb auf das nächste Level heben.",
+        "type": "TEXTAREA/textarea"
+      },
+      {
+        "name": null,
+        "ariaLabel": null,
+        "placeholder": null,
+        "value": "Baust du noch Zäune oder erschaffst du bereits Gartenträume?",
+        "type": "TEXTAREA/textarea"
+      },
+      {
+        "name": null,
+        "ariaLabel": null,
+        "placeholder": null,
+        "value": "In nur 30 Tagen bauen wir für deinen Betrieb ein System, das dich vom „Handwerker um die Ecke“ zum gefragten Experten für anspruchsvolle Gartenprojekte macht.\n",
+        "type": "TEXTAREA/textarea"
+      },
+      {
+        "name": null,
+        "ariaLabel": null,
+        "placeholder": "key1=value1&key2=value2",
+        "value": "",
+        "type": "INPUT/text"
+      }
+    ],
+    "iframes": [],
+    "sections": {
+      "Werbekonto-Updates\n​": "Werbekonto-Updates\n​",
+      "Werbekonto-Updates": "Werbekonto-Updates\n​",
+      "Primärer Text​": "Primärer Text​",
+      "Primärer Text": "Primärer Text",
+      "Überschrift​": "Überschrift​",
+      "Überschrift": "Überschrift",
+      "Überschriftenoption hinzufügen": "Überschriftenoption hinzufügen",
+      "Beschreibung​": "Beschreibung​",
+      "Beschreibung": "Beschreibung",
+      "Call-to-ActionWähle eine Option ausMehr dazu​": "Call-to-ActionWähle eine Option ausMehr dazu​",
+      "Call-to-Action": "Call-to-Action"
+    }
+  }
+}
