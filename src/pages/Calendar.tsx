@@ -385,7 +385,42 @@ export default function Calendar() {
     });
 
     const linkedGoogleIds = new Set(events.map((e) => e.googleEventId).filter(Boolean) as string[]);
-    const gcalDeduped = googleEvents.filter((e) => !e.googleEventId || !linkedGoogleIds.has(e.googleEventId));
+    // Fallback-Signature falls google_event_id-Verlinkung mal fehlschlägt
+    const localSignatures = new Set(
+      events.map((e) => `${e.date}|${e.startTime}|${(e.title || "").trim().toLowerCase()}`),
+    );
+
+    // 1. Cross-Account-Dedup: Wenn dasselbe Google-Event in beiden Accounts
+    //    liegt (z.B. Alex + Daniel gegenseitig eingeladen), kommt es zweimal
+    //    rein. Pro googleEventId nur eins behalten — bevorzugt das aus einem
+    //    nicht ausgeblendeten Account.
+    const gcalById = new Map<string, CalendarEvent>();
+    for (const ge of googleEvents) {
+      if (!ge.googleEventId) {
+        gcalById.set(ge.id, ge);
+        continue;
+      }
+      const existing = gcalById.get(ge.googleEventId);
+      if (!existing) {
+        gcalById.set(ge.googleEventId, ge);
+        continue;
+      }
+      const existingHidden = existing.accountEmail ? hiddenAccounts.has(existing.accountEmail) : false;
+      const newHidden = ge.accountEmail ? hiddenAccounts.has(ge.accountEmail) : false;
+      if (existingHidden && !newHidden) gcalById.set(ge.googleEventId, ge);
+    }
+
+    // 2. Dedup gegen lokale DB-Events
+    //    Primär per googleEventId. Falls die Verlinkung fehlt, Fallback auf
+    //    date+startTime+title — fängt halbsynchrone Events ab.
+    const gcalDeduped = Array.from(gcalById.values()).filter((e) => {
+      if (e.googleEventId && linkedGoogleIds.has(e.googleEventId)) return false;
+      const sig = `${e.date}|${e.startTime}|${(e.title || "").trim().toLowerCase()}`;
+      if (localSignatures.has(sig)) return false;
+      return true;
+    });
+
+    // 3. Sichtbarkeits-Filter
     const gcalVisible = gcalDeduped.filter((e) => !e.accountEmail || !hiddenAccounts.has(e.accountEmail));
     return [...localVisible, ...deadlineEvents, ...gcalVisible];
   }, [events, projects, googleEvents, hiddenAccounts]);
