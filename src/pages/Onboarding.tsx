@@ -239,11 +239,19 @@ export default function Onboarding() {
       // 4. Notify all team members (in-app)
       await notifyTeamOnboardingComplete(data.companyName, data.contactName, normalizedEmail);
 
-      // 5. Update local session + redirect — D4Y → /portal, DWY → /academy
-      const updated = { ...academySession, onboarding_completed: true };
+      // 5. Variant frisch aus DB lesen (robust gegen stale localStorage)
+      const { data: variantData } = await supabase
+        .from("academy_customers")
+        .select("variant")
+        .eq("id", academySession.customer_id)
+        .single();
+      const isD4Y = variantData?.variant === "d4y";
+
+      // 6. Update local session + redirect
+      const updated = { ...academySession, onboarding_completed: true, variant: isD4Y ? "d4y" : "dwy" };
       localStorage.setItem("academy_session", JSON.stringify(updated));
 
-      const target = academySession.variant === "d4y" ? "/portal" : "/academy";
+      const target = isD4Y ? "/portal" : "/academy";
       setSubmitted(true);
       setTimeout(() => navigate(target, { replace: true }), 2500);
       return;
