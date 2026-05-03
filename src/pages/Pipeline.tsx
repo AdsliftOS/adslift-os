@@ -49,6 +49,7 @@ import {
   ClipboardList,
   CheckCircle2,
   Circle,
+  Phone,
 } from "lucide-react";
 import { format, differenceInDays, addDays, isToday, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
@@ -4173,7 +4174,7 @@ function D4YMeetingNotesCard({ project }: { project: ReturnType<typeof usePipeli
         ) : (
           <>
             {visible.map((a) => {
-              const Icon = a.type === "call" ? PlayCircle : a.type === "meeting" ? Calendar : FileText;
+              const Icon = a.type === "call" ? Phone : a.type === "meeting" ? Calendar : FileText;
               const colorBg = a.type === "call" ? "bg-blue-500/10" : a.type === "meeting" ? "bg-emerald-500/10" : "bg-rose-500/10";
               const colorIcon = a.type === "call" ? "text-blue-500" : a.type === "meeting" ? "text-emerald-500" : "text-rose-500";
               const isExpanded = expandedId === a.id;
