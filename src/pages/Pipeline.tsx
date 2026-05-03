@@ -323,26 +323,15 @@ export default function Pipeline() {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-2xl border bg-card overflow-hidden">
-          <div className="hidden sm:grid grid-cols-[40px_70px_1fr_180px_140px_120px_50px] gap-3 px-4 py-2 border-b bg-muted/30 text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
-            <div>Status</div>
-            <div>Modell</div>
-            <div>Projekt</div>
-            <div>Kunde</div>
-            <div>Steps</div>
-            <div>Fortschritt</div>
-            <div></div>
-          </div>
-          <div className="divide-y">
-            {filtered.map((p) => (
-              <ProjectRow
-                key={p.id}
-                project={p}
-                client={clients.find((c) => c.id === p.clientId) || null}
-                onClick={() => setSelectedProjectId(p.id)}
-              />
-            ))}
-          </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((p) => (
+            <ProjectCard
+              key={p.id}
+              project={p}
+              client={clients.find((c) => c.id === p.clientId) || null}
+              onClick={() => setSelectedProjectId(p.id)}
+            />
+          ))}
         </div>
       )}
 
@@ -483,7 +472,7 @@ export default function Pipeline() {
 
 // ─── Project Card ───────────────────────────────────────────────────
 
-function ProjectRow({
+function ProjectCard({
   project,
   client,
   onClick,
@@ -494,85 +483,112 @@ function ProjectRow({
 }) {
   const steps = useProjectSteps(project.id);
   const completed = steps.filter((s) => s.status === "done").length;
+  const active = steps.filter((s) => s.status === "active").length;
   const progress = steps.length > 0 ? Math.round((completed / steps.length) * 100) : 0;
-  const statusMeta = PROJECT_STATUS_META[project.status] || PROJECT_STATUS_META.draft;
   const isDWY = project.variant === "dwy";
+
+  const statusLabel = {
+    draft: "Draft",
+    active: "Live",
+    paused: "Pausiert",
+    done: "Abgeschlossen",
+  }[project.status] || project.status;
+
+  const statusGradient = {
+    draft: "from-slate-500/20 to-slate-600/10",
+    active: "from-blue-500/20 to-blue-600/10",
+    paused: "from-amber-500/20 to-amber-600/10",
+    done: "from-emerald-500/20 to-emerald-600/10",
+  }[project.status];
+
+  const variantGradient = isDWY
+    ? "from-violet-500 via-indigo-500 to-purple-500"
+    : "from-emerald-500 via-teal-500 to-cyan-500";
+
+  const progressGradient =
+    project.status === "done" ? "from-emerald-400 to-emerald-500"
+    : project.status === "active" ? "from-blue-400 to-blue-500"
+    : project.status === "paused" ? "from-amber-400 to-amber-500"
+    : "from-slate-400 to-slate-500";
 
   return (
     <button
       onClick={onClick}
-      className="group w-full text-left hover:bg-muted/30 transition-colors px-4 py-3 sm:py-2.5 grid grid-cols-1 sm:grid-cols-[40px_70px_1fr_180px_140px_120px_50px] gap-3 items-center"
+      className={cn(
+        "group relative text-left rounded-2xl border bg-card overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.01]",
+        "hover:border-foreground/20",
+      )}
     >
-      {/* Status-Dot */}
-      <div className="flex items-center gap-2 sm:contents">
-        <div className="flex items-center gap-1.5">
-          <div className={cn(
-            "h-2 w-2 rounded-full shrink-0",
-            project.status === "active" && "bg-blue-500 animate-pulse",
-            project.status === "done" && "bg-emerald-500",
-            project.status === "paused" && "bg-amber-500",
-            project.status === "draft" && "bg-slate-400",
-          )} />
-          <span className="text-[10px] text-muted-foreground sm:hidden uppercase font-semibold">{statusMeta.label}</span>
+      {/* Status Glow im Hintergrund */}
+      <div className={cn("absolute inset-0 opacity-30 pointer-events-none bg-gradient-to-br", statusGradient)} />
+
+      {/* Variant-Akzent oben */}
+      <div className={cn("relative h-1 w-full bg-gradient-to-r", variantGradient)} />
+
+      <div className="relative p-5 space-y-4">
+        {/* Header: Variant + Status */}
+        <div className="flex items-start justify-between gap-2">
+          <span className={cn(
+            "px-2.5 py-1 rounded-md text-[11px] font-bold text-white bg-gradient-to-r shadow-sm tracking-wider",
+            isDWY ? "from-violet-500 to-indigo-600" : "from-emerald-500 to-teal-600",
+          )}>
+            {isDWY ? "DWY" : "D4Y"}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <div className={cn(
+              "h-2 w-2 rounded-full",
+              project.status === "active" && "bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.6)]",
+              project.status === "done" && "bg-emerald-500",
+              project.status === "paused" && "bg-amber-500",
+              project.status === "draft" && "bg-slate-400",
+            )} />
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{statusLabel}</span>
+          </div>
         </div>
 
-        {/* Variant Badge */}
-        <span className={cn(
-          "px-2 py-0.5 rounded text-[10px] font-bold text-white bg-gradient-to-r shrink-0",
-          isDWY ? "from-violet-500 to-indigo-600" : "from-emerald-500 to-teal-600",
-        )}>
-          {isDWY ? "DWY" : "D4Y"}
-        </span>
-      </div>
-
-      {/* Project Name */}
-      <div className="min-w-0 sm:contents">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">{project.name}</p>
-        </div>
-
-        {/* Client */}
-        <div className="text-xs text-muted-foreground truncate flex items-center gap-1.5 mt-0.5 sm:mt-0">
-          {client ? (
-            <>
+        {/* Title */}
+        <div>
+          <h3 className="font-bold text-base leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+            {project.name}
+          </h3>
+          {client && (
+            <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
               <Building2 className="h-3 w-3 shrink-0" />
               <span className="truncate">{client.name}</span>
-            </>
-          ) : (
-            <span className="text-muted-foreground/50">—</span>
-          )}
-        </div>
-
-        {/* Steps */}
-        <div className="text-xs tabular-nums">
-          {steps.length > 0 ? (
-            <span className="text-muted-foreground"><span className="font-semibold text-foreground">{completed}</span>/{steps.length}</span>
-          ) : (
-            <span className="text-muted-foreground/50">leer</span>
+            </div>
           )}
         </div>
 
         {/* Progress */}
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all",
-                project.status === "done" && "bg-emerald-500",
-                project.status === "active" && "bg-blue-500",
-                project.status === "paused" && "bg-amber-500",
-                project.status === "draft" && "bg-slate-400",
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground">
+              {steps.length === 0 ? (
+                <span className="italic">Noch keine Steps</span>
+              ) : (
+                <>
+                  <span className="font-bold text-foreground tabular-nums">{completed}</span>
+                  <span className="text-muted-foreground">/{steps.length} Steps</span>
+                  {active > 0 && (
+                    <span className="ml-2 text-blue-500">· {active} aktiv</span>
+                  )}
+                </>
               )}
+            </span>
+            <span className="font-bold text-sm tabular-nums">{progress}%</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className={cn("h-full rounded-full transition-all duration-500 bg-gradient-to-r", progressGradient)}
               style={{ width: `${progress}%` }}
             />
           </div>
-          <span className="text-[11px] font-bold tabular-nums w-10 text-right">{progress}%</span>
         </div>
+      </div>
 
-        {/* Arrow */}
-        <div className="flex justify-end">
-          <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
-        </div>
+      {/* Hover-Indicator */}
+      <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+        <ChevronRight className="h-4 w-4 text-muted-foreground" />
       </div>
     </button>
   );
