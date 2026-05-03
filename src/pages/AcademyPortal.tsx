@@ -220,6 +220,16 @@ export default function AcademyPortal() {
   const [session, setSession] = useState<CustomerSession | null>(null);
   const [showKickoffModal, setShowKickoffModal] = useState(false);
 
+  // ?reset=1 → localStorage clearen für Tests
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("reset") === "1") {
+      localStorage.removeItem("academy_session");
+      url.searchParams.delete("reset");
+      window.location.replace(url.pathname + url.search);
+    }
+  }, []);
+
   // Theme
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     return (localStorage.getItem("academy_theme") as "dark" | "light") || "dark";
