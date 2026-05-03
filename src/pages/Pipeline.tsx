@@ -56,6 +56,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useClients } from "@/store/clients";
 import { OnboardingDetails } from "@/pages/ClientDetail";
+import { ProjectBoard } from "@/components/ProjectBoard";
 import {
   usePipelineProjects,
   useProjectSteps,
@@ -984,6 +985,11 @@ function PipelineDetail({
           />
           <D4YDriveCard project={project} />
         </div>
+      )}
+
+      {/* D4Y Setup: Strategie-Board (Excalidraw) */}
+      {mode === "setup" && !isDWY && (
+        <ProjectBoard projectId={project.id} initialData={project.excalidrawData} />
       )}
 
       {/* D4Y Setup: Bottom-Row — Meeting-Notes (links) + Tasks (rechts) */}

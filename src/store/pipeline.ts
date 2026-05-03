@@ -63,6 +63,7 @@ export type PipelineProject = {
   adCopyHtml: string | null;
   driveLink: string | null;
   meetingNotes: string | null;
+  excalidrawData: any | null;
 };
 
 // ─── Templates store ─────────────────────────────────────────────────
@@ -159,6 +160,7 @@ function rowToProject(r: any): PipelineProject {
     adCopyHtml: r.ad_copy_html ?? null,
     driveLink: r.drive_link ?? null,
     meetingNotes: r.meeting_notes ?? null,
+    excalidrawData: r.excalidraw_data ?? null,
   };
 }
 
@@ -220,6 +222,7 @@ export async function updatePipelineProject(id: string, updates: Partial<Pipelin
   if (updates.adCopyHtml !== undefined) row.ad_copy_html = updates.adCopyHtml;
   if (updates.driveLink !== undefined) row.drive_link = updates.driveLink;
   if (updates.meetingNotes !== undefined) row.meeting_notes = updates.meetingNotes;
+  if (updates.excalidrawData !== undefined) row.excalidraw_data = updates.excalidrawData;
   if (updates.clientId !== undefined) row.client_id = updates.clientId;
   if (updates.clientEmail !== undefined) row.client_email = updates.clientEmail;
   if (updates.adAccountId !== undefined) row.ad_account_id = updates.adAccountId;
