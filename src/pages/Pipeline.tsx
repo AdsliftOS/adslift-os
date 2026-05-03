@@ -56,7 +56,6 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useClients } from "@/store/clients";
 import { OnboardingDetails } from "@/pages/ClientDetail";
-import { ProjectBoard } from "@/components/ProjectBoard";
 import {
   usePipelineProjects,
   useProjectSteps,
@@ -987,9 +986,31 @@ function PipelineDetail({
         </div>
       )}
 
-      {/* D4Y Setup: Strategie-Board (Excalidraw) */}
+      {/* D4Y Setup: Strategie-Board-Link (Excalidraw in eigener Page) */}
       {mode === "setup" && !isDWY && (
-        <ProjectBoard projectId={project.id} initialData={project.excalidrawData} />
+        <div className="rounded-2xl border bg-gradient-to-br from-violet-500/[0.04] via-card to-card overflow-hidden">
+          <div className="p-5 flex items-center gap-4">
+            <div className="shrink-0 h-12 w-12 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+              <svg viewBox="0 0 24 24" className="h-6 w-6 text-white" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11H4l3-7 5 11 5-11 3 7h-5"/></svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                Strategie-Board
+                <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Live-Collab</Badge>
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Whiteboard für Funnels, Mindmaps, Strategien — du und der Kunde könnt parallel arbeiten (Auto-Sync alle 5s)
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => window.open(`/board/${project.id}`, "_blank")}
+              className="bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700"
+            >
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Board öffnen
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* D4Y Setup: Bottom-Row — Meeting-Notes (links) + Tasks (rechts) */}

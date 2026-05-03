@@ -441,6 +441,28 @@ export default function D4YPortal() {
           <D4YPortalDriveCard driveLink={project?.drive_link || briefing?.driveLink || null} />
         </div>
 
+        {/* Strategie-Board-Link (Live-Collab mit Adslift) */}
+        {project && (
+          <button
+            onClick={() => window.open(`/board/${project.id}`, "_blank")}
+            className="group w-full rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-500/[0.06] via-white/[0.02] to-white/[0.02] hover:from-violet-500/[0.1] transition-all text-left p-5 flex items-center gap-4"
+          >
+            <div className="shrink-0 h-12 w-12 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+              <svg viewBox="0 0 24 24" className="h-6 w-6 text-white" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11H4l3-7 5 11 5-11 3 7h-5"/></svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                Strategie-Board
+                <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-300 border-emerald-500/30">Live-Collab</Badge>
+              </h3>
+              <p className="text-[11px] text-white/50 mt-0.5">
+                Whiteboard wo Adslift + du parallel an Strategie / Funnels / Ideen arbeiten — Auto-Sync alle 5s
+              </p>
+            </div>
+            <ExternalLink className="h-4 w-4 text-white/40 group-hover:text-white/80 transition-colors shrink-0" />
+          </button>
+        )}
+
         {/* Performance Preview (only if Live) */}
         {phase === "live" && project?.ad_account_id && (
           <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.04] to-transparent p-6">
