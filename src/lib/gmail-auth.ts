@@ -2,7 +2,7 @@ const CLIENT_ID = "468650314215-le2sfqid627e1acprplf2fdg1jk0cfj3.apps.googleuser
 const SCOPES = "https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email";
 const REDIRECT_URI = window.location.origin + "/auth/callback";
 
-const ACCOUNTS_KEY = "gmail-accounts-v1";
+import { getCachedTokens, upsertOAuthToken, deleteOAuthToken } from "@/lib/oauth-tokens";
 
 export type GmailAccount = {
   email: string;
@@ -12,35 +12,24 @@ export type GmailAccount = {
 };
 
 export function getGmailAccounts(): GmailAccount[] {
-  try {
-    const stored = localStorage.getItem(ACCOUNTS_KEY);
-    if (stored) {
-      return JSON.parse(stored).map((a: any) => ({
-        email: a.email || "Unknown",
-        accessToken: a.accessToken || "",
-        refreshToken: a.refreshToken || "",
-        expiresAt: a.expiresAt || 0,
-      }));
-    }
-  } catch {}
-  return [];
-}
-
-function saveAccounts(accounts: GmailAccount[]) {
-  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+  return getCachedTokens("gmail").map((t) => ({
+    email: t.email,
+    accessToken: t.accessToken,
+    refreshToken: t.refreshToken,
+    expiresAt: t.expiresAt,
+  }));
 }
 
 export function addGmailAccount(email: string, accessToken: string, refreshToken: string, expiresIn: number) {
-  const accounts = getGmailAccounts().filter((a) => a.email !== email);
-  accounts.push({
-    email, accessToken, refreshToken,
+  void upsertOAuthToken({
+    provider: "gmail", email,
+    accessToken, refreshToken,
     expiresAt: Date.now() + expiresIn * 1000,
   });
-  saveAccounts(accounts);
 }
 
 export function removeGmailAccount(email: string) {
-  saveAccounts(getGmailAccounts().filter((a) => a.email !== email));
+  void deleteOAuthToken("gmail", email);
 }
 
 export function isGmailConnected(): boolean {
@@ -55,12 +44,12 @@ async function refreshAccessToken(account: GmailAccount): Promise<string | null>
     const data = await res.json();
     if (data.error || !data.access_token) return null;
 
-    const accounts = getGmailAccounts().map((a) =>
-      a.email === account.email
-        ? { ...a, accessToken: data.access_token, expiresAt: Date.now() + (data.expires_in || 3600) * 1000 }
-        : a
-    );
-    saveAccounts(accounts);
+    void upsertOAuthToken({
+      provider: "gmail", email: account.email,
+      accessToken: data.access_token,
+      refreshToken: account.refreshToken,
+      expiresAt: Date.now() + (data.expires_in || 3600) * 1000,
+    });
     return data.access_token;
   } catch {
     return null;

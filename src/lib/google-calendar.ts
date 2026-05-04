@@ -11,7 +11,7 @@ const EMAIL_COLORS: Record<string, { color: string; colorLight: string }> = {
   "office@consulting-og.de": { color: "bg-orange-500", colorLight: "bg-orange-500/25 text-white" },
 };
 
-const ACCOUNTS_KEY = "google-calendar-accounts-v4";
+import { getCachedTokens, upsertOAuthToken, deleteOAuthToken } from "@/lib/oauth-tokens";
 
 export type GoogleAccount = {
   email: string;
@@ -22,45 +22,34 @@ export type GoogleAccount = {
   colorLight: string;
 };
 
-export function getAccounts(): GoogleAccount[] {
-  try {
-    const stored = localStorage.getItem(ACCOUNTS_KEY);
-    if (stored) {
-      return JSON.parse(stored).map((a: any, idx: number) => {
-        const emailColors = EMAIL_COLORS[a.email];
-        return {
-          email: a.email || "Unknown",
-          accessToken: a.accessToken || a.token || "",
-          refreshToken: a.refreshToken || "",
-          expiresAt: a.expiresAt || 0,
-          color: emailColors?.color || ACCOUNT_COLORS[idx % ACCOUNT_COLORS.length],
-          colorLight: emailColors?.colorLight || ACCOUNT_COLORS_LIGHT[idx % ACCOUNT_COLORS_LIGHT.length],
-        };
-      });
-    }
-  } catch {}
-  return [];
+function decorate(email: string, idx: number): { color: string; colorLight: string } {
+  const emailColors = EMAIL_COLORS[email];
+  return {
+    color: emailColors?.color || ACCOUNT_COLORS[idx % ACCOUNT_COLORS.length],
+    colorLight: emailColors?.colorLight || ACCOUNT_COLORS_LIGHT[idx % ACCOUNT_COLORS_LIGHT.length],
+  };
 }
 
-function saveAccounts(accounts: GoogleAccount[]) {
-  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+export function getAccounts(): GoogleAccount[] {
+  return getCachedTokens("calendar").map((t, idx) => ({
+    email: t.email,
+    accessToken: t.accessToken,
+    refreshToken: t.refreshToken,
+    expiresAt: t.expiresAt,
+    ...decorate(t.email, idx),
+  }));
 }
 
 export function addAccount(email: string, accessToken: string, refreshToken: string, expiresIn: number) {
-  const accounts = getAccounts().filter((a) => a.email !== email);
-  const idx = accounts.length;
-  const emailColors = EMAIL_COLORS[email];
-  accounts.push({
-    email, accessToken, refreshToken,
+  void upsertOAuthToken({
+    provider: "calendar", email,
+    accessToken, refreshToken,
     expiresAt: Date.now() + expiresIn * 1000,
-    color: emailColors?.color || ACCOUNT_COLORS[idx % ACCOUNT_COLORS.length],
-    colorLight: emailColors?.colorLight || ACCOUNT_COLORS_LIGHT[idx % ACCOUNT_COLORS_LIGHT.length],
   });
-  saveAccounts(accounts);
 }
 
 export function removeAccount(email: string) {
-  saveAccounts(getAccounts().filter((a) => a.email !== email));
+  void deleteOAuthToken("calendar", email);
 }
 
 export function isGoogleConnected(): boolean {
@@ -75,13 +64,12 @@ async function refreshAccessToken(account: GoogleAccount): Promise<string | null
     const data = await res.json();
     if (data.error || !data.access_token) return null;
 
-    // Update in storage
-    const accounts = getAccounts().map((a) =>
-      a.email === account.email
-        ? { ...a, accessToken: data.access_token, expiresAt: Date.now() + (data.expires_in || 3600) * 1000 }
-        : a
-    );
-    saveAccounts(accounts);
+    void upsertOAuthToken({
+      provider: "calendar", email: account.email,
+      accessToken: data.access_token,
+      refreshToken: account.refreshToken,
+      expiresAt: Date.now() + (data.expires_in || 3600) * 1000,
+    });
     return data.access_token;
   } catch {
     return null;
@@ -152,7 +140,9 @@ export function getStoredToken(): string | null {
   return accounts.length > 0 ? accounts[0].accessToken : null;
 }
 
-export function clearStoredToken() { saveAccounts([]); }
+export function clearStoredToken() {
+  for (const a of getAccounts()) void deleteOAuthToken("calendar", a.email);
+}
 
 // --- API calls ---
 const API_BASE = "https://www.googleapis.com/calendar/v3";

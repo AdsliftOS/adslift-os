@@ -32,6 +32,7 @@ import { useProjects } from "@/store/projects";
 import { useNoShows, markNoShow, unmarkNoShow, isNoShow } from "@/store/noshows";
 import { isSalesMeeting, isClientMeeting, isLinkedInSetting, getEventPerson } from "@/lib/sales-meetings";
 import { isGoogleConnected, getAccounts, getValidToken, listAllEvents, type GoogleCalendarEvent } from "@/lib/google-calendar";
+import { useOAuthVersion } from "@/lib/oauth-tokens";
 
 const eventTypes: { value: CalendarEvent["type"]; label: string; color: string; bgLight: string; icon: typeof Phone; creatable?: boolean }[] = [
   { value: "anruf", label: "Anruf", color: "bg-emerald-500", bgLight: "bg-emerald-500/25 text-white dark:text-white", icon: Phone, creatable: true },
@@ -192,7 +193,11 @@ export default function Calendar() {
   }, []);
 
   // Google Calendar — Multi-Account
+  // useOAuthVersion abonniert den Token-Store, damit getAccounts() nach
+  // Hydration aus der DB neue Werte liefert.
+  useOAuthVersion();
   const [googleAccounts, setGoogleAccounts] = useState(getAccounts());
+  useEffect(() => { setGoogleAccounts(getAccounts()); }, [getAccounts().length, getAccounts().map((a) => a.email).join(",")]);
   const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([]);
   const [syncing, setSyncing] = useState(false);
   const noshowList = useNoShows();
@@ -285,9 +290,11 @@ export default function Calendar() {
     if (accounts.length === 0) return;
     setSyncing(true);
     try {
+      // Lokales Jahr ±1 Tag puffer, damit TZ-Versatz an Jahresgrenzen
+      // (Berlin/Cyprus → UTC) keine Events verschluckt.
       const currentYear = today.getFullYear();
-      const timeMin = `${currentYear}-01-01T00:00:00Z`;
-      const timeMax = `${currentYear}-12-31T23:59:59Z`;
+      const timeMin = `${currentYear - 1}-12-31T00:00:00Z`;
+      const timeMax = `${currentYear + 1}-01-01T23:59:59Z`;
       const allResults = await listAllEvents(timeMin, timeMax);
       const mapped: CalendarEvent[] = allResults.flatMap(({ email, events: gEvents }) => {
         const account = accounts.find((a) => a.email === email);
@@ -478,9 +485,10 @@ export default function Calendar() {
 
   const handleSave = async () => {
     if (!form.title) { toast.error("Bitte Titel eingeben"); return; }
+    const cleanClient = (form.client || "").trim();
     const eventData = {
       title: form.title, date: form.date, startTime: form.startTime, endTime: form.endTime,
-      type: form.type, client: form.client || undefined, description: form.description || undefined,
+      type: form.type, client: cleanClient || undefined, description: form.description || undefined,
       meetingLink: form.meetingLink || undefined,
       assignee: currentUser,
     };
@@ -542,9 +550,12 @@ export default function Calendar() {
     // Pre-calculate new start/end for the dialog
     const [origSH, origSM] = dragEvent.startTime.split(":").map(Number);
     const [origEH, origEM] = dragEvent.endTime.split(":").map(Number);
-    const durationMin = (origEH * 60 + origEM) - (origSH * 60 + origSM);
+    let durationMin = (origEH * 60 + origEM) - (origSH * 60 + origSM);
+    // Mitternachts-Wraparound: Endzeit liegt am nächsten Tag
+    if (durationMin < 0) durationMin += 24 * 60;
+    if (durationMin <= 0) durationMin = 30;
     const newStartTotal = hour * 60 + dropMinute;
-    const newEndTotal = newStartTotal + (durationMin > 0 ? durationMin : 30);
+    const newEndTotal = newStartTotal + durationMin;
     const newSH = Math.floor(newStartTotal / 60) % 24;
     const newSM = newStartTotal % 60;
     const newEH = Math.floor(newEndTotal / 60) % 24;
@@ -570,10 +581,17 @@ export default function Calendar() {
   };
 
   const confirmDragMove = async () => {
-    if (!dragEvent || !dragTarget || !dragEvent.googleEventId || !dragEvent.accountEmail) {
+    if (!dragEvent || !dragTarget) {
       setDragConfirmOpen(false);
       setDragEvent(null);
       setDragTarget(null);
+      return;
+    }
+    // Edge-Case: Event hat googleEventId aber kein accountEmail (z.B. alte
+    // DB-Zeilen vor der Migration) → Google-Patch nicht möglich, also nur
+    // lokal verschieben statt still zu scheitern.
+    if (!dragEvent.googleEventId || !dragEvent.accountEmail) {
+      await moveLocalEvent();
       return;
     }
 

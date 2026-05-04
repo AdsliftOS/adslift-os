@@ -16,6 +16,7 @@ import { de } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
 import { isSalesMeeting } from "@/lib/sales-meetings";
 import { isGmailConnected, getGmailAccounts, getValidGmailToken } from "@/lib/gmail-auth";
+import { useOAuthVersion } from "@/lib/oauth-tokens";
 import { getPipelineSummary, getWeightedForecast, getTodayActivities } from "@/lib/close-api-client";
 import { listMessages } from "@/lib/gmail";
 import { Eyebrow, KpiNumber, Sparkline, ProgressRing, DeltaChip } from "@/components/ui/kpi";
@@ -93,6 +94,7 @@ export default function Dashboard() {
   const [deals] = useDeals();
   const [salesWeeks] = useSalesWeeks();
   const [userName, setUserName] = useState("Alex");
+  useOAuthVersion(); // re-render bei Token-Hydration
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {

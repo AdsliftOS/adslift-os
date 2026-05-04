@@ -18,6 +18,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import { supabase } from "@/lib/supabase";
 import { generateAutoTasks } from "@/lib/autoTasks";
+import { hydrateOAuthTokens, clearOAuthCache } from "@/lib/oauth-tokens";
 import { generateCloseAutoTasks } from "@/lib/closeAutoTasks";
 import { generateNotifications } from "@/lib/notificationGenerator";
 import { loadNotifications } from "@/store/notifications";
@@ -102,9 +103,12 @@ const App = () => {
     // Run auto-task generation and notification generation once on mount (after auth check)
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
+        hydrateOAuthTokens();
         generateAutoTasks();
         generateCloseAutoTasks();
         generateNotifications(session.user?.email || "").then(() => loadNotifications());
+      } else {
+        clearOAuthCache();
       }
     });
 

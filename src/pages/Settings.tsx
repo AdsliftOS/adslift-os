@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useSettings } from "@/store/settings";
 import { getAccounts, removeAccount, connectGoogleCalendar } from "@/lib/google-calendar";
 import { getGmailAccounts, removeGmailAccount, connectGmail } from "@/lib/gmail-auth";
+import { useOAuthVersion } from "@/lib/oauth-tokens";
 import { supabase } from "@/lib/supabase";
 import type { NotificationType } from "@/store/notifications";
 import {
@@ -31,6 +32,7 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const [appSettings, setAppSettings] = useSettings();
   const team = useTeamMembers();
+  useOAuthVersion(); // re-render bei Token-Updates
 
   // Close org users (for mapping)
   const [closeUsers, setCloseUsers] = useState<CloseOrgUser[]>([]);

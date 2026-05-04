@@ -155,6 +155,12 @@ export async function updateCalendarEvent(id: string, updates: Partial<CalendarE
             .from("calendar_events")
             .update({ google_event_id: googleEventId, google_account_email: account.email })
             .eq("id", id);
+          // Lokalen Cache mit der neuen Google-Verlinkung aktualisieren —
+          // sonst legt der nächste Update-Aufruf ein zweites Google-Event an.
+          events = events.map((e) =>
+            e.id === id ? { ...e, googleEventId, accountEmail: account.email } : e,
+          );
+          emit();
           sync = { kind: "synced", email: account.email };
         } else {
           sync = { kind: "sync-failed", email: account.email, reason: "Google Calendar API lehnte ab" };
