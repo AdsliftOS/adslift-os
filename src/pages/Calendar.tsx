@@ -1000,7 +1000,7 @@ export default function Calendar() {
                             return (
                               <div
                                 key={event.id}
-                                className={`absolute rounded-lg cursor-pointer hover:shadow-md transition-all overflow-hidden group ${noShowStyle}`}
+                                className={`absolute cursor-pointer hover:shadow-md transition-all overflow-hidden group ${noShowStyle}`}
                                 style={{ top: top + 1, height: height - 2, zIndex: 10, left: `calc(${leftPercent}% + 2px)`, width: `calc(${colWidth}% - 4px)` }}
                                 draggable
                                 onDragStart={(e) => handleDragStart(e, event)}
@@ -1022,7 +1022,7 @@ export default function Calendar() {
                                   }
                                 }}
                               >
-                                <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg ${noShowBar}`} />
+                                <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${noShowBar}`} />
                                 <div className="pl-2.5 pr-1.5 py-1 h-full">
                                   {renderEventBlock(event, height)}
                                 </div>
@@ -1106,7 +1106,7 @@ export default function Calendar() {
                     const isSales = isSalesMeeting(event);
                     const noShow = isNoShow(event.id);
                     return (
-                      <div key={event.id} className={`rounded-lg p-2.5 ${ec.bgLight} ${noShow ? "opacity-50" : ""} cursor-pointer`}
+                      <div key={event.id} className={`p-2.5 ${ec.bgLight} ${noShow ? "opacity-50" : ""} cursor-pointer`}
                         onClick={() => {
                           if (isSales) {
                             if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
