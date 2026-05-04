@@ -715,14 +715,15 @@ export default function Calendar() {
     const clientMeeting = isClientMeeting(event);
     const person = getEventPerson(event);
 
+    const isCompact = height < 24;
     return (
       <div className="h-full flex flex-col">
         <div className="flex items-center gap-1">
           {isProjectDeadline && <FolderKanban className="h-2.5 w-2.5 shrink-0 opacity-60" />}
-          {isSales && <span className="shrink-0 inline-flex items-center justify-center h-4.5 w-4.5 rounded-full bg-emerald-500/30 ring-1 ring-emerald-400/50"><DollarSign className="h-3 w-3 text-emerald-300" strokeWidth={2.5} /></span>}
-          {clientMeeting && <span className={`shrink-0 inline-flex items-center justify-center h-4 w-4 rounded-full ${person === "alex" ? "bg-blue-400/30 ring-1 ring-blue-400/50" : person === "daniel" ? "bg-orange-400/30 ring-1 ring-orange-400/50" : "bg-emerald-400/30 ring-1 ring-emerald-400/50"}`}><Users className="h-2.5 w-2.5 text-white" /></span>}
-          {linkedIn && <span className="shrink-0 inline-flex items-center justify-center h-4 w-4 rounded-full bg-[#0A66C2]/20 ring-1 ring-[#0A66C2]/40"><svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="#0A66C2"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg></span>}
-          <span className="text-[11px] font-semibold truncate">{event.title}</span>
+          {!isCompact && isSales && <span className="shrink-0 inline-flex items-center justify-center h-4.5 w-4.5 rounded-full bg-emerald-500/30 ring-1 ring-emerald-400/50"><DollarSign className="h-3 w-3 text-emerald-300" strokeWidth={2.5} /></span>}
+          {!isCompact && clientMeeting && <span className={`shrink-0 inline-flex items-center justify-center h-4 w-4 rounded-full ${person === "alex" ? "bg-blue-400/30 ring-1 ring-blue-400/50" : person === "daniel" ? "bg-orange-400/30 ring-1 ring-orange-400/50" : "bg-emerald-400/30 ring-1 ring-emerald-400/50"}`}><Users className="h-2.5 w-2.5 text-white" /></span>}
+          {!isCompact && linkedIn && <span className="shrink-0 inline-flex items-center justify-center h-4 w-4 rounded-full bg-[#0A66C2]/20 ring-1 ring-[#0A66C2]/40"><svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="#0A66C2"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg></span>}
+          <span className={`${isCompact ? "text-[10px] leading-none" : "text-[11px]"} font-semibold truncate`}>{event.title}</span>
         </div>
         {height > 32 && (
           <span className="text-[10px] opacity-60">{event.startTime} – {event.endTime}</span>
@@ -983,7 +984,7 @@ export default function Calendar() {
                             const duration = endIdx > startIdx || (endIdx === startIdx && em > sm)
                               ? (endIdx * 60 + em - startIdx * 60 - sm)
                               : ((endIdx + 24) * 60 + em - startIdx * 60 - sm);
-                            const height = Math.max(duration / 60 * SLOT_HEIGHT, 12);
+                            const height = Math.max(duration / 60 * SLOT_HEIGHT, 16);
                             const ec = getEventColors(event);
                             const li = eventLayout.get(event.id) || { column: 0, totalColumns: 1 };
                             const colWidth = 100 / li.totalColumns;
@@ -1023,7 +1024,7 @@ export default function Calendar() {
                                 }}
                               >
                                 <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${noShowBar}`} />
-                                <div className="pl-2.5 pr-1.5 py-1 h-full">
+                                <div className={`${height < 24 ? "pl-2 pr-1 py-0" : "pl-2.5 pr-1.5 py-1"} h-full`}>
                                   {renderEventBlock(event, height)}
                                 </div>
                               </div>
