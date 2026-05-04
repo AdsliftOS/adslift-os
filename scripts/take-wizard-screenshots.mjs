@@ -6,7 +6,7 @@ const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, d
 const page = await ctx.newPage();
 
 // Login als unfertiger Kunde → wird zum Wizard redirected
-await page.goto("https://adslift-os.vercel.app/academy", { waitUntil: "networkidle" });
+await page.goto("https://app.ads-lift.de/academy", { waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 await page.fill('input[type="email"]', "demo-wizard@test.local");
 await page.fill('input[type="password"]', "wizard123");

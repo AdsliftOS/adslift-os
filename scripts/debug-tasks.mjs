@@ -43,11 +43,11 @@ const user = {
 };
 const sessionData = { access_token, refresh_token, expires_at, expires_in, token_type: "bearer", user };
 
-await page.goto("https://adslift-os.vercel.app/", { waitUntil: "domcontentloaded" });
+await page.goto("https://app.ads-lift.de/", { waitUntil: "domcontentloaded" });
 await page.evaluate(({ key, val }) => localStorage.setItem(key, JSON.stringify(val)), { key: `sb-${PROJECT_REF}-auth-token`, val: sessionData });
 
 // Tasks-Page mit Cache-Bust
-await page.goto("https://adslift-os.vercel.app/tasks?_=" + Date.now(), { waitUntil: "networkidle" });
+await page.goto("https://app.ads-lift.de/tasks?_=" + Date.now(), { waitUntil: "networkidle" });
 await page.waitForTimeout(4000);
 
 // Screenshot

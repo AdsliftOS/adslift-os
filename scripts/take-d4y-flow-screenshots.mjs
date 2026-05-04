@@ -7,7 +7,7 @@ const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, d
 const page = await ctx.newPage();
 
 // 01: Handoff
-await page.goto("https://adslift-os.vercel.app/handoff", { waitUntil: "networkidle" });
+await page.goto("https://app.ads-lift.de/handoff", { waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}/d4y-01-handoff.png` });
 console.log("✓ d4y-01-handoff");
@@ -29,7 +29,7 @@ await ctx2.close();
 console.log("✓ d4y-02-welcome-email");
 
 // 03: Academy-Login
-await page.goto("https://adslift-os.vercel.app/academy?reset=1", { waitUntil: "networkidle" });
+await page.goto("https://app.ads-lift.de/academy?reset=1", { waitUntil: "networkidle" });
 await page.waitForTimeout(1800);
 await page.screenshot({ path: `${OUT}/d4y-03-login.png` });
 console.log("✓ d4y-03-login");

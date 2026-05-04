@@ -5,7 +5,7 @@ const browser = await chromium.launch({ headless: true });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
 const page = await ctx.newPage();
 
-await page.goto("https://adslift-os.vercel.app/academy", { waitUntil: "networkidle" });
+await page.goto("https://app.ads-lift.de/academy", { waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 await page.fill('input[type="email"]', "demo-kickoff@test.local");
 await page.fill('input[type="password"]', "kickoff123");

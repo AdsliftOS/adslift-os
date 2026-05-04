@@ -47,11 +47,11 @@ const user = {
 const sessionData = { access_token, refresh_token, expires_at, expires_in, token_type: "bearer", user };
 const storageKey = `sb-${PROJECT_REF}-auth-token`;
 
-await page.goto("https://adslift-os.vercel.app/", { waitUntil: "domcontentloaded" });
+await page.goto("https://app.ads-lift.de/", { waitUntil: "domcontentloaded" });
 await page.evaluate(({ key, val }) => localStorage.setItem(key, JSON.stringify(val)), { key: storageKey, val: sessionData });
 
 // Pipeline-Listview
-await page.goto("https://adslift-os.vercel.app/pipeline", { waitUntil: "networkidle" });
+await page.goto("https://app.ads-lift.de/pipeline", { waitUntil: "networkidle" });
 await page.waitForTimeout(4000);
 // Click D4Y Filter
 try {

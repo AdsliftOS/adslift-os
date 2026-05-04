@@ -6,7 +6,7 @@ const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, d
 const page = await ctx.newPage();
 
 // Login als D4Y-Demo
-await page.goto("https://adslift-os.vercel.app/academy?reset=1", { waitUntil: "networkidle" });
+await page.goto("https://app.ads-lift.de/academy?reset=1", { waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 await page.fill('input[type="email"]', "d4y-shots@test.local");
 await page.fill('input[type="password"]', "d4ydemo");

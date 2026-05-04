@@ -10,13 +10,13 @@ const page = await ctx.newPage();
 
 // Public: Handoff
 console.log("→ /handoff");
-await page.goto("https://adslift-os.vercel.app/handoff", { waitUntil: "networkidle" });
+await page.goto("https://app.ads-lift.de/handoff", { waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}/01-handoff.png` });
 
 // Public: Academy login
 console.log("→ /academy login");
-await page.goto("https://adslift-os.vercel.app/academy", { waitUntil: "networkidle" });
+await page.goto("https://app.ads-lift.de/academy", { waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}/02-academy-login.png` });
 

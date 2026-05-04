@@ -6,7 +6,7 @@ const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, d
 const page = await ctx.newPage();
 
 // Academy Login + Dashboard
-await page.goto("https://adslift-os.vercel.app/academy", { waitUntil: "networkidle" });
+await page.goto("https://app.ads-lift.de/academy", { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
 await page.fill('input[type="email"]', "screenshots@test.local");
 await page.fill('input[type="password"]', "screenshot123");

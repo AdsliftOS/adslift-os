@@ -54,12 +54,12 @@ const user = {
 };
 const sessionData = { access_token, refresh_token, expires_at, expires_in, token_type: "bearer", user };
 
-await page.goto("https://adslift-os.vercel.app/", { waitUntil: "domcontentloaded" });
+await page.goto("https://app.ads-lift.de/", { waitUntil: "domcontentloaded" });
 await page.evaluate(({ key, val }) => localStorage.setItem(key, JSON.stringify(val)), { key: `sb-${PROJECT_REF}-auth-token`, val: sessionData });
 
 // Pipeline
 console.log("→ /pipeline");
-await page.goto("https://adslift-os.vercel.app/pipeline", { waitUntil: "networkidle" });
+await page.goto("https://app.ads-lift.de/pipeline", { waitUntil: "networkidle" });
 await page.waitForTimeout(4000);
 console.log("Pipeline-Page errors so far:", errors.length);
 errors.forEach((e) => console.log("  ", e.slice(0, 200)));
