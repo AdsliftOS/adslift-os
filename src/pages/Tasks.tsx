@@ -53,6 +53,10 @@ export default function Tasks() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [quickAdd, setQuickAdd] = useState("");
   const [viewUser, setViewUser] = useState<string>("alex");
+  const [viewMode, setViewMode] = useState<"status" | "category">(() => {
+    return (localStorage.getItem("tasks-view-mode") as "status" | "category") || "status";
+  });
+  useEffect(() => { localStorage.setItem("tasks-view-mode", viewMode); }, [viewMode]);
 
   // Detect current user
   useEffect(() => {
@@ -64,6 +68,7 @@ export default function Tasks() {
   }, []);
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<Column | null>(null);
+  const [dragOverCategory, setDragOverCategory] = useState<Category | null>(null);
 
   const [form, setForm] = useState({
     title: "", description: "", category: "admin" as Category, priority: "medium" as Priority,
@@ -191,25 +196,41 @@ export default function Tasks() {
         <Button size="sm" onClick={openNew}><Plus className="mr-2 h-4 w-4" />Neue Aufgabe</Button>
       </div>
 
-      {/* User Switch */}
-      <div className="flex items-center gap-2">
-        <Users className="h-4 w-4 text-muted-foreground" />
-        <div className="flex gap-1 border rounded-lg p-0.5">
-          {teamMembers.map((m) => (
-            <button
-              key={m.key}
-              onClick={() => setViewUser(m.key)}
-              onDragOver={(e) => handleUserDragOver(e, m.key)}
-              onDragLeave={() => setDragOverUser(null)}
-              onDrop={() => handleUserDrop(m.key)}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                dragOverUser === m.key ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 scale-110" :
-                viewUser === m.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {dragOverUser === m.key ? `→ ${m.label}` : m.label}
-            </button>
-          ))}
+      {/* User Switch + View Mode */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <div className="flex gap-1 border rounded-lg p-0.5">
+            {teamMembers.map((m) => (
+              <button
+                key={m.key}
+                onClick={() => setViewUser(m.key)}
+                onDragOver={(e) => handleUserDragOver(e, m.key)}
+                onDragLeave={() => setDragOverUser(null)}
+                onDrop={() => handleUserDrop(m.key)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                  dragOverUser === m.key ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 scale-110" :
+                  viewUser === m.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {dragOverUser === m.key ? `→ ${m.label}` : m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-1 border rounded-lg p-0.5 ml-auto">
+          <button
+            onClick={() => setViewMode("status")}
+            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+              viewMode === "status" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >Nach Status</button>
+          <button
+            onClick={() => setViewMode("category")}
+            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+              viewMode === "category" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >Nach Kategorie</button>
         </div>
       </div>
 
@@ -281,7 +302,8 @@ export default function Tasks() {
         ))}
       </div>
 
-      {/* Kanban Board */}
+      {/* Kanban Board — Status-Mode */}
+      {viewMode === "status" && (
       <div className="grid gap-5 lg:grid-cols-3">
         {columns.map((col) => {
           const colTasks = sortTasks(filtered.filter((t) => t.column === col.key));
@@ -433,6 +455,146 @@ export default function Tasks() {
           );
         })}
       </div>
+      )}
+
+      {/* Kanban Board — Category-Mode */}
+      {viewMode === "category" && (
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+        {categories.map((cat) => {
+          const catFiltered = filtered.filter((t) => t.category === cat.value);
+          const statusOrder: Record<Column, number> = { todo: 0, "in-progress": 1, done: 2 };
+          const catTasks = [...catFiltered].sort((a, b) => {
+            if (statusOrder[a.column] !== statusOrder[b.column]) return statusOrder[a.column] - statusOrder[b.column];
+            const aOver = a.dueDate && isPast(new Date(a.dueDate + "T23:59:59")) && !isToday(new Date(a.dueDate + "T00:00:00"));
+            const bOver = b.dueDate && isPast(new Date(b.dueDate + "T23:59:59")) && !isToday(new Date(b.dueDate + "T00:00:00"));
+            if (aOver && !bOver) return -1;
+            if (!aOver && bOver) return 1;
+            if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+            return priOrder[a.priority] - priOrder[b.priority];
+          });
+          const isDragOverCat = dragOverCategory === cat.value;
+          const openCount = catTasks.filter((t) => t.column !== "done").length;
+          const doneInCat = catTasks.length - openCount;
+
+          return (
+            <div
+              key={cat.value}
+              className="space-y-3"
+              onDragOver={(e) => { e.preventDefault(); setDragOverCategory(cat.value); }}
+              onDragLeave={() => setDragOverCategory(null)}
+              onDrop={async () => {
+                if (dragTaskId) {
+                  await updateTaskDB(dragTaskId, { category: cat.value });
+                  toast.success(`In ${cat.label} verschoben`);
+                }
+                setDragTaskId(null);
+                setDragOverCategory(null);
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <span className={`h-6 w-1 rounded-full ${cat.dot}`} />
+                <span className="text-sm font-bold">{cat.label}</span>
+                <span className="text-xs text-muted-foreground">{openCount}{doneInCat > 0 ? ` · ${doneInCat} ✓` : ""}</span>
+                <button
+                  onClick={() => { setForm({ ...form, category: cat.value }); setEditingTask(null); setDialogOpen(true); }}
+                  className="ml-auto h-6 w-6 rounded-md bg-muted flex items-center justify-center hover:bg-primary/10 transition-colors"
+                  title="Aufgabe hinzufügen"
+                >
+                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              </div>
+
+              <div className={`rounded-xl min-h-[200px] p-1.5 space-y-2 transition-all ${
+                isDragOverCat ? "bg-primary/5 ring-2 ring-primary/20 ring-dashed" : "bg-muted/20"
+              }`}>
+                {catTasks.map((task) => {
+                  const pri = priorities.find((p) => p.value === task.priority) || priorities[1];
+                  const PriIcon = pri.icon;
+                  const dueDate = task.dueDate ? new Date(task.dueDate + "T00:00:00") : null;
+                  const isOverdue = task.column !== "done" && dueDate && isPast(new Date(task.dueDate + "T23:59:59")) && !isToday(dueDate);
+                  const isDragging = dragTaskId === task.id;
+                  const isDone = task.column === "done";
+                  const isInProgress = task.column === "in-progress";
+
+                  return (
+                    <div
+                      key={task.id}
+                      draggable
+                      onDragStart={() => handleDragStart(task.id)}
+                      onDragEnd={() => { setDragTaskId(null); setDragOverCategory(null); setTimeout(() => { wasDragged.current = false; }, 100); }}
+                      onClick={() => { if (!wasDragged.current) openEdit(task); }}
+                      className={`relative rounded-xl border cursor-grab active:cursor-grabbing transition-all group overflow-hidden ${
+                        task.priority === "high" && !isDone ? "bg-red-500/[0.06] border-red-500/20" : "bg-card"
+                      } ${isDragging ? "opacity-30 scale-95 ring-2 ring-primary" : "hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/20"
+                      } ${isDone ? "opacity-60" : ""}`}
+                    >
+                      <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${cat.dot}`} />
+                      <div className="p-3 pl-4">
+                        <div className="flex items-start gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const next: Column = isDone ? "todo" : isInProgress ? "done" : "in-progress";
+                              handleMoveTask(task.id, next);
+                            }}
+                            className={`shrink-0 mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                              isDone ? "bg-emerald-500 border-emerald-500" :
+                              isInProgress ? "border-primary bg-primary/20" : "border-muted-foreground/40 hover:border-primary"
+                            }`}
+                            title={isDone ? "Erledigt — klick für Reset" : isInProgress ? "In Arbeit — klick für Erledigt" : "klick für In Arbeit"}
+                          >
+                            {isDone && <CheckCircle2 className="h-3 w-3 text-white" />}
+                            {isInProgress && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <span className={`text-[13px] font-medium leading-snug ${isDone ? "line-through text-muted-foreground" : ""}`}>
+                              {task.title}
+                            </span>
+                            {task.description && (
+                              <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{task.description}</p>
+                            )}
+                          </div>
+                          <PriIcon className={`h-3 w-3 shrink-0 mt-0.5 ${pri.color}`} />
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                          {task.recurrence !== "none" && (
+                            <span className="inline-flex items-center gap-0.5 rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                              <Repeat className="h-2.5 w-2.5" />{recurrenceLabels[task.recurrence]}
+                            </span>
+                          )}
+                          {dueDate && (
+                            <span className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
+                              isOverdue ? "bg-red-500/10 text-red-500" : isToday(dueDate) ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                            }`}>
+                              {isOverdue && <AlertTriangle className="h-2.5 w-2.5" />}
+                              {!isOverdue && <Clock className="h-2.5 w-2.5" />}
+                              {isToday(dueDate) ? "Heute" : format(dueDate, "d. MMM", { locale: de })}
+                            </span>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }}
+                            className="ml-auto rounded p-0.5 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Löschen"
+                          >
+                            <Trash2 className="h-3 w-3 text-red-400" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {catTasks.length === 0 && (
+                  <div className="text-center py-10">
+                    <span className={`inline-block h-3 w-3 rounded-full ${cat.dot} opacity-30 mb-2`} />
+                    <p className="text-[11px] text-muted-foreground/40">Keine {cat.label}-Aufgaben</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      )}
 
       {/* Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
