@@ -54,9 +54,9 @@ export default function Tasks() {
   const [quickAdd, setQuickAdd] = useState("");
   const [viewUser, setViewUser] = useState<string>("alex");
   const [viewMode, setViewMode] = useState<"status" | "category">(() => {
-    return (localStorage.getItem("tasks-view-mode") as "status" | "category") || "status";
+    return (localStorage.getItem("tasks-view-mode-v2") as "status" | "category") || "category";
   });
-  useEffect(() => { localStorage.setItem("tasks-view-mode", viewMode); }, [viewMode]);
+  useEffect(() => { localStorage.setItem("tasks-view-mode-v2", viewMode); }, [viewMode]);
 
   // Detect current user
   useEffect(() => {
@@ -218,19 +218,19 @@ export default function Tasks() {
             ))}
           </div>
         </div>
-        <div className="flex gap-1 border rounded-lg p-0.5 ml-auto">
-          <button
-            onClick={() => setViewMode("status")}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-              viewMode === "status" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >Nach Status</button>
+        <div className="flex gap-1 border rounded-lg p-1 ml-auto bg-muted/30">
           <button
             onClick={() => setViewMode("category")}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-              viewMode === "category" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              viewMode === "category" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             }`}
           >Nach Kategorie</button>
+          <button
+            onClick={() => setViewMode("status")}
+            className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              viewMode === "status" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >Nach Status</button>
         </div>
       </div>
 
