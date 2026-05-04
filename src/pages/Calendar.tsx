@@ -717,7 +717,7 @@ export default function Calendar() {
 
     const isCompact = height < 24;
     return (
-      <div className="h-full flex flex-col">
+      <div className={`h-full flex flex-col ${isCompact ? "justify-center" : ""}`}>
         <div className="flex items-center gap-1">
           {isProjectDeadline && <FolderKanban className="h-2.5 w-2.5 shrink-0 opacity-60" />}
           {!isCompact && isSales && <span className="shrink-0 inline-flex items-center justify-center h-4.5 w-4.5 rounded-full bg-emerald-500/30 ring-1 ring-emerald-400/50"><DollarSign className="h-3 w-3 text-emerald-300" strokeWidth={2.5} /></span>}
