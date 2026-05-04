@@ -983,7 +983,7 @@ export default function Calendar() {
                             const duration = endIdx > startIdx || (endIdx === startIdx && em > sm)
                               ? (endIdx * 60 + em - startIdx * 60 - sm)
                               : ((endIdx + 24) * 60 + em - startIdx * 60 - sm);
-                            const height = Math.max(duration / 60 * SLOT_HEIGHT, 24);
+                            const height = Math.max(duration / 60 * SLOT_HEIGHT, 12);
                             const ec = getEventColors(event);
                             const li = eventLayout.get(event.id) || { column: 0, totalColumns: 1 };
                             const colWidth = 100 / li.totalColumns;
