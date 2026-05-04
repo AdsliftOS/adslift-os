@@ -12,6 +12,7 @@ import {
   UserCircle,
   UsersRound,
   Sparkles,
+  Handshake,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, matchPath } from "react-router-dom";
@@ -46,6 +47,7 @@ const workspaceItems: NavItem[] = [
   { title: "Mein Bereich", url: "/me", icon: UserCircle, badge: "new" },
   { title: "Team", url: "/team", icon: UsersRound },
   { title: "Pipeline", url: "/pipeline", icon: Sparkles },
+  { title: "Closer-Handoff", url: "/closer-handoff", icon: Handshake },
   { title: "Kunden", url: "/clients", icon: Users },
   { title: "Kalender", url: "/calendar", icon: Calendar },
   { title: "Aufgaben", url: "/tasks", icon: CircleCheckBig },

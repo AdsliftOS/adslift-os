@@ -77,6 +77,7 @@ function RoleAwareRoutes() {
       <Route path="/sales" element={<Sales />} />
       <Route path="/calendar" element={<ErrorBoundary><Calendar /></ErrorBoundary>} />
       <Route path="/tasks" element={<Tasks />} />
+      <Route path="/closer-handoff" element={<CloserHandoff />} />
       <Route path="/academy-admin" element={<ErrorBoundary><Academy /></ErrorBoundary>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
