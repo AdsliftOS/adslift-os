@@ -8,6 +8,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useClients } from "@/store/clients";
 import { useProjects } from "@/store/projects";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { ClaudeChat } from "@/components/ClaudeChat";
 
 const navPages = [
   { title: "Dashboard", path: "/" },
@@ -201,6 +202,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+      <ClaudeChat />
     </SidebarProvider>
   );
 }
