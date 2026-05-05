@@ -34,7 +34,7 @@ export default function ClientDetail() {
     (async () => {
       setLoading(true);
       const [pp, lp, t, d, e, co] = await Promise.all([
-        supabase.from("pipeline_projects").select("*").eq("client_id", id).order("created_at", { ascending: false }),
+        supabase.from("pipeline_projects").select("id,name,status,start_date,variant,created_at").eq("client_id", id).order("created_at", { ascending: false }),
         supabase.from("projects").select("*").eq("client_id", id).order("created_at", { ascending: false }),
         supabase.from("tasks").select("*").eq("client_id", id).order("created_at", { ascending: false }),
         supabase.from("deals").select("*").eq("client_id", id).order("created_at", { ascending: false }),

@@ -22,13 +22,16 @@ export default function ProjectBoardPage() {
   const lastSavedRef = useRef<string>("null");
   const remoteVersionRef = useRef<string>("");
 
-  // Auth + Project laden
+  // Phase 1: Metadata + Auth schnell (kein excalidraw_data → <500ms statt 6 MB)
+  // Phase 2: Board-Daten laden — Excalidraw mountet erst danach,
+  //          damit onChange nicht mit leerem State feuert und Daten überschreibt.
+  const [boardLoading, setBoardLoading] = useState(true);
   useEffect(() => {
     if (!projectId) return;
     (async () => {
       const { data: pp } = await supabase
         .from("pipeline_projects")
-        .select("*")
+        .select("id,name,client_id,updated_at")
         .eq("id", projectId)
         .maybeSingle();
       if (!pp) {
@@ -36,6 +39,29 @@ export default function ProjectBoardPage() {
         navigate("/");
         return;
       }
+
+      // Board-Daten parallel zur Auth ziehen (6 MB läuft im Hintergrund)
+      const boardPromise = supabase
+        .from("pipeline_projects")
+        .select("excalidraw_data, updated_at")
+        .eq("id", projectId)
+        .maybeSingle();
+
+      const finalize = (mode: "team" | "customer") => {
+        setAuthorized(mode);
+        setProject(pp);
+        remoteVersionRef.current = pp.updated_at || "";
+        setLoading(false);
+        // Board-Daten in `project` einbauen sobald da → Excalidraw mountet dann
+        boardPromise.then(({ data: full }) => {
+          if (!full) { setBoardLoading(false); return; }
+          const scene = full.excalidraw_data ?? null;
+          lastSavedRef.current = JSON.stringify(scene);
+          if (full.updated_at) remoteVersionRef.current = full.updated_at;
+          setProject((prev: any) => prev ? { ...prev, excalidraw_data: scene } : prev);
+          setBoardLoading(false);
+        });
+      };
 
       // 1. Team-Login (Adslift-OS)
       const { data: { session: authSession } } = await supabase.auth.getSession();
@@ -46,11 +72,7 @@ export default function ProjectBoardPage() {
           .eq("email", authSession.user.email)
           .maybeSingle();
         if (tm?.status === "active") {
-          setAuthorized("team");
-          setProject(pp);
-          lastSavedRef.current = JSON.stringify(pp.excalidraw_data ?? null);
-          remoteVersionRef.current = pp.updated_at || "";
-          setLoading(false);
+          finalize("team");
           return;
         }
       }
@@ -67,11 +89,7 @@ export default function ProjectBoardPage() {
               .eq("id", parsed.customer_id)
               .maybeSingle();
             if (ac?.client_id && ac.client_id === pp.client_id) {
-              setAuthorized("customer");
-              setProject(pp);
-              lastSavedRef.current = JSON.stringify(pp.excalidraw_data ?? null);
-              remoteVersionRef.current = pp.updated_at || "";
-              setLoading(false);
+              finalize("customer");
               return;
             }
           }
@@ -95,26 +113,34 @@ export default function ProjectBoardPage() {
   useEffect(() => {
     if (!projectId || !api) return;
     const poll = setInterval(async () => {
+      // Schritt 1: Nur updated_at prüfen (winzig). Spart 6 MB pro Tick wenn nichts neu ist.
+      const { data: head } = await supabase
+        .from("pipeline_projects")
+        .select("updated_at")
+        .eq("id", projectId)
+        .maybeSingle();
+      if (!head?.updated_at) return;
+      if (head.updated_at === remoteVersionRef.current) return; // nichts Neues
+      if (dirty) return; // lokale Änderungen nicht überschreiben
+
+      // Schritt 2: Erst jetzt das ganze Board ziehen
       const { data } = await supabase
         .from("pipeline_projects")
         .select("excalidraw_data, updated_at")
         .eq("id", projectId)
         .maybeSingle();
       if (!data) return;
-      // Wenn Server neuer + Local nicht dirty → Remote-Update einspielen
-      if (data.updated_at && data.updated_at !== remoteVersionRef.current && !dirty) {
-        const remote = JSON.stringify(data.excalidraw_data ?? null);
-        if (remote !== lastSavedRef.current) {
-          api.updateScene({
-            elements: data.excalidraw_data?.elements || [],
-            appState: data.excalidraw_data?.appState || {},
-          });
-          if (data.excalidraw_data?.files) api.addFiles(Object.values(data.excalidraw_data.files));
-          lastSavedRef.current = remote;
-          remoteVersionRef.current = data.updated_at;
-          setLastSyncAt(new Date());
-          setSynced(true);
-        }
+      const remote = JSON.stringify(data.excalidraw_data ?? null);
+      if (remote !== lastSavedRef.current) {
+        api.updateScene({
+          elements: data.excalidraw_data?.elements || [],
+          appState: data.excalidraw_data?.appState || {},
+        });
+        if (data.excalidraw_data?.files) api.addFiles(Object.values(data.excalidraw_data.files));
+        lastSavedRef.current = remote;
+        remoteVersionRef.current = data.updated_at!;
+        setLastSyncAt(new Date());
+        setSynced(true);
       }
     }, 5000);
     return () => clearInterval(poll);
@@ -212,13 +238,19 @@ export default function ProjectBoardPage() {
         </div>
       </div>
       <div className="flex-1 min-h-0">
-        <Suspense fallback={<div className="h-full flex items-center justify-center text-sm text-muted-foreground">Lade Excalidraw...</div>}>
-          <Excalidraw
-            excalidrawAPI={(a: any) => setApi(a)}
-            initialData={project.excalidraw_data ?? undefined}
-            onChange={handleChange}
-          />
-        </Suspense>
+        {boardLoading ? (
+          <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+            Lade Strategie-Board...
+          </div>
+        ) : (
+          <Suspense fallback={<div className="h-full flex items-center justify-center text-sm text-muted-foreground">Lade Excalidraw...</div>}>
+            <Excalidraw
+              excalidrawAPI={(a: any) => setApi(a)}
+              initialData={project.excalidraw_data ?? undefined}
+              onChange={handleChange}
+            />
+          </Suspense>
+        )}
       </div>
     </div>
   );
