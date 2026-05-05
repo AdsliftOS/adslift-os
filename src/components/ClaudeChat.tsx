@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { CLAUDE_TOOLS, executeClaudeTool } from "@/lib/claude-tools";
+// Adslift Company-Knowledge — wird im System-Prompt mitgeschickt + gecached
+import ADSLIFT_CONTEXT from "@/lib/adslift-context.md?raw";
 
 type ContentBlock =
   | { type: "text"; text: string }
@@ -11,28 +13,56 @@ type ContentBlock =
   | { type: "tool_result"; tool_use_id: string; content: string; is_error?: boolean };
 
 type ApiMessage = { role: "user" | "assistant"; content: string | ContentBlock[] };
+type SystemBlock = { type: "text"; text: string; cache_control?: { type: "ephemeral" } };
 
 // UI-Modell — was wir im Chat-Verlauf rendern
 type DisplayMessage =
   | { kind: "user"; text: string }
   | { kind: "assistant"; text: string; tools: { name: string; input: any }[] };
 
-const SYSTEM_PROMPT = `Du bist der interne Assistent von Adslift OS — einer Performance-Marketing-Agentur, die Kunden mit Meta-Ads-Kampagnen, DWY (Done-With-You) Coaching und D4Y (Done-For-You) Service betreut.
+// Stabiler Operator-Prompt — wird mit gecached
+const OPERATOR_PROMPT = `Du bist der interne Assistent von Adslift OS — der eigenen Internal-Tools-App des Adslift-Teams. Du sprichst mit dem CEO (Alex) oder seinem Mitgründer (Daniel).
 
-Du hast Zugriff auf das gesamte System via Tools: Kunden, Pipeline-Projekte, Tasks, Close-Activities (Calls/Meetings/Notes), Kalender. Nutze diese Tools proaktiv um konkrete, daten-basierte Antworten zu geben — niemals Speculations.
+Du hast zwei Wissensquellen:
+1) Das ADSLIFT-COMPANY-WISSEN (siehe vorhergehender Block) — Offer, Pricing, ICP, Sales-Skripte, Delivery-Prozesse, Brand, Team, Roadmap.
+2) Live-Daten aus der App via Tools: Kunden, Pipeline-Projekte, Tasks, Close-Activities (Calls/Meetings/Notes), Kalender.
+
+Nutze beide proaktiv. Bei strategischen Fragen → Company-Wissen anwenden. Bei operativen Fragen ("Wie läuft Stegemann?", "Was steht heute an?") → Tools nutzen. Bei kombinierten Fragen → beides.
 
 Stil:
-- Deutsch, direkt, kein Bullshit
+- Deutsch, Du-Form, direkt, kein Bullshit
 - Knapp und konkret, keine Romane
 - Bei Listen: max. die 5-10 wichtigsten Einträge
 - Bei Datumsangaben: Format "DD.MM.YYYY"
 - Wenn du Daten mit Tools holst: nutze die echten Namen (Kunde, Projekt) statt IDs in der Antwort
 - Keine Markdown-Tabellen — schlechte Lesbarkeit im Chat. Stattdessen Bullet-Listen.
-- Für komplexe Fragen: erst die richtigen Tools wählen, dann kombinieren, dann antworten
-
-Du sprichst mit dem CEO (Alex) oder seinem Mitgründer (Daniel). Kontext: heute ist ${new Date().toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}.`;
+- Tone: selbstbewusst, ergebnisorientiert, locker aber professionell — wie ein Gespräch unter Unternehmern.
+- Spekuliere nie. Wenn du eine Info nicht hast: sag's, oder hol sie via Tool.`;
 
 const MAX_TOOL_LOOP = 8;
+
+// System-Prompt mit Caching: stabile Adslift-Wissensbasis im ersten Block (gecached),
+// dann Operator-Prompt, dann tagesvariabler Kontext.
+function buildSystemPrompt(): SystemBlock[] {
+  const today = new Date().toLocaleDateString("de-DE", {
+    weekday: "long", day: "2-digit", month: "long", year: "numeric",
+  });
+  return [
+    {
+      type: "text",
+      text: "## ADSLIFT-COMPANY-WISSEN\n\n" + ADSLIFT_CONTEXT,
+      cache_control: { type: "ephemeral" },
+    },
+    {
+      type: "text",
+      text: OPERATOR_PROMPT,
+    },
+    {
+      type: "text",
+      text: `Heute: ${today}.`,
+    },
+  ];
+}
 
 export function ClaudeChat() {
   const [open, setOpen] = useState(false);
@@ -71,6 +101,21 @@ export function ClaudeChat() {
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
+  // Custom-Events von externen Triggern (z.B. AppSidebar-Button)
+  useEffect(() => {
+    const onOpen = () => {
+      setOpen(true);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    };
+    const onToggle = () => setOpen((v) => !v);
+    window.addEventListener("claude-chat:open", onOpen);
+    window.addEventListener("claude-chat:toggle", onToggle);
+    return () => {
+      window.removeEventListener("claude-chat:open", onOpen);
+      window.removeEventListener("claude-chat:toggle", onToggle);
+    };
+  }, []);
+
   const reset = () => {
     setMessages([]);
     setApiHistory([]);
@@ -108,23 +153,6 @@ export function ClaudeChat() {
 
   return (
     <>
-      {/* Floating Toggle Button */}
-      <button
-        onClick={() => {
-          setOpen((v) => !v);
-          if (!open) setTimeout(() => inputRef.current?.focus(), 50);
-        }}
-        className={cn(
-          "fixed bottom-6 left-6 z-40 h-12 w-12 rounded-full shadow-lg transition-all flex items-center justify-center",
-          "bg-gradient-to-br from-violet-500 via-fuchsia-500 to-rose-500 text-white",
-          "hover:scale-110 hover:shadow-xl hover:shadow-violet-500/40",
-          open && "scale-95 opacity-0 pointer-events-none",
-        )}
-        title="Claude öffnen (⌘J)"
-      >
-        <Sparkles className="h-5 w-5" />
-      </button>
-
       {/* Backdrop */}
       <div
         onClick={() => setOpen(false)}
@@ -303,7 +331,7 @@ async function runChatLoop(initialHistory: ApiMessage[]): Promise<{
       body: JSON.stringify({
         model: "claude-opus-4-7",
         max_tokens: 4096,
-        system: SYSTEM_PROMPT,
+        system: buildSystemPrompt(),
         tools: CLAUDE_TOOLS,
         messages: history,
       }),

@@ -202,8 +202,34 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="px-2 py-3 gap-2 border-t border-white/[0.06]">
-        {/* Settings + Logout */}
+        {/* Claude Chat + Settings + Logout */}
         <SidebarMenu className="gap-0.5">
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent">
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent("claude-chat:open"))}
+                className={cn(
+                  navItemBase,
+                  "w-full bg-gradient-to-r from-violet-500/10 via-fuchsia-500/10 to-rose-500/10",
+                  "hover:from-violet-500/20 hover:via-fuchsia-500/20 hover:to-rose-500/20",
+                  "border border-violet-500/20 hover:border-violet-500/40",
+                )}
+                title="Claude öffnen (⌘J)"
+              >
+                <Sparkles className="h-4 w-4 shrink-0 text-violet-400" />
+                {!collapsed && (
+                  <span className="flex-1 text-left bg-gradient-to-r from-violet-300 to-fuchsia-300 bg-clip-text text-transparent font-semibold">
+                    Claude
+                  </span>
+                )}
+                {!collapsed && (
+                  <kbd className="text-[9px] bg-white/[0.06] border border-white/[0.08] text-muted-foreground/80 px-1 py-0.5 rounded font-mono">
+                    ⌘J
+                  </kbd>
+                )}
+              </button>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           {(me === null || leadership) && (
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent data-[active=true]:bg-transparent">
