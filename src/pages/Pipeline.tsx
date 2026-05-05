@@ -180,6 +180,10 @@ export default function Pipeline() {
   const [clients] = useClients();
   const [filter, setFilter] = useState<"all" | "draft" | "active" | "done">("all");
   const [variantFilter, setVariantFilter] = useState<"all" | "dwy" | "d4y">("all");
+  const [viewMode, setViewMode] = useState<"list" | "cards">(() => {
+    return (localStorage.getItem("pipeline-view-mode") as "list" | "cards") || "list";
+  });
+  useEffect(() => { localStorage.setItem("pipeline-view-mode", viewMode); }, [viewMode]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState<{ name: string; clientId: string; adAccountId: string; variant: "dwy" | "d4y" }>({ name: "", clientId: "", adAccountId: "", variant: "dwy" });
@@ -277,34 +281,58 @@ export default function Pipeline() {
           ))}
         </div>
 
-        {/* Status pills */}
-        <div className="inline-flex items-center gap-1.5">
-          {([
-            { key: "all", label: "Alle", count: filtered.length, dot: "bg-slate-400" },
-            { key: "draft", label: "Draft", count: projects.filter((p) => p.status === "draft" && (variantFilter === "all" || p.variant === variantFilter)).length, dot: "bg-slate-400" },
-            { key: "active", label: "Live", count: projects.filter((p) => p.status === "active" && (variantFilter === "all" || p.variant === variantFilter)).length, dot: "bg-blue-500" },
-            { key: "done", label: "Done", count: projects.filter((p) => p.status === "done" && (variantFilter === "all" || p.variant === variantFilter)).length, dot: "bg-emerald-500" },
-          ] as const).map((t) => (
+        {/* Status pills + View toggle */}
+        <div className="inline-flex items-center gap-3">
+          <div className="inline-flex items-center gap-1.5">
+            {([
+              { key: "all", label: "Alle", count: filtered.length, dot: "bg-slate-400" },
+              { key: "draft", label: "Draft", count: projects.filter((p) => p.status === "draft" && (variantFilter === "all" || p.variant === variantFilter)).length, dot: "bg-slate-400" },
+              { key: "active", label: "Live", count: projects.filter((p) => p.status === "active" && (variantFilter === "all" || p.variant === variantFilter)).length, dot: "bg-blue-500" },
+              { key: "done", label: "Done", count: projects.filter((p) => p.status === "done" && (variantFilter === "all" || p.variant === variantFilter)).length, dot: "bg-emerald-500" },
+            ] as const).map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setFilter(t.key)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2",
+                  filter === t.key
+                    ? "bg-foreground text-background shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                )}
+              >
+                <span className={cn("h-1.5 w-1.5 rounded-full", t.dot)} />
+                {t.label}
+                <span className={cn(
+                  "tabular-nums text-[10px]",
+                  filter === t.key ? "opacity-70" : "opacity-50",
+                )}>
+                  {t.count}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="inline-flex items-center rounded-lg border bg-muted/40 p-0.5">
             <button
-              key={t.key}
-              onClick={() => setFilter(t.key)}
+              onClick={() => setViewMode("list")}
+              title="Listen-Ansicht"
               className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2",
-                filter === t.key
-                  ? "bg-foreground text-background shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                "px-2 py-1 rounded-md text-xs font-medium transition-all",
+                viewMode === "list" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <span className={cn("h-1.5 w-1.5 rounded-full", t.dot)} />
-              {t.label}
-              <span className={cn(
-                "tabular-nums text-[10px]",
-                filter === t.key ? "opacity-70" : "opacity-50",
-              )}>
-                {t.count}
-              </span>
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
             </button>
-          ))}
+            <button
+              onClick={() => setViewMode("cards")}
+              title="Karten-Ansicht"
+              className={cn(
+                "px-2 py-1 rounded-md text-xs font-medium transition-all",
+                viewMode === "cards" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -325,6 +353,17 @@ export default function Pipeline() {
             </Button>
           </CardContent>
         </Card>
+      ) : viewMode === "list" ? (
+        <div className="rounded-xl border bg-card overflow-hidden divide-y">
+          {filtered.map((p) => (
+            <ProjectListRow
+              key={p.id}
+              project={p}
+              client={clients.find((c) => c.id === p.clientId) || null}
+              onClick={() => setSelectedProjectId(p.id)}
+            />
+          ))}
+        </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => (
@@ -593,6 +632,104 @@ function ProjectCard({
       <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
       </div>
+    </button>
+  );
+}
+
+// ─── Kompakte Listen-Zeile ──────────────────────────────────────────
+function ProjectListRow({
+  project,
+  client,
+  onClick,
+}: {
+  project: ReturnType<typeof usePipelineProjects>[number];
+  client: { name: string } | null;
+  onClick: () => void;
+}) {
+  const steps = useProjectSteps(project.id);
+  const completed = steps.filter((s) => s.status === "done").length;
+  const progress = steps.length > 0 ? Math.round((completed / steps.length) * 100) : 0;
+  const isDWY = project.variant === "dwy";
+
+  // Was steht an? Erst aktiver Step, sonst nächster offener
+  const activeStep = steps.find((s) => s.status === "active");
+  const nextStep = activeStep ?? steps.find((s) => s.status !== "done");
+  const stepIndex = nextStep ? steps.findIndex((s) => s.id === nextStep.id) + 1 : 0;
+
+  const statusDot = {
+    draft: "bg-slate-400",
+    active: "bg-blue-500 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.6)]",
+    paused: "bg-amber-500",
+    done: "bg-emerald-500",
+  }[project.status];
+
+  const statusLabel = {
+    draft: "Draft",
+    active: "Live",
+    paused: "Pausiert",
+    done: "Done",
+  }[project.status] || project.status;
+
+  return (
+    <button
+      onClick={onClick}
+      className="group w-full text-left px-4 py-3 hover:bg-muted/30 transition-colors flex items-center gap-3"
+    >
+      <span className={cn("h-2 w-2 rounded-full shrink-0", statusDot)} />
+
+      <span className={cn(
+        "shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold text-white tracking-wider",
+        isDWY ? "bg-violet-600" : "bg-emerald-600",
+      )}>
+        {isDWY ? "DWY" : "D4Y"}
+      </span>
+
+      <div className="min-w-0 flex-1 flex items-center gap-2">
+        <span className="font-semibold text-sm truncate">{project.name}</span>
+        {client && (
+          <span className="text-xs text-muted-foreground truncate">· {client.name}</span>
+        )}
+      </div>
+
+      <div className="hidden md:flex items-center gap-1.5 shrink-0 text-xs text-muted-foreground min-w-[180px] justify-end">
+        {nextStep ? (
+          <>
+            <span className="tabular-nums text-[10px] opacity-60">Step {stepIndex}/{steps.length}</span>
+            <span className={cn(
+              "px-2 py-0.5 rounded text-[10px] font-medium",
+              activeStep ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" : "bg-muted text-muted-foreground",
+            )}>
+              {nextStep.name}
+            </span>
+          </>
+        ) : steps.length === 0 ? (
+          <span className="italic text-[10px]">Keine Steps</span>
+        ) : (
+          <span className="text-emerald-600 text-[10px] font-medium">Alle Steps fertig</span>
+        )}
+      </div>
+
+      <div className="hidden sm:flex items-center gap-2 shrink-0 w-[120px]">
+        <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+          <div
+            className={cn(
+              "h-full rounded-full transition-all",
+              project.status === "done" ? "bg-emerald-500"
+                : project.status === "active" ? "bg-blue-500"
+                : project.status === "paused" ? "bg-amber-500"
+                : "bg-slate-400",
+            )}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <span className="text-[10px] tabular-nums text-muted-foreground w-8 text-right">{progress}%</span>
+      </div>
+
+      <span className="hidden lg:inline-block text-[10px] uppercase tracking-wider font-semibold text-muted-foreground shrink-0 w-14 text-right">
+        {statusLabel}
+      </span>
+
+      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-foreground/60 shrink-0 transition-colors" />
     </button>
   );
 }
