@@ -3,6 +3,14 @@
 // hier client-seitig gegen Supabase ausgeführt (respektiert RLS / Auth-Session).
 
 import { supabase } from "@/lib/supabase";
+import { addTask as addTaskStore, updateTask as updateTaskStore, deleteTask as deleteTaskStore } from "@/store/tasks";
+import { updatePipelineProject } from "@/store/pipeline";
+
+// Tools deren Namen mit "delete_" beginnen werden im Chat-Loop NIEMALS direkt
+// ausgeführt — sondern nur nach UI-Bestätigung. Siehe ClaudeChat.tsx.
+export function isDestructiveTool(name: string): boolean {
+  return name.startsWith("delete_");
+}
 
 export const CLAUDE_TOOLS = [
   {
@@ -107,6 +115,126 @@ export const CLAUDE_TOOLS = [
       },
     },
   },
+  // ─── Write Tools ───────────────────────────────────────────────────
+  {
+    name: "create_task",
+    description:
+      "Erstellt eine neue Task. Erscheint sofort in der Tasks-Page. Kategorie aus: admin/growth/marketing/sales/customer-success.",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Kurzer Titel der Task." },
+        description: { type: "string", description: "Optional — Details." },
+        category: {
+          type: "string",
+          enum: ["admin", "growth", "marketing", "sales", "customer-success"],
+        },
+        priority: { type: "string", enum: ["low", "medium", "high"] },
+        due_date: { type: "string", description: "Optional — YYYY-MM-DD." },
+        assignee: { type: "string", enum: ["alex", "daniel"], description: "Default: alex." },
+        client_id: { type: "string", description: "Optional — Kunde verknüpfen." },
+      },
+      required: ["title", "category"],
+    },
+  },
+  {
+    name: "update_task",
+    description:
+      "Aktualisiert Felder einer bestehenden Task. Spalten: todo / in-progress / done.",
+    input_schema: {
+      type: "object",
+      properties: {
+        task_id: { type: "string" },
+        title: { type: "string" },
+        description: { type: "string" },
+        column: { type: "string", enum: ["todo", "in-progress", "done"] },
+        priority: { type: "string", enum: ["low", "medium", "high"] },
+        due_date: { type: "string", description: "YYYY-MM-DD" },
+        category: {
+          type: "string",
+          enum: ["admin", "growth", "marketing", "sales", "customer-success"],
+        },
+        assignee: { type: "string", enum: ["alex", "daniel"] },
+      },
+      required: ["task_id"],
+    },
+  },
+  {
+    name: "create_client_comment",
+    description: "Fügt eine Notiz / Kommentar zu einem Kunden hinzu (sichtbar im ClientDetail).",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_id: { type: "string" },
+        content: { type: "string" },
+      },
+      required: ["client_id", "content"],
+    },
+  },
+  {
+    name: "create_calendar_event",
+    description: "Erstellt ein Kalender-Event (lokal, kein Google-Sync).",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        date: { type: "string", description: "YYYY-MM-DD" },
+        start_time: { type: "string", description: "Optional — HH:MM" },
+        end_time: { type: "string", description: "Optional — HH:MM" },
+        type: { type: "string", description: "z.B. call, meeting, internal" },
+        description: { type: "string" },
+        client_id: { type: "string" },
+        assignee: { type: "string", enum: ["alex", "daniel"] },
+      },
+      required: ["title", "date"],
+    },
+  },
+  {
+    name: "update_pipeline_project",
+    description:
+      "Updated Felder eines Pipeline-Projekts: Status, Onboarding-Confirmed, Meeting-Notes.",
+    input_schema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        status: { type: "string", enum: ["draft", "active", "paused", "done"] },
+        onboarding_confirmed: { type: "boolean" },
+        meeting_notes: { type: "string" },
+      },
+      required: ["project_id"],
+    },
+  },
+
+  // ─── Delete Tools — alle erfordern UI-Bestätigung ─────────────────
+  {
+    name: "delete_task",
+    description:
+      "Löscht eine Task. WICHTIG: Wird erst nach UI-Bestätigung des Users ausgeführt — Claude muss vorher klar machen welche Task gelöscht werden soll.",
+    input_schema: {
+      type: "object",
+      properties: { task_id: { type: "string" } },
+      required: ["task_id"],
+    },
+  },
+  {
+    name: "delete_calendar_event",
+    description: "Löscht ein Kalender-Event. WICHTIG: Wird erst nach UI-Bestätigung des Users ausgeführt.",
+    input_schema: {
+      type: "object",
+      properties: { event_id: { type: "string" } },
+      required: ["event_id"],
+    },
+  },
+  {
+    name: "delete_client_comment",
+    description: "Löscht einen Kunden-Kommentar. WICHTIG: UI-Bestätigung erforderlich.",
+    input_schema: {
+      type: "object",
+      properties: { comment_id: { type: "string" } },
+      required: ["comment_id"],
+    },
+  },
+
   {
     name: "query_table",
     description:
@@ -285,6 +413,94 @@ export async function executeClaudeTool(name: string, input: any): Promise<unkno
       return summarizeExcalidraw(data.name, data.excalidraw_data);
     }
 
+    // ─── Write Tools ─────────────────────────────────────────────────
+    case "create_task": {
+      const id = await addTaskStore({
+        title: String(input.title).trim(),
+        description: input.description ? String(input.description) : "",
+        category: input.category,
+        priority: input.priority || "medium",
+        column: "todo",
+        recurrence: "none",
+        assignee: input.assignee || "alex",
+        dueDate: input.due_date || undefined,
+        clientId: input.client_id || null,
+      });
+      if (!id) throw new Error("Task konnte nicht angelegt werden");
+      return { success: true, task_id: id, title: input.title };
+    }
+
+    case "update_task": {
+      const updates: any = {};
+      if (input.title !== undefined) updates.title = input.title;
+      if (input.description !== undefined) updates.description = input.description;
+      if (input.column !== undefined) updates.column = input.column;
+      if (input.priority !== undefined) updates.priority = input.priority;
+      if (input.due_date !== undefined) updates.dueDate = input.due_date;
+      if (input.category !== undefined) updates.category = input.category;
+      if (input.assignee !== undefined) updates.assignee = input.assignee;
+      await updateTaskStore(String(input.task_id), updates);
+      return { success: true, task_id: input.task_id, updated_fields: Object.keys(updates) };
+    }
+
+    case "create_client_comment": {
+      const { data, error } = await supabase
+        .from("client_comments")
+        .insert({
+          client_id: String(input.client_id),
+          content: String(input.content),
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, comment_id: data.id };
+    }
+
+    case "create_calendar_event": {
+      const row: any = {
+        title: String(input.title),
+        date: String(input.date),
+        type: input.type || "internal",
+      };
+      if (input.start_time) row.start_time = String(input.start_time);
+      if (input.end_time) row.end_time = String(input.end_time);
+      if (input.description) row.description = String(input.description);
+      if (input.client_id) row.client_id = String(input.client_id);
+      if (input.assignee) row.assignee = String(input.assignee);
+      const { data, error } = await supabase
+        .from("calendar_events")
+        .insert(row)
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, event_id: data.id, title: data.title, date: data.date };
+    }
+
+    case "update_pipeline_project": {
+      const updates: any = {};
+      if (input.status !== undefined) updates.status = input.status;
+      if (input.onboarding_confirmed !== undefined) updates.onboardingConfirmed = input.onboarding_confirmed;
+      if (input.meeting_notes !== undefined) updates.meetingNotes = input.meeting_notes;
+      await updatePipelineProject(String(input.project_id), updates);
+      return { success: true, project_id: input.project_id, updated_fields: Object.keys(updates) };
+    }
+
+    // ─── Delete Tools — werden NUR vom Chat-Loop nach Bestätigung aufgerufen ───
+    case "delete_task": {
+      await deleteTaskStore(String(input.task_id));
+      return { success: true, deleted: "task", id: input.task_id };
+    }
+    case "delete_calendar_event": {
+      const { error } = await supabase.from("calendar_events").delete().eq("id", String(input.event_id));
+      if (error) throw error;
+      return { success: true, deleted: "calendar_event", id: input.event_id };
+    }
+    case "delete_client_comment": {
+      const { error } = await supabase.from("client_comments").delete().eq("id", String(input.comment_id));
+      if (error) throw error;
+      return { success: true, deleted: "client_comment", id: input.comment_id };
+    }
+
     case "describe_schema": {
       const tableFilter = input.table_name ? String(input.table_name).toLowerCase() : null;
       const { data, error } = await supabase.rpc("public_table_columns", {
@@ -371,6 +587,64 @@ const SCHEMA_FALLBACK = [
   { table: "projects", cols: "id (legacy), client_id, name, onboarding (jsonb), status — Legacy-Tabelle, in der Pipeline durch pipeline_projects abgelöst" },
   { table: "download_logs", cols: "id, file_name, downloaded_by, downloaded_at" },
 ];
+
+// Holt einen User-lesbaren Summary für ein Delete-Tool damit die
+// Bestätigungs-UI dem User klar zeigen kann, was gelöscht wird.
+export async function describeDeleteAction(
+  toolName: string,
+  input: any,
+): Promise<{ title: string; details: string[] }> {
+  switch (toolName) {
+    case "delete_task": {
+      const { data } = await supabase
+        .from("tasks")
+        .select("title, category, due_date, col")
+        .eq("id", String(input.task_id))
+        .maybeSingle();
+      if (!data) return { title: "Task löschen", details: [`ID: ${input.task_id}`, "Task nicht gefunden — eventuell schon gelöscht."] };
+      return {
+        title: `Task löschen: "${data.title}"`,
+        details: [
+          `Kategorie: ${data.category}`,
+          `Spalte: ${data.col}`,
+          data.due_date ? `Fällig: ${data.due_date}` : "Ohne Fälligkeit",
+        ],
+      };
+    }
+    case "delete_calendar_event": {
+      const { data } = await supabase
+        .from("calendar_events")
+        .select("title, date, start_time, type")
+        .eq("id", String(input.event_id))
+        .maybeSingle();
+      if (!data) return { title: "Event löschen", details: [`ID: ${input.event_id}`, "Event nicht gefunden."] };
+      return {
+        title: `Kalender-Event löschen: "${data.title}"`,
+        details: [
+          `Datum: ${data.date}${data.start_time ? ` ${data.start_time}` : ""}`,
+          `Typ: ${data.type}`,
+        ],
+      };
+    }
+    case "delete_client_comment": {
+      const { data } = await supabase
+        .from("client_comments")
+        .select("content, created_at")
+        .eq("id", String(input.comment_id))
+        .maybeSingle();
+      if (!data) return { title: "Kommentar löschen", details: ["Kommentar nicht gefunden."] };
+      return {
+        title: "Kunden-Kommentar löschen",
+        details: [
+          `Inhalt: "${String(data.content).slice(0, 200)}"`,
+          `Erstellt: ${new Date(data.created_at).toLocaleString("de-DE")}`,
+        ],
+      };
+    }
+    default:
+      return { title: `${toolName} ausführen?`, details: [JSON.stringify(input)] };
+  }
+}
 
 // Excalidraw-JSON in eine kompakte, für Claude lesbare Form bringen.
 // Original kann ~6MB groß sein (Bilder etc.) — wir liefern nur Struktur.

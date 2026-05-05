@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, Send, X, RefreshCw, Loader2, Wrench } from "lucide-react";
+import { Sparkles, Send, X, RefreshCw, Loader2, Wrench, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { CLAUDE_TOOLS, executeClaudeTool } from "@/lib/claude-tools";
+import { CLAUDE_TOOLS, executeClaudeTool, isDestructiveTool, describeDeleteAction } from "@/lib/claude-tools";
 // Adslift Company-Knowledge — wird im System-Prompt mitgeschickt + gecached
 import ADSLIFT_CONTEXT from "@/lib/adslift-context.md?raw";
 
@@ -37,7 +37,19 @@ Stil:
 - Wenn du Daten mit Tools holst: nutze die echten Namen (Kunde, Projekt) statt IDs in der Antwort
 - Keine Markdown-Tabellen — schlechte Lesbarkeit im Chat. Stattdessen Bullet-Listen.
 - Tone: selbstbewusst, ergebnisorientiert, locker aber professionell — wie ein Gespräch unter Unternehmern.
-- Spekuliere nie. Wenn du eine Info nicht hast: sag's, oder hol sie via Tool.`;
+- Spekuliere nie. Wenn du eine Info nicht hast: sag's, oder hol sie via Tool.
+
+Schreib-Berechtigungen:
+- Tasks erstellen / aktualisieren: direkt via create_task / update_task
+- Kunden-Kommentare anlegen: create_client_comment
+- Kalender-Events anlegen: create_calendar_event
+- Pipeline-Projekte updaten: update_pipeline_project (Status, Onboarding-Confirmed, Meeting-Notes)
+
+Lösch-Berechtigungen — WICHTIG:
+- delete_task / delete_calendar_event / delete_client_comment lösen automatisch eine UI-Bestätigung beim User aus
+- Wenn du löschen willst: zeig vorher kurz an WAS du löschen willst (Titel, Datum etc.), erkläre den Grund, und rufe dann das delete-Tool auf
+- Der User muss explizit auf "Löschen bestätigen" klicken — wenn er ablehnt, kommt das als Tool-Ergebnis zurück
+- Niemals löschen ohne dass der User vorher klar zustimmt`;
 
 const MAX_TOOL_LOOP = 8;
 
@@ -64,6 +76,14 @@ function buildSystemPrompt(): SystemBlock[] {
   ];
 }
 
+type PendingConfirmation = {
+  toolName: string;
+  input: any;
+  title: string;
+  details: string[];
+  resolve: (confirmed: boolean) => void;
+};
+
 export function ClaudeChat() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
@@ -71,8 +91,23 @@ export function ClaudeChat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirmation | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Wird vom Tool-Loop aufgerufen — zeigt UI-Card und wartet auf Klick
+  const askForDeleteConfirmation = (toolName: string, toolInput: any): Promise<boolean> => {
+    return new Promise(async (resolve) => {
+      const desc = await describeDeleteAction(toolName, toolInput);
+      setPendingConfirm({
+        toolName,
+        input: toolInput,
+        title: desc.title,
+        details: desc.details,
+        resolve,
+      });
+    });
+  };
 
   // Auto-scroll bei neuen Nachrichten
   useEffect(() => {
@@ -139,7 +174,7 @@ export function ClaudeChat() {
     ];
 
     try {
-      const result = await runChatLoop(newHistory);
+      const result = await runChatLoop(newHistory, askForDeleteConfirmation);
       setApiHistory(result.history);
       setMessages((m) => [
         ...m,
@@ -232,7 +267,46 @@ export function ClaudeChat() {
             <MessageBubble key={i} msg={msg} />
           ))}
 
-          {loading && (
+          {pendingConfirm && (
+            <div className="rounded-lg border-2 border-red-500/40 bg-red-500/[0.06] p-3 space-y-2.5">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-red-400">{pendingConfirm.title}</p>
+                  <ul className="text-xs text-muted-foreground mt-1.5 space-y-0.5">
+                    {pendingConfirm.details.map((d, i) => (
+                      <li key={i} className="flex gap-1.5"><span className="text-muted-foreground/50">·</span><span>{d}</span></li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 h-8 text-xs"
+                  onClick={() => {
+                    pendingConfirm.resolve(false);
+                    setPendingConfirm(null);
+                  }}
+                >
+                  Abbrechen
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1 h-8 text-xs bg-red-500 hover:bg-red-600 text-white"
+                  onClick={() => {
+                    pendingConfirm.resolve(true);
+                    setPendingConfirm(null);
+                  }}
+                >
+                  Löschen bestätigen
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {loading && !pendingConfirm && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground pl-1">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-400" />
               <span>denkt nach...</span>
@@ -316,7 +390,10 @@ function MessageBubble({ msg }: { msg: DisplayMessage }) {
 }
 
 // ─── Chat-Loop mit Tool-Use ──────────────────────────────────────────
-async function runChatLoop(initialHistory: ApiMessage[]): Promise<{
+async function runChatLoop(
+  initialHistory: ApiMessage[],
+  askForDeleteConfirmation: (toolName: string, input: any) => Promise<boolean>,
+): Promise<{
   history: ApiMessage[];
   text: string;
   tools: { name: string; input: any }[];
@@ -360,9 +437,25 @@ async function runChatLoop(initialHistory: ApiMessage[]): Promise<{
       const results: ContentBlock[] = [];
       for (const tu of toolUses) {
         usedTools.push({ name: tu.name, input: tu.input });
+
+        // Destruktive Tools (delete_*) brauchen UI-Bestätigung
+        if (isDestructiveTool(tu.name)) {
+          const confirmed = await askForDeleteConfirmation(tu.name, tu.input);
+          if (!confirmed) {
+            results.push({
+              type: "tool_result",
+              tool_use_id: tu.id,
+              content: JSON.stringify({
+                rejected: true,
+                reason: "User hat die Löschung abgelehnt — nichts wurde gelöscht.",
+              }),
+            });
+            continue;
+          }
+        }
+
         try {
           const result = await executeClaudeTool(tu.name, tu.input);
-          // Auf 30k Zeichen kappen damit Context nicht explodiert
           let str = JSON.stringify(result);
           if (str.length > 30000) str = str.slice(0, 30000) + '..."(truncated)"';
           results.push({ type: "tool_result", tool_use_id: tu.id, content: str });
