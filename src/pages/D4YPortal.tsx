@@ -161,15 +161,23 @@ export default function D4YPortal() {
     if (!ac?.client_id) { setLoading(false); return; }
 
     // excalidraw_data NICHT laden — Board lädt sich seine Kopie selbst auf /board/:id
-    const { data: pps } = await supabase
+    const baseCols =
+      "id,name,variant,status,client_id,client_email,ad_account_id,start_date," +
+      "customer_portal_token,portal_pin,portal_customer_name,created_at,updated_at," +
+      "creatives_html,ad_copy_html,drive_link,meeting_notes";
+    let { data: pps, error: ppsErr } = await supabase
       .from("pipeline_projects")
-      .select(
-        "id,name,variant,status,client_id,client_email,ad_account_id,start_date," +
-        "customer_portal_token,portal_pin,portal_customer_name,created_at,updated_at," +
-        "creatives_html,ad_copy_html,drive_link,drive_links,meeting_notes",
-      )
+      .select(baseCols + ",drive_links")
       .eq("client_id", ac.client_id)
       .order("created_at", { ascending: true });
+    if (ppsErr && /drive_links/i.test(ppsErr.message || "")) {
+      const retry = await supabase
+        .from("pipeline_projects")
+        .select(baseCols)
+        .eq("client_id", ac.client_id)
+        .order("created_at", { ascending: true });
+      pps = retry.data;
+    }
     if (!pps || pps.length === 0) { setLoading(false); return; }
     setAllProjects(pps);
     const currentId = selectedProjectId && pps.some((p) => p.id === selectedProjectId)

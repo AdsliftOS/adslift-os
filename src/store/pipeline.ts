@@ -168,16 +168,26 @@ function rowToProject(r: any): PipelineProject {
 
 // Heavy fields (excalidraw_data ~6MB für aktive Boards) NICHT in der Listen-Query —
 // das Board-Tab lädt sich seine Kopie via ProjectBoardPage selbst.
-const PROJECT_LIST_COLUMNS =
+const PROJECT_LIST_COLUMNS_BASE =
   "id,name,variant,client_id,client_email,ad_account_id,status,start_date," +
   "customer_portal_token,portal_pin,portal_customer_name,created_by_email," +
-  "created_at,updated_at,creatives_html,ad_copy_html,drive_link,drive_links,meeting_notes";
+  "created_at,updated_at,creatives_html,ad_copy_html,drive_link,meeting_notes";
+const PROJECT_LIST_COLUMNS = PROJECT_LIST_COLUMNS_BASE + ",drive_links";
 
 export async function loadPipelineProjects() {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("pipeline_projects")
     .select(PROJECT_LIST_COLUMNS)
     .order("created_at", { ascending: false });
+  // Fallback solange Migration für drive_links noch nicht eingespielt ist.
+  if (error && /drive_links/i.test(error.message || "")) {
+    const retry = await supabase
+      .from("pipeline_projects")
+      .select(PROJECT_LIST_COLUMNS_BASE)
+      .order("created_at", { ascending: false });
+    data = retry.data;
+    error = retry.error;
+  }
   if (!error && data) {
     projects = data.map(rowToProject);
     prjEmit();
@@ -245,7 +255,17 @@ export async function updatePipelineProject(id: string, updates: Partial<Pipelin
   projects = projects.map((p) => (p.id === id ? { ...p, ...updates } : p));
   prjEmit();
 
-  const { error } = await supabase.from("pipeline_projects").update(row).eq("id", id);
+  let { error } = await supabase.from("pipeline_projects").update(row).eq("id", id);
+  // Fallback wenn drive_links Spalte noch nicht migriert.
+  if (error && /drive_links/i.test(error.message || "") && row.drive_links !== undefined) {
+    const { drive_links: _drop, ...rowWithout } = row;
+    void _drop;
+    const retry = await supabase.from("pipeline_projects").update(rowWithout).eq("id", id);
+    error = retry.error;
+    if (!error) {
+      toast.message("Drive-Links nicht persistiert: SQL-Migration noch ausstehend (add-drive-links.sql)");
+    }
+  }
   if (error) {
     toast.error("Projekt konnte nicht gespeichert werden");
     await loadPipelineProjects();
