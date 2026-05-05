@@ -355,7 +355,6 @@ export default function D4YPortal() {
           {[
             { icon: CalendarIcon, label: "Meeting buchen", color: "violet", onClick: () => window.open("https://calendly.com/consulting-og-info/kundenmeeting-alex-adslift", "_blank") },
             { icon: MessageCircle, label: "WhatsApp", color: "emerald", onClick: () => window.open("https://api.whatsapp.com/message/6CY2BBVU45OUJ1?autoload=1&app_absent=0", "_blank") },
-            { icon: ClipboardList, label: "Mein Briefing", color: "blue", onClick: () => setShowBriefingModal(true) },
           ].map((qa) => (
             <button
               key={qa.label}
