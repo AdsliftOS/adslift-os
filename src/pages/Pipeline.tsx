@@ -1177,6 +1177,7 @@ function PipelineDetail({
       {/* Setup für DWY: grobes Dashboard (compact overview) */}
       {mode === "setup" && isDWY && (
         <DWYSetupDashboard
+          project={project}
           data={academyData}
           onboardingProjects={onboardingProjects}
           onJumpToAcademy={() => setMode("academy")}
@@ -4225,11 +4226,13 @@ function AcademyProgressView({ data }: {
 
 // ─── DWY-Setup-Dashboard (grober Überblick) ─────────────────────────
 function DWYSetupDashboard({
+  project,
   data,
   onboardingProjects,
   onJumpToAcademy,
   onJumpToOnboarding,
 }: {
+  project: ReturnType<typeof usePipelineProjects>[number];
   data: {
     customer: any | null;
     courses: any[];
@@ -4241,7 +4244,13 @@ function DWYSetupDashboard({
   onJumpToAcademy: () => void;
   onJumpToOnboarding: () => void;
 }) {
-  const onboardingDone = onboardingProjects.some((p) => p.onboarding && Object.keys(p.onboarding).length > 0);
+  const wizardDataPresent = onboardingProjects.some((p) => p.onboarding && Object.keys(p.onboarding).length > 0);
+  const manuallyConfirmed = project.onboardingConfirmed;
+  const onboardingDone = wizardDataPresent || manuallyConfirmed;
+  const toggleConfirmed = async () => {
+    await updatePipelineProject(project.id, { onboardingConfirmed: !manuallyConfirmed });
+    toast.success(!manuallyConfirmed ? "Onboarding manuell bestätigt" : "Bestätigung aufgehoben");
+  };
   const totalLessons = data.lessons.length;
   const completedLessons = data.progress.filter((p) => p.completed).length;
   const overall = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
@@ -4269,22 +4278,41 @@ function DWYSetupDashboard({
     <div className="space-y-5">
       {/* Top-Stats: 4-card overview */}
       <div className="grid gap-3 sm:grid-cols-4">
-        <button
-          onClick={onJumpToOnboarding}
+        <div
           className={cn(
-            "rounded-xl border p-4 text-left transition-all hover:shadow-md",
+            "relative rounded-xl border p-4 transition-all hover:shadow-md",
             onboardingDone ? "border-emerald-500/40 bg-emerald-500/[0.04]" : "border-amber-500/40 bg-amber-500/[0.04]",
           )}
         >
-          <div className="flex items-center gap-2 mb-2">
-            {onboardingDone ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Circle className="h-4 w-4 text-amber-500" />}
-            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Onboarding</span>
-          </div>
-          <p className="text-lg font-bold">{onboardingDone ? "Abgeschlossen" : "Ausstehend"}</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {onboardingDone ? "Wizard-Daten vorhanden" : "Kunde hat Form noch nicht ausgefüllt"}
-          </p>
-        </button>
+          <button onClick={onJumpToOnboarding} className="text-left w-full">
+            <div className="flex items-center gap-2 mb-2">
+              {onboardingDone ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Circle className="h-4 w-4 text-amber-500" />}
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Onboarding</span>
+            </div>
+            <p className="text-lg font-bold">{onboardingDone ? "Abgeschlossen" : "Ausstehend"}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {wizardDataPresent
+                ? "Wizard-Daten vorhanden"
+                : manuallyConfirmed
+                  ? "Manuell bestätigt"
+                  : "Kunde hat Form noch nicht ausgefüllt"}
+            </p>
+          </button>
+          {!wizardDataPresent && (
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleConfirmed(); }}
+              title={manuallyConfirmed ? "Bestätigung aufheben" : "Manuell als bestätigt markieren"}
+              className={cn(
+                "absolute top-2 right-2 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors",
+                manuallyConfirmed
+                  ? "bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25"
+                  : "bg-background border hover:bg-muted text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {manuallyConfirmed ? "✓ Bestätigt" : "Bestätigen"}
+            </button>
+          )}
+        </div>
 
         <button
           onClick={onJumpToAcademy}

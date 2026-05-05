@@ -65,6 +65,7 @@ export type PipelineProject = {
   driveLinks: Array<{ name: string; url: string }>;
   meetingNotes: string | null;
   excalidrawData: any | null;
+  onboardingConfirmed: boolean;
 };
 
 // ─── Templates store ─────────────────────────────────────────────────
@@ -163,6 +164,7 @@ function rowToProject(r: any): PipelineProject {
     driveLinks: Array.isArray(r.drive_links) ? r.drive_links : [],
     meetingNotes: r.meeting_notes ?? null,
     excalidrawData: r.excalidraw_data ?? null,
+    onboardingConfirmed: !!r.onboarding_confirmed,
   };
 }
 
@@ -172,15 +174,15 @@ const PROJECT_LIST_COLUMNS_BASE =
   "id,name,variant,client_id,client_email,ad_account_id,status,start_date," +
   "customer_portal_token,portal_pin,portal_customer_name,created_by_email," +
   "created_at,updated_at,creatives_html,ad_copy_html,drive_link,meeting_notes";
-const PROJECT_LIST_COLUMNS = PROJECT_LIST_COLUMNS_BASE + ",drive_links";
+const PROJECT_LIST_COLUMNS = PROJECT_LIST_COLUMNS_BASE + ",drive_links,onboarding_confirmed";
 
 export async function loadPipelineProjects() {
   let { data, error } = await supabase
     .from("pipeline_projects")
     .select(PROJECT_LIST_COLUMNS)
     .order("created_at", { ascending: false });
-  // Fallback solange Migration für drive_links noch nicht eingespielt ist.
-  if (error && /drive_links/i.test(error.message || "")) {
+  // Fallback solange Migration für drive_links/onboarding_confirmed noch nicht eingespielt ist.
+  if (error && /drive_links|onboarding_confirmed/i.test(error.message || "")) {
     const retry = await supabase
       .from("pipeline_projects")
       .select(PROJECT_LIST_COLUMNS_BASE)
@@ -241,6 +243,7 @@ export async function updatePipelineProject(id: string, updates: Partial<Pipelin
   if (updates.adCopyHtml !== undefined) row.ad_copy_html = updates.adCopyHtml;
   if (updates.driveLink !== undefined) row.drive_link = updates.driveLink;
   if (updates.driveLinks !== undefined) row.drive_links = updates.driveLinks;
+  if (updates.onboardingConfirmed !== undefined) row.onboarding_confirmed = updates.onboardingConfirmed;
   if (updates.meetingNotes !== undefined) row.meeting_notes = updates.meetingNotes;
   if (updates.excalidrawData !== undefined) row.excalidraw_data = updates.excalidrawData;
   if (updates.clientId !== undefined) row.client_id = updates.clientId;
