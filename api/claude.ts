@@ -22,19 +22,44 @@ export default async function handler(req: Request) {
 
   const body = await req.text();
 
-  const upstream = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body,
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body,
+    });
+  } catch (e: any) {
+    return new Response(
+      JSON.stringify({ error: { type: "fetch_error", message: e?.message || "Upstream fetch failed" } }),
+      { status: 502, headers: { "Content-Type": "application/json" } },
+    );
+  }
 
   const text = await upstream.text();
-  return new Response(text, {
-    status: upstream.status,
-    headers: { "Content-Type": "application/json" },
-  });
+
+  // Anthropic liefert immer JSON. Falls upstream mal HTML/text liefert (Cloudflare-Page,
+  // Gateway-Error etc.), wrap als JSON damit der Frontend-Helper sauber parsen kann.
+  try {
+    JSON.parse(text);
+    return new Response(text, {
+      status: upstream.status,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch {
+    return new Response(
+      JSON.stringify({
+        error: {
+          type: "upstream_non_json",
+          message: `Anthropic upstream returned non-JSON (HTTP ${upstream.status})`,
+          raw: text.slice(0, 500),
+        },
+      }),
+      { status: upstream.status >= 400 ? upstream.status : 502, headers: { "Content-Type": "application/json" } },
+    );
+  }
 }

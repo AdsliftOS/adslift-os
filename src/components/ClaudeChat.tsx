@@ -336,9 +336,20 @@ async function runChatLoop(initialHistory: ApiMessage[]): Promise<{
         messages: history,
       }),
     });
-    const data = await res.json();
+    const raw = await res.text();
+    let data: any;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      // Vercel/Edge returnt manchmal Plain-Text bei Timeouts oder Gateway-Errors
+      console.error("[Claude] Non-JSON response:", { status: res.status, raw: raw.slice(0, 500) });
+      throw new Error(
+        `Server-Fehler (HTTP ${res.status}): ${raw.slice(0, 200) || "leere Antwort"}`,
+      );
+    }
     if (!res.ok || data.error) {
-      throw new Error(data.error?.message || `API ${res.status}`);
+      console.error("[Claude] API error:", data);
+      throw new Error(data.error?.message || `API ${res.status}: ${JSON.stringify(data).slice(0, 200)}`);
     }
 
     const blocks: ContentBlock[] = data.content || [];
