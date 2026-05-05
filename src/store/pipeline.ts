@@ -164,10 +164,17 @@ function rowToProject(r: any): PipelineProject {
   };
 }
 
+// Heavy fields (excalidraw_data ~6MB für aktive Boards) NICHT in der Listen-Query —
+// das Board-Tab lädt sich seine Kopie via ProjectBoardPage selbst.
+const PROJECT_LIST_COLUMNS =
+  "id,name,variant,client_id,client_email,ad_account_id,status,start_date," +
+  "customer_portal_token,portal_pin,portal_customer_name,created_by_email," +
+  "created_at,updated_at,creatives_html,ad_copy_html,drive_link,meeting_notes";
+
 export async function loadPipelineProjects() {
   const { data, error } = await supabase
     .from("pipeline_projects")
-    .select("*")
+    .select(PROJECT_LIST_COLUMNS)
     .order("created_at", { ascending: false });
   if (!error && data) {
     projects = data.map(rowToProject);
