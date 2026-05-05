@@ -57,6 +57,8 @@ import { de } from "date-fns/locale";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useClients } from "@/store/clients";
+import { addTask as addTaskDB } from "@/store/tasks";
+import type { Category as TaskCategory } from "@/store/tasks";
 import { OnboardingDetails } from "@/pages/ClientDetail";
 import { getDailyBreakdown, type DailyDataPoint } from "@/lib/meta-ads-project";
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie } from "recharts";
@@ -624,7 +626,7 @@ function PipelineDetail({
   const [shareOpen, setShareOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [taskCreateOpen, setTaskCreateOpen] = useState(false);
-  const [taskForm, setTaskForm] = useState<{ title: string; description: string; priority: "low" | "med" | "high"; dueDate: string; category: string }>({ title: "", description: "", priority: "med", dueDate: "", category: "Allgemein" });
+  const [taskForm, setTaskForm] = useState<{ title: string; description: string; priority: "low" | "medium" | "high"; dueDate: string; category: TaskCategory }>({ title: "", description: "", priority: "medium", dueDate: "", category: "customer-success" });
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [siblingCreateOpen, setSiblingCreateOpen] = useState(false);
@@ -1407,11 +1409,11 @@ function PipelineDetail({
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
                 <Label>Priorität</Label>
-                <Select value={taskForm.priority} onValueChange={(v) => setTaskForm((f) => ({ ...f, priority: v as any }))}>
+                <Select value={taskForm.priority} onValueChange={(v) => setTaskForm((f) => ({ ...f, priority: v as "low" | "medium" | "high" }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="low">Niedrig</SelectItem>
-                    <SelectItem value="med">Mittel</SelectItem>
+                    <SelectItem value="medium">Mittel</SelectItem>
                     <SelectItem value="high">Hoch</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1423,11 +1425,16 @@ function PipelineDetail({
             </div>
             <div className="grid gap-2">
               <Label>Kategorie</Label>
-              <Input
-                placeholder="z.B. Setup / Creative / Sales"
-                value={taskForm.category}
-                onChange={(e) => setTaskForm((f) => ({ ...f, category: e.target.value }))}
-              />
+              <Select value={taskForm.category} onValueChange={(v) => setTaskForm((f) => ({ ...f, category: v as TaskCategory }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="growth">Growth</SelectItem>
+                  <SelectItem value="marketing">Marketing</SelectItem>
+                  <SelectItem value="sales">Sales</SelectItem>
+                  <SelectItem value="customer-success">Customer Success</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
@@ -1435,22 +1442,22 @@ function PipelineDetail({
             <Button
               onClick={async () => {
                 if (!taskForm.title.trim()) return toast.error("Titel ist erforderlich");
-                const { error } = await supabase.from("tasks").insert({
+                // Email auf User-Key mappen (matching Tasks.tsx teamMembers)
+                const assigneeKey = currentUserEmail === "office@consulting-og.de" ? "daniel" : "alex";
+                const id = await addTaskDB({
                   title: taskForm.title.trim(),
-                  description: taskForm.description.trim() || null,
+                  description: taskForm.description.trim() || "",
+                  category: taskForm.category,
                   priority: taskForm.priority,
-                  due_date: taskForm.dueDate || null,
-                  category: taskForm.category.trim() || "Allgemein",
-                  col: "todo",
-                  client_id: project.clientId || null,
-                  assignee: currentUserEmail || null,
+                  dueDate: taskForm.dueDate || undefined,
+                  column: "todo",
+                  recurrence: "none",
+                  assignee: assigneeKey,
+                  clientId: project.clientId || null,
                 });
-                if (error) {
-                  toast.error("Task konnte nicht angelegt werden");
-                  return;
-                }
-                toast.success("Task angelegt");
-                setTaskForm({ title: "", description: "", priority: "med", dueDate: "", category: "Allgemein" });
+                if (!id) return;
+                toast.success("Task angelegt — landet in deinen Aufgaben");
+                setTaskForm({ title: "", description: "", priority: "medium", dueDate: "", category: "customer-success" });
                 setTaskCreateOpen(false);
               }}
             >
