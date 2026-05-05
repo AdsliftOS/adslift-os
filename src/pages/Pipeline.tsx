@@ -4666,29 +4666,86 @@ function D4YHtmlAssetCard({
 }
 
 // ─── D4Y Drive-Link-Card ─────────────────────────────────────────────
-function D4YDriveCard({ project }: { project: ReturnType<typeof usePipelineProjects>[number] }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(project.driveLink || "");
+type DriveLinkEntry = { name: string; url: string };
 
-  // Auto-fallback aus Onboarding-Daten
-  const [fallbackLink, setFallbackLink] = useState<string | null>(null);
+function D4YDriveCard({ project }: { project: ReturnType<typeof usePipelineProjects>[number] }) {
+  // Aktive Liste: bevorzugt drive_links, sonst Legacy-Einzel-Link, sonst Onboarding-Fallback.
+  const [fallback, setFallback] = useState<DriveLinkEntry[]>([]);
   useEffect(() => {
-    if (project.driveLink || !project.clientId) return;
+    if (project.driveLinks.length > 0 || project.driveLink || !project.clientId) return;
     (async () => {
       const { data } = await supabase
         .from("projects").select("onboarding").eq("client_id", project.clientId);
       const onb = (data ?? []).find((p: any) => p.onboarding?.driveLink)?.onboarding;
-      if (onb?.driveLink) setFallbackLink(onb.driveLink);
+      if (onb?.driveLink) setFallback([{ name: "Drive", url: onb.driveLink }]);
     })();
-  }, [project.clientId, project.driveLink]);
+  }, [project.clientId, project.driveLink, project.driveLinks.length]);
 
-  const link = project.driveLink || fallbackLink;
+  const links: DriveLinkEntry[] = project.driveLinks.length > 0
+    ? project.driveLinks
+    : project.driveLink
+      ? [{ name: "Drive", url: project.driveLink }]
+      : fallback;
+
+  // editIndex: null = keiner, -1 = neuer Eintrag, sonst Index in `links`
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [draftName, setDraftName] = useState("");
+  const [draftUrl, setDraftUrl] = useState("");
+
+  const startAdd = () => {
+    setEditIndex(-1);
+    setDraftName("");
+    setDraftUrl("");
+  };
+  const startEdit = (i: number) => {
+    setEditIndex(i);
+    setDraftName(links[i].name);
+    setDraftUrl(links[i].url);
+  };
+  const cancel = () => {
+    setEditIndex(null);
+    setDraftName("");
+    setDraftUrl("");
+  };
+
+  const persist = async (next: DriveLinkEntry[]) => {
+    // Beim ersten Speichern alten Einzel-Link nullen, damit es eine Quelle der Wahrheit gibt.
+    const updates: Partial<typeof project> = { driveLinks: next };
+    if (project.driveLink) updates.driveLink = null;
+    await updatePipelineProject(project.id, updates);
+  };
 
   const save = async () => {
-    await updatePipelineProject(project.id, { driveLink: draft.trim() || null });
-    setEditing(false);
+    const url = draftUrl.trim();
+    const name = draftName.trim() || "Drive";
+    if (!url) return;
+    const base = project.driveLinks.length > 0
+      ? [...project.driveLinks]
+      : project.driveLink
+        ? [{ name: "Drive", url: project.driveLink }]
+        : [];
+    if (editIndex === -1) {
+      base.push({ name, url });
+    } else if (editIndex !== null && editIndex >= 0) {
+      base[editIndex] = { name, url };
+    }
+    await persist(base);
+    cancel();
     toast.success("Drive-Link gespeichert");
   };
+
+  const remove = async (i: number) => {
+    const base = project.driveLinks.length > 0
+      ? [...project.driveLinks]
+      : project.driveLink
+        ? [{ name: "Drive", url: project.driveLink }]
+        : [];
+    base.splice(i, 1);
+    await persist(base);
+    toast.success("Drive-Link entfernt");
+  };
+
+  const isEditing = editIndex !== null;
 
   return (
     <div className="rounded-xl border bg-card overflow-hidden transition-all hover:shadow-md flex flex-col min-h-[180px]">
@@ -4700,44 +4757,102 @@ function D4YDriveCard({ project }: { project: ReturnType<typeof usePipelineProje
           <h3 className="text-sm font-bold truncate">Google Drive</h3>
           <p className="text-[10px] text-muted-foreground truncate">Brand-Assets vom Kunden</p>
         </div>
-        {link && <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 shrink-0">verknüpft</Badge>}
+        {links.length > 0 && (
+          <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 shrink-0">
+            {links.length} verknüpft
+          </Badge>
+        )}
       </div>
       <div className="flex-1 p-4 flex flex-col gap-2">
-        {editing ? (
-          <>
-            <Input
-              placeholder="https://drive.google.com/..."
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              className="text-xs h-9"
-              autoFocus
-            />
-            <div className="flex gap-2 mt-auto">
-              <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => { setEditing(false); setDraft(project.driveLink || ""); }}>Abbrechen</Button>
-              <Button size="sm" className="flex-1 h-8 text-xs" onClick={save}>Speichern</Button>
-            </div>
-          </>
-        ) : link ? (
-          <>
-            <div className="text-[11px] text-muted-foreground break-all line-clamp-2 font-mono">{link}</div>
-            <div className="flex gap-2 mt-auto">
-              <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => window.open(link, "_blank")}>
-                <ExternalLink className="h-3.5 w-3.5 mr-1" /> Öffnen
-              </Button>
-              <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => { setDraft(project.driveLink || link); setEditing(true); }}>
-                Bearbeiten
-              </Button>
-            </div>
-          </>
-        ) : (
+        {links.length === 0 && !isEditing ? (
           <button
-            onClick={() => setEditing(true)}
+            onClick={startAdd}
             className="flex-1 rounded-lg border-2 border-dashed border-muted-foreground/20 hover:border-amber-500 hover:bg-amber-500/5 transition-all flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:text-amber-600 p-4"
           >
             <FolderOpen className="h-5 w-5" />
             <span className="text-[11px] font-medium">Drive-Link hinzufügen</span>
           </button>
+        ) : (
+          <>
+            <div className="flex flex-col gap-1.5">
+              {links.map((entry, i) => (
+                editIndex === i ? (
+                  <DriveLinkEditor
+                    key={i}
+                    name={draftName}
+                    url={draftUrl}
+                    onName={setDraftName}
+                    onUrl={setDraftUrl}
+                    onSave={save}
+                    onCancel={cancel}
+                  />
+                ) : (
+                  <div key={i} className="rounded-lg border bg-muted/20 px-2.5 py-2 flex items-center gap-2">
+                    <button
+                      onClick={() => window.open(entry.url, "_blank")}
+                      className="flex-1 min-w-0 text-left"
+                    >
+                      <div className="text-xs font-semibold truncate">{entry.name}</div>
+                      <div className="text-[10px] text-muted-foreground truncate font-mono">{entry.url}</div>
+                    </button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => window.open(entry.url, "_blank")}>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => startEdit(i)}>
+                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 text-destructive hover:text-destructive" onClick={() => remove(i)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )
+              ))}
+              {editIndex === -1 && (
+                <DriveLinkEditor
+                  name={draftName}
+                  url={draftUrl}
+                  onName={setDraftName}
+                  onUrl={setDraftUrl}
+                  onSave={save}
+                  onCancel={cancel}
+                />
+              )}
+            </div>
+            {!isEditing && (
+              <Button size="sm" variant="outline" className="h-8 text-xs mt-auto" onClick={startAdd}>
+                <Plus className="h-3.5 w-3.5 mr-1" /> Weiteren Link hinzufügen
+              </Button>
+            )}
+          </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function DriveLinkEditor({ name, url, onName, onUrl, onSave, onCancel }: {
+  name: string; url: string;
+  onName: (v: string) => void; onUrl: (v: string) => void;
+  onSave: () => void; onCancel: () => void;
+}) {
+  return (
+    <div className="rounded-lg border bg-background p-2 flex flex-col gap-1.5">
+      <Input
+        placeholder="Name (z. B. Brand-Assets, Logos, Footage)"
+        value={name}
+        onChange={(e) => onName(e.target.value)}
+        className="text-xs h-8"
+        autoFocus
+      />
+      <Input
+        placeholder="https://drive.google.com/..."
+        value={url}
+        onChange={(e) => onUrl(e.target.value)}
+        className="text-xs h-8 font-mono"
+      />
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" className="flex-1 h-7 text-[11px]" onClick={onCancel}>Abbrechen</Button>
+        <Button size="sm" className="flex-1 h-7 text-[11px]" onClick={onSave} disabled={!url.trim()}>Speichern</Button>
       </div>
     </div>
   );

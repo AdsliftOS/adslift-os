@@ -49,6 +49,7 @@ type PipelineProject = {
   creatives_html: string | null;
   ad_copy_html: string | null;
   drive_link: string | null;
+  drive_links: Array<{ name: string; url: string }> | null;
 };
 
 type PipelineStep = {
@@ -165,7 +166,7 @@ export default function D4YPortal() {
       .select(
         "id,name,variant,status,client_id,client_email,ad_account_id,start_date," +
         "customer_portal_token,portal_pin,portal_customer_name,created_at,updated_at," +
-        "creatives_html,ad_copy_html,drive_link,meeting_notes",
+        "creatives_html,ad_copy_html,drive_link,drive_links,meeting_notes",
       )
       .eq("client_id", ac.client_id)
       .order("created_at", { ascending: true });
@@ -560,7 +561,17 @@ export default function D4YPortal() {
             emptyHint="Wir laden hier bald deine Ad-Copy-Varianten hoch"
             onClick={() => setPreviewType("adcopy")}
           />
-          <D4YPortalDriveCard driveLink={project?.drive_link || briefing?.driveLink || null} />
+          <D4YPortalDriveCard
+            driveLinks={
+              project?.drive_links && project.drive_links.length > 0
+                ? project.drive_links
+                : project?.drive_link
+                  ? [{ name: "Drive", url: project.drive_link }]
+                  : briefing?.driveLink
+                    ? [{ name: "Drive", url: briefing.driveLink }]
+                    : []
+            }
+          />
         </div>
         )}
 
@@ -1203,8 +1214,8 @@ function D4YPortalAssetCard({
 }
 
 // ─── Google-Drive-Card im Kundenbereich ──────────────────────────────
-function D4YPortalDriveCard({ driveLink }: { driveLink: string | null }) {
-  if (!driveLink) {
+function D4YPortalDriveCard({ driveLinks }: { driveLinks: Array<{ name: string; url: string }> }) {
+  if (driveLinks.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.01] p-5 flex items-center gap-4 opacity-70">
         <div className="shrink-0 h-12 w-12 rounded-xl bg-white/[0.04] flex items-center justify-center">
@@ -1218,20 +1229,54 @@ function D4YPortalDriveCard({ driveLink }: { driveLink: string | null }) {
       </div>
     );
   }
+  if (driveLinks.length === 1) {
+    const only = driveLinks[0];
+    return (
+      <button
+        onClick={() => window.open(only.url, "_blank")}
+        className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-amber-500/30 transition-all text-left p-5 flex items-center gap-4"
+      >
+        <div className="shrink-0 h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+          <FolderOpen className="h-6 w-6 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-bold text-white truncate">{only.name}</h3>
+          <p className="text-[11px] text-white/50 mt-0.5 truncate">Google Drive · Brand-Assets</p>
+        </div>
+        <ExternalLink className="h-4 w-4 text-white/30 group-hover:text-white/80 transition-colors shrink-0" />
+      </button>
+    );
+  }
   return (
-    <button
-      onClick={() => window.open(driveLink, "_blank")}
-      className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-amber-500/30 transition-all text-left p-5 flex items-center gap-4"
-    >
-      <div className="shrink-0 h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
-        <FolderOpen className="h-6 w-6 text-white" />
+    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 flex flex-col gap-3">
+      <div className="flex items-center gap-4">
+        <div className="shrink-0 h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+          <FolderOpen className="h-6 w-6 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-bold text-white">Google Drive</h3>
+          <p className="text-[11px] text-white/50 mt-0.5">{driveLinks.length} Ordner verknüpft</p>
+        </div>
       </div>
-      <div className="flex-1 min-w-0">
-        <h3 className="text-sm font-bold text-white">Google Drive</h3>
-        <p className="text-[11px] text-white/50 mt-0.5 truncate">Brand-Assets-Ordner</p>
+      <div className="flex flex-col gap-1.5">
+        {driveLinks.map((entry, i) => (
+          <button
+            key={i}
+            onClick={() => window.open(entry.url, "_blank")}
+            className="group rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-amber-500/30 transition-all text-left px-3 py-2.5 flex items-center gap-3"
+          >
+            <div className="shrink-0 h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+              <FolderOpen className="h-4 w-4 text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-semibold text-white truncate">{entry.name}</div>
+              <div className="text-[10px] text-white/40 truncate font-mono">{entry.url}</div>
+            </div>
+            <ExternalLink className="h-3.5 w-3.5 text-white/30 group-hover:text-white/80 transition-colors shrink-0" />
+          </button>
+        ))}
       </div>
-      <ExternalLink className="h-4 w-4 text-white/30 group-hover:text-white/80 transition-colors shrink-0" />
-    </button>
+    </div>
   );
 }
 

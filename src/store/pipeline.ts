@@ -62,6 +62,7 @@ export type PipelineProject = {
   creativesHtml: string | null;
   adCopyHtml: string | null;
   driveLink: string | null;
+  driveLinks: Array<{ name: string; url: string }>;
   meetingNotes: string | null;
   excalidrawData: any | null;
 };
@@ -159,6 +160,7 @@ function rowToProject(r: any): PipelineProject {
     creativesHtml: r.creatives_html ?? null,
     adCopyHtml: r.ad_copy_html ?? null,
     driveLink: r.drive_link ?? null,
+    driveLinks: Array.isArray(r.drive_links) ? r.drive_links : [],
     meetingNotes: r.meeting_notes ?? null,
     excalidrawData: r.excalidraw_data ?? null,
   };
@@ -169,7 +171,7 @@ function rowToProject(r: any): PipelineProject {
 const PROJECT_LIST_COLUMNS =
   "id,name,variant,client_id,client_email,ad_account_id,status,start_date," +
   "customer_portal_token,portal_pin,portal_customer_name,created_by_email," +
-  "created_at,updated_at,creatives_html,ad_copy_html,drive_link,meeting_notes";
+  "created_at,updated_at,creatives_html,ad_copy_html,drive_link,drive_links,meeting_notes";
 
 export async function loadPipelineProjects() {
   const { data, error } = await supabase
@@ -228,6 +230,7 @@ export async function updatePipelineProject(id: string, updates: Partial<Pipelin
   if (updates.creativesHtml !== undefined) row.creatives_html = updates.creativesHtml;
   if (updates.adCopyHtml !== undefined) row.ad_copy_html = updates.adCopyHtml;
   if (updates.driveLink !== undefined) row.drive_link = updates.driveLink;
+  if (updates.driveLinks !== undefined) row.drive_links = updates.driveLinks;
   if (updates.meetingNotes !== undefined) row.meeting_notes = updates.meetingNotes;
   if (updates.excalidrawData !== undefined) row.excalidraw_data = updates.excalidrawData;
   if (updates.clientId !== undefined) row.client_id = updates.clientId;
