@@ -59,6 +59,7 @@ import { supabase } from "@/lib/supabase";
 import { useClients } from "@/store/clients";
 import { addTask as addTaskDB } from "@/store/tasks";
 import type { Category as TaskCategory } from "@/store/tasks";
+import { askClaude } from "@/lib/claude";
 import { OnboardingDetails } from "@/pages/ClientDetail";
 import { getDailyBreakdown, type DailyDataPoint } from "@/lib/meta-ads-project";
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie } from "recharts";
@@ -5042,6 +5043,11 @@ function D4YMeetingNotesCard({ project }: { project: ReturnType<typeof usePipeli
   const [showAll, setShowAll] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Claude-Analyse (in-memory, nicht persistiert — neu auf Klick)
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysis, setAnalysis] = useState<string | null>(null);
+  const [savedActionLines, setSavedActionLines] = useState<Set<string>>(new Set());
+
   // Activities laden
   const loadActivities = useCallback(async () => {
     if (!project.clientId) return;
@@ -5086,6 +5092,75 @@ function D4YMeetingNotesCard({ project }: { project: ReturnType<typeof usePipeli
 
   const visible = showAll ? activities : activities.slice(0, 5);
 
+  const handleAnalyze = async () => {
+    if (activities.length === 0) {
+      toast.error("Keine Activities zum Analysieren — erst syncen");
+      return;
+    }
+    setAnalyzing(true);
+    setAnalysis(null);
+    setSavedActionLines(new Set());
+    try {
+      // Letzte 15 Activities reichen meist; sonst wird der Input riesig
+      const recent = activities.slice(0, 15);
+      const formatted = recent.map((a) => {
+        const date = format(new Date(a.activity_at), "dd.MM.yyyy HH:mm", { locale: de });
+        const dur = a.duration_seconds ? ` (${Math.round(a.duration_seconds / 60)} Min)` : "";
+        const title = a.title ? `"${a.title}"` : "(ohne Titel)";
+        const body = a.body ? `\n${a.body}` : "";
+        return `[${date}] ${a.type.toUpperCase()}${dur} — ${title}${body}`;
+      }).join("\n\n---\n\n");
+
+      const text = await askClaude({
+        max_tokens: 2048,
+        system: `Du bist Analyst für eine Performance-Marketing-Agentur (Adslift). Aus Close.com-Activities (Calls/Meetings/Notes) erstellst du eine kompakte, faktenbasierte Analyse.
+
+Output-Format (Markdown, exakt diese Reihenfolge):
+
+**Zusammenfassung**
+1-2 Sätze, was im letzten Zeitraum passiert ist.
+
+**Kunden-Stimmung**
+Eines von: positiv / neutral / skeptisch / kritisch — mit kurzer Begründung (max. 1 Satz).
+
+**Action Items**
+- [ ] Konkrete To-Dos für das Adslift-Team. Jedes Item in einer Zeile, beginnt mit "- [ ]".
+
+**Nächster Schritt**
+1 Satz: was sollte als nächstes passieren?
+
+Sei knapp, konkret, deutsch. Spekuliere nicht — nur Fakten aus den Notes. Wenn ein Bereich keine Info hergibt, schreib "—".`,
+        messages: [{
+          role: "user",
+          content: `Kunde: ${project.name}\n\nLetzte Activities:\n\n${formatted}`,
+        }],
+      });
+      setAnalysis(text);
+    } catch (e: any) {
+      toast.error("Claude-Analyse fehlgeschlagen: " + e.message);
+    }
+    setAnalyzing(false);
+  };
+
+  const handleSaveActionItem = async (line: string) => {
+    const cleaned = line.replace(/^- \[ \]\s*/, "").trim();
+    if (!cleaned) return;
+    const id = await addTaskDB({
+      title: cleaned,
+      description: `Aus Claude-Analyse (${project.name})`,
+      category: "customer-success",
+      priority: "medium",
+      column: "todo",
+      recurrence: "none",
+      assignee: "alex",
+      clientId: project.clientId || null,
+    });
+    if (id) {
+      setSavedActionLines((s) => new Set(s).add(line));
+      toast.success("Als Task übernommen");
+    }
+  };
+
   return (
     <div className="rounded-2xl border bg-card overflow-hidden flex flex-col min-h-[280px]">
       <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2">
@@ -5104,10 +5179,66 @@ function D4YMeetingNotesCard({ project }: { project: ReturnType<typeof usePipeli
             </p>
           </div>
         </div>
-        <Button size="sm" variant="outline" onClick={handleSync} disabled={syncing} className="h-8 text-xs shrink-0">
-          {syncing ? "Sync..." : (closeLeadId ? "Refresh" : "Sync Close")}
-        </Button>
+        <div className="flex gap-2 shrink-0">
+          {activities.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleAnalyze}
+              disabled={analyzing}
+              className="h-8 text-xs gap-1 border-violet-500/40 text-violet-600 hover:bg-violet-500/10 hover:text-violet-700"
+              title="Mit Claude analysieren"
+            >
+              {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {analyzing ? "Analysiere..." : "Claude"}
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={handleSync} disabled={syncing} className="h-8 text-xs">
+            {syncing ? "Sync..." : (closeLeadId ? "Refresh" : "Sync Close")}
+          </Button>
+        </div>
       </div>
+      {analysis && (
+        <div className="border-b bg-violet-500/[0.04] px-5 py-3 space-y-2">
+          <div className="flex items-center gap-2 mb-1">
+            <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-violet-600">Claude-Analyse</span>
+            <button
+              onClick={() => setAnalysis(null)}
+              className="ml-auto text-muted-foreground hover:text-foreground"
+              title="Schließen"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="text-xs text-foreground space-y-1 whitespace-pre-wrap leading-relaxed">
+            {analysis.split("\n").map((line, i) => {
+              const isActionItem = /^- \[ \]\s+/.test(line);
+              if (isActionItem) {
+                const saved = savedActionLines.has(line);
+                return (
+                  <div key={i} className="flex items-start gap-2 group">
+                    <span className="flex-1">{line}</span>
+                    <button
+                      onClick={() => !saved && handleSaveActionItem(line)}
+                      disabled={saved}
+                      className={cn(
+                        "shrink-0 px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+                        saved
+                          ? "bg-emerald-500/15 text-emerald-600"
+                          : "bg-violet-500/15 text-violet-600 hover:bg-violet-500/25",
+                      )}
+                    >
+                      {saved ? "✓ Task" : "+ Task"}
+                    </button>
+                  </div>
+                );
+              }
+              return <div key={i}>{line}</div>;
+            })}
+          </div>
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto p-3 space-y-1.5 max-h-[600px]">
         {activities.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground">
