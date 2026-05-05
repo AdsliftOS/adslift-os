@@ -406,7 +406,10 @@ async function runChatLoop(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-opus-4-7",
+        // Sonnet 4.6 — eigener Rate-Limit-Pool gegenüber Opus, 5x günstiger,
+        // schnell genug für Chat mit Tool-Use. Opus 4.7 nur wenn komplexes
+        // Reasoning gebraucht wird (manuell hier umschalten oder per User-Flag).
+        model: "claude-sonnet-4-6",
         max_tokens: 4096,
         system: buildSystemPrompt(),
         tools: CLAUDE_TOOLS,
