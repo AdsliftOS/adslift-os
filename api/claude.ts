@@ -1,6 +1,12 @@
 // Server-Proxy zu Anthropic Messages API.
 // Hält den ANTHROPIC_API_KEY vom Client fern.
 // Forwarded der Body 1:1 — Caller wählt Model, Messages, max_tokens etc. selbst.
+//
+// Streaming-Modus: Wenn der Client `"stream": true` mitsendet, wird die
+// Anthropic-SSE-Antwort direkt durchgepiped. Damit hält Vercel/Edge die
+// Verbindung offen und der 25s-First-Byte-Timer läuft nur bis zum ersten
+// Token statt bis zur kompletten Antwort. Verhindert FUNCTION_INVOCATION_TIMEOUT
+// bei längeren Tool-Use-Läufen.
 
 export const config = { runtime: "edge" };
 
@@ -20,7 +26,14 @@ export default async function handler(req: Request) {
     );
   }
 
-  const body = await req.text();
+  const bodyText = await req.text();
+
+  let wantsStream = false;
+  try {
+    wantsStream = JSON.parse(bodyText)?.stream === true;
+  } catch {
+    // Body wird trotzdem 1:1 weitergereicht — Anthropic meldet sauberen 400.
+  }
 
   let upstream: Response;
   try {
@@ -31,13 +44,24 @@ export default async function handler(req: Request) {
         "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
-      body,
+      body: bodyText,
     });
   } catch (e: any) {
     return new Response(
       JSON.stringify({ error: { type: "fetch_error", message: e?.message || "Upstream fetch failed" } }),
       { status: 502, headers: { "Content-Type": "application/json" } },
     );
+  }
+
+  if (wantsStream && upstream.body && upstream.ok) {
+    return new Response(upstream.body, {
+      status: upstream.status,
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+      },
+    });
   }
 
   const text = await upstream.text();

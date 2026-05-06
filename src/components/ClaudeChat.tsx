@@ -389,6 +389,106 @@ function MessageBubble({ msg }: { msg: DisplayMessage }) {
   );
 }
 
+// ─── SSE-Stream → Content-Blocks zusammenbauen ───────────────────────
+// Konsumiert Anthropic Messages-API-Streaming und liefert das gleiche
+// Shape wie der nicht-streamende Endpoint (content[], stop_reason).
+async function consumeAnthropicStream(res: Response): Promise<{
+  content: ContentBlock[];
+  stop_reason?: string;
+}> {
+  if (!res.body) throw new Error("Kein Response-Body vom Stream");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  // Blocks akkumulieren über Index. tool_use sammelt JSON-Fragmente.
+  type WipBlock =
+    | { type: "text"; text: string }
+    | { type: "tool_use"; id: string; name: string; partialJson: string };
+  const blocks: Record<number, WipBlock> = {};
+  let stopReason: string | undefined;
+
+  const handleEvent = (evtName: string, dataStr: string) => {
+    if (!dataStr) return;
+    let evt: any;
+    try { evt = JSON.parse(dataStr); } catch { return; }
+
+    // Anthropic schickt error-Events inline im SSE-Stream
+    if (evt.type === "error" || evtName === "error") {
+      const msg = evt?.error?.message || evt?.message || "Stream-Fehler";
+      throw new Error(msg);
+    }
+
+    if (evt.type === "content_block_start") {
+      const i = evt.index;
+      const cb = evt.content_block;
+      if (cb?.type === "text") {
+        blocks[i] = { type: "text", text: cb.text || "" };
+      } else if (cb?.type === "tool_use") {
+        blocks[i] = { type: "tool_use", id: cb.id, name: cb.name, partialJson: "" };
+      }
+      return;
+    }
+
+    if (evt.type === "content_block_delta") {
+      const i = evt.index;
+      const d = evt.delta;
+      const b = blocks[i];
+      if (!b || !d) return;
+      if (d.type === "text_delta" && b.type === "text") {
+        b.text += d.text || "";
+      } else if (d.type === "input_json_delta" && b.type === "tool_use") {
+        b.partialJson += d.partial_json || "";
+      }
+      return;
+    }
+
+    if (evt.type === "message_delta") {
+      if (evt.delta?.stop_reason) stopReason = evt.delta.stop_reason;
+      return;
+    }
+  };
+
+  // SSE-Frames sind durch \n\n getrennt. Innerhalb: zeilenweise event:/data:.
+  const flushFrame = (frame: string) => {
+    let evtName = "message";
+    const dataLines: string[] = [];
+    for (const line of frame.split("\n")) {
+      if (line.startsWith("event:")) evtName = line.slice(6).trim();
+      else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+    }
+    if (dataLines.length > 0) handleEvent(evtName, dataLines.join("\n"));
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let sep: number;
+    while ((sep = buffer.indexOf("\n\n")) !== -1) {
+      const frame = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+      if (frame.trim()) flushFrame(frame);
+    }
+  }
+  if (buffer.trim()) flushFrame(buffer);
+
+  // WIP → finale ContentBlocks. tool_use mit leerem partialJson → leeres input.
+  const indices = Object.keys(blocks).map((k) => Number(k)).sort((a, b) => a - b);
+  const content: ContentBlock[] = indices.map((i) => {
+    const b = blocks[i];
+    if (b.type === "text") return { type: "text", text: b.text };
+    let input: any = {};
+    if (b.partialJson.trim()) {
+      try { input = JSON.parse(b.partialJson); } catch { input = {}; }
+    }
+    return { type: "tool_use", id: b.id, name: b.name, input };
+  });
+
+  return { content, stop_reason: stopReason };
+}
+
 // ─── Chat-Loop mit Tool-Use ──────────────────────────────────────────
 async function runChatLoop(
   initialHistory: ApiMessage[],
@@ -414,22 +514,28 @@ async function runChatLoop(
         system: buildSystemPrompt(),
         tools: CLAUDE_TOOLS,
         messages: history,
+        // Streaming: hält die Vercel-Edge-Verbindung am Leben (sonst
+        // FUNCTION_INVOCATION_TIMEOUT bei längeren Tool-Use-Antworten).
+        stream: true,
       }),
     });
-    const raw = await res.text();
-    let data: any;
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      // Vercel/Edge returnt manchmal Plain-Text bei Timeouts oder Gateway-Errors
-      console.error("[Claude] Non-JSON response:", { status: res.status, raw: raw.slice(0, 500) });
+
+    if (!res.ok) {
+      const raw = await res.text().catch(() => "");
+      let data: any = null;
+      try { data = JSON.parse(raw); } catch { /* ignore */ }
+      console.error("[Claude] HTTP error:", { status: res.status, raw: raw.slice(0, 500) });
       throw new Error(
-        `Server-Fehler (HTTP ${res.status}): ${raw.slice(0, 200) || "leere Antwort"}`,
+        data?.error?.message || `Server-Fehler (HTTP ${res.status}): ${raw.slice(0, 200) || "leere Antwort"}`,
       );
     }
-    if (!res.ok || data.error) {
-      console.error("[Claude] API error:", data);
-      throw new Error(data.error?.message || `API ${res.status}: ${JSON.stringify(data).slice(0, 200)}`);
+
+    let data: { content: ContentBlock[]; stop_reason?: string };
+    try {
+      data = await consumeAnthropicStream(res);
+    } catch (e: any) {
+      console.error("[Claude] Stream error:", e);
+      throw new Error(e?.message || "Fehler beim Lesen des Antwort-Streams");
     }
 
     const blocks: ContentBlock[] = data.content || [];
