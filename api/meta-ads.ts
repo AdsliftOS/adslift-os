@@ -86,11 +86,24 @@ export default async function handler(req: Request) {
 
     const dateParams = buildDateParams(preset, since, until);
 
+    const fmtMetaError = (err: any): string => {
+      if (!err) return "Unbekannter Meta-API-Fehler";
+      const msg = err.message || err.error_user_msg || "Meta-API-Fehler";
+      const code = err.code ? ` (Code ${err.code}${err.error_subcode ? `/${err.error_subcode}` : ""})` : "";
+      return `${msg}${code}`;
+    };
+
     // Daily breakdown endpoint
     if (breakdown === "daily") {
       const dailyUrl = `https://graph.facebook.com/v19.0/${AD_ACCOUNT}/insights?fields=${TOTALS_FIELDS}&time_increment=1${dateParams}&limit=100&access_token=${TOKEN}`;
       const dailyRes = await fetch(dailyUrl);
       const daily = await dailyRes.json();
+      if (daily?.error) {
+        return new Response(
+          JSON.stringify({ daily: [], error: fmtMetaError(daily.error), account: AD_ACCOUNT }),
+          { status: 200, headers }
+        );
+      }
       return new Response(
         JSON.stringify({ daily: daily.data || [] }),
         { headers }
@@ -113,11 +126,16 @@ export default async function handler(req: Request) {
     const totalsRes = await fetch(totalsUrl);
     const totals = await totalsRes.json();
 
+    const metaError =
+      campaigns?.error || insights?.error || totals?.error || null;
+
     return new Response(
       JSON.stringify({
         campaigns: campaigns.data || [],
         insights: insights.data || [],
         totals: totals.data?.[0] || null,
+        error: metaError ? fmtMetaError(metaError) : undefined,
+        account: AD_ACCOUNT,
       }),
       { headers }
     );

@@ -57,6 +57,7 @@ export async function getDailyBreakdown(
     const res = await fetch(`/api/meta-ads?${params.toString()}`);
     if (!res.ok) return { daily: [], error: `HTTP ${res.status}` };
     const data = await res.json();
+    if (data?.error) return { daily: [], error: String(data.error).slice(0, 200) };
     const points: DailyDataPoint[] = (data.daily || []).map((d: any) => {
       const actions: { action_type: string; value: string }[] = d.actions || [];
       const leadAction = actions.find((a) =>

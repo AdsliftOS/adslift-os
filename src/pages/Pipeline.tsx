@@ -3463,10 +3463,11 @@ function LiveOpsAdsDashboard({ project }: { project: ReturnType<typeof usePipeli
   const [activeOnly, setActiveOnly] = useState(true);
   const [chartMetric, setChartMetric] = useState<"leads" | "spend" | "clicks">("leads");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!project.adAccountId) {
-      setCampaigns([]); setDailyData([]);
+      setCampaigns([]); setDailyData([]); setError(null);
       return;
     }
     setLoading(true);
@@ -3476,6 +3477,7 @@ function LiveOpsAdsDashboard({ project }: { project: ReturnType<typeof usePipeli
     ]);
     setCampaigns(cmpRes.campaigns);
     setDailyData(dailyRes.daily);
+    setError(cmpRes.error || dailyRes.error || null);
     setLoading(false);
   }, [project.adAccountId, preset]);
 
@@ -3578,7 +3580,20 @@ function LiveOpsAdsDashboard({ project }: { project: ReturnType<typeof usePipeli
         </div>
       </div>
 
-      {campaigns.length === 0 ? (
+      {error ? (
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-6 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-rose-500" />
+            <p className="text-sm font-semibold text-rose-600">Meta-API meldet einen Fehler</p>
+          </div>
+          <p className="text-xs font-mono text-rose-500/90 break-all">{error}</p>
+          <p className="text-[11px] text-muted-foreground pt-1">
+            Konto: <span className="font-mono">{project.adAccountId}</span>. Häufige Ursachen:
+            kein Zugriff/Partner-Access für diesen Token, Konto deaktiviert, oder Kampagnen sind im
+            gewählten Zeitraum noch nicht ausgeliefert.
+          </p>
+        </div>
+      ) : campaigns.length === 0 ? (
         <div className="rounded-2xl border bg-card p-10 text-center">
           <p className="text-sm font-medium">Noch keine Kampagnen-Daten</p>
           <p className="text-xs text-muted-foreground mt-1">Sobald Kampagnen laufen, siehst du hier alle KPIs.</p>
