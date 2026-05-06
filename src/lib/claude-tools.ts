@@ -204,6 +204,34 @@ export const CLAUDE_TOOLS = [
       required: ["project_id"],
     },
   },
+  {
+    name: "update_client_briefing",
+    description:
+      "Schreibt ins Briefing eines Kunden (Legacy `projects`-Tabelle, sichtbar im 'Briefing & Infos'-Tab eines Pipeline-Projekts). " +
+      "Felder: briefing (Haupt-Notizen), target_audience, offer, deadline, product, creative_format, assignees. " +
+      "Identifiziere den Datensatz entweder per `legacy_project_id` (eindeutig) oder per `client_id` (updated alle Legacy-Projects des Kunden — meistens nur eins). " +
+      "Mode: 'append' (default — hängt an bestehenden Text mit Datums-Trenner an) oder 'replace' (überschreibt). " +
+      "Append funktioniert nur für Text-Felder. Mindestens ein Inhaltsfeld muss gesetzt sein.",
+    input_schema: {
+      type: "object",
+      properties: {
+        legacy_project_id: { type: "string", description: "ID aus der `projects` (Legacy) Tabelle. Wenn nicht bekannt → erst per query_table('projects', filters:{client_id}) holen." },
+        client_id: { type: "string", description: "Alternative — updated alle Legacy-Projects dieses Kunden." },
+        mode: { type: "string", enum: ["append", "replace"], description: "Default 'append'." },
+        briefing: { type: "string" },
+        target_audience: { type: "string" },
+        offer: { type: "string" },
+        deadline: { type: "string", description: "Frei-Text oder YYYY-MM-DD." },
+        product: { type: "string" },
+        creative_format: { type: "string" },
+        assignees: {
+          type: "array",
+          items: { type: "string" },
+          description: "Liste von Verantwortlichen, ersetzt das bestehende Array.",
+        },
+      },
+    },
+  },
 
   // ─── Delete Tools — alle erfordern UI-Bestätigung ─────────────────
   {
@@ -485,6 +513,67 @@ export async function executeClaudeTool(name: string, input: any): Promise<unkno
       return { success: true, project_id: input.project_id, updated_fields: Object.keys(updates) };
     }
 
+    case "update_client_briefing": {
+      const TEXT_FIELDS = ["briefing", "target_audience", "offer", "deadline", "product", "creative_format"] as const;
+      const ARRAY_FIELDS = ["assignees"] as const;
+      const mode: "append" | "replace" = input.mode === "replace" ? "replace" : "append";
+
+      const newValues: Record<string, any> = {};
+      for (const f of TEXT_FIELDS) {
+        if (typeof input[f] === "string" && input[f].trim()) newValues[f] = input[f];
+      }
+      if (Array.isArray(input.assignees)) newValues.assignees = input.assignees.map(String);
+
+      if (Object.keys(newValues).length === 0) {
+        throw new Error("Mindestens ein Briefing-Feld (briefing/target_audience/offer/deadline/product/creative_format/assignees) muss gesetzt sein.");
+      }
+
+      // 1. Ziel-Rows finden
+      let rowsQuery = supabase.from("projects").select("id, " + TEXT_FIELDS.join(", ") + ", assignees, client_id");
+      if (input.legacy_project_id) {
+        rowsQuery = rowsQuery.eq("id", String(input.legacy_project_id));
+      } else if (input.client_id) {
+        rowsQuery = rowsQuery.eq("client_id", String(input.client_id));
+      } else {
+        throw new Error("Entweder legacy_project_id oder client_id muss gesetzt sein.");
+      }
+      const { data: rows, error: findErr } = await rowsQuery;
+      if (findErr) throw new Error(`Briefing-Lookup fehlgeschlagen: ${findErr.message}`);
+      if (!rows || rows.length === 0) {
+        throw new Error("Kein Legacy-Projekt gefunden — neuer Kunde ohne Onboarding? Erst per Onboarding-Page anlegen.");
+      }
+
+      // 2. Pro Row Update zusammenbauen (append vs replace)
+      const stamp = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+      const updatedIds: string[] = [];
+      for (const row of rows as any[]) {
+        const patch: Record<string, any> = {};
+        for (const f of TEXT_FIELDS) {
+          if (!(f in newValues)) continue;
+          if (mode === "replace") {
+            patch[f] = newValues[f];
+          } else {
+            const existing: string = row[f] || "";
+            const incoming: string = newValues[f];
+            patch[f] = existing.trim()
+              ? `${existing.trimEnd()}\n\n— ${stamp} (Claude) —\n${incoming}`
+              : incoming;
+          }
+        }
+        if ("assignees" in newValues) patch.assignees = newValues.assignees;
+        const { error: upErr } = await supabase.from("projects").update(patch).eq("id", row.id);
+        if (upErr) throw new Error(`Update für ${row.id} fehlgeschlagen: ${upErr.message}`);
+        updatedIds.push(row.id);
+      }
+
+      return {
+        success: true,
+        mode,
+        updated_ids: updatedIds,
+        updated_fields: Object.keys(newValues),
+      };
+    }
+
     // ─── Delete Tools — werden NUR vom Chat-Loop nach Bestätigung aufgerufen ───
     case "delete_task": {
       await deleteTaskStore(String(input.task_id));
@@ -584,7 +673,7 @@ const SCHEMA_FALLBACK = [
   { table: "event_category_overrides", cols: "id, event_id, category, created_at" },
   { table: "quizzes", cols: "id, lesson_id, questions, passing_score" },
   { table: "quiz_results", cols: "id, customer_id, quiz_id, score, passed, completed_at" },
-  { table: "projects", cols: "id (legacy), client_id, name, onboarding (jsonb), status — Legacy-Tabelle, in der Pipeline durch pipeline_projects abgelöst" },
+  { table: "projects", cols: "id (legacy), client_id, name, onboarding (jsonb), status, briefing, target_audience, offer, deadline, product, creative_format, assignees — Legacy-Tabelle, in der Pipeline durch pipeline_projects abgelöst. Briefing-Felder hier werden im Pipeline-Tab 'Briefing & Infos' angezeigt — Schreiben via update_client_briefing." },
   { table: "download_logs", cols: "id, file_name, downloaded_by, downloaded_at" },
 ];
 
